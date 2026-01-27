@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { ScanResultModal } from "@/components/scanner/ScanResultModal";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
+import { ImageUpload } from "@/components/scanner/ImageUpload";
 import { Sparkles, X, Search } from "lucide-react";
 
 export default function Scanner() {
@@ -189,14 +190,19 @@ export default function Scanner() {
                 />
               </div>
 
+              {/* Image Upload */}
+              <ImageUpload
+                userId={profile.id}
+                currentUrl={imageUrl}
+                onUpload={(url) => setImageUrl(url)}
+              />
+
+              {/* URL Input as fallback */}
               <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Image URL (optional)
-                </label>
                 <Input
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="https://... (or upload above)"
                   type="url"
                   className="bg-input border-border"
                 />
