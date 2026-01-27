@@ -1,1 +1,4 @@
 project_id = "uvjulnwoacftborhhhnr"
+
+[functions.identify-card]
+verify_jwt = false
