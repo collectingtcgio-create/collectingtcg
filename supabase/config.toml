@@ -2,3 +2,6 @@ project_id = "uvjulnwoacftborhhhnr"
 
 [functions.identify-card]
 verify_jwt = false
+
+[functions.detect-card-crop]
+verify_jwt = false
