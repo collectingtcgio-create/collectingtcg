@@ -30,11 +30,11 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (max 20MB)
+    if (file.size > 20 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please upload an image smaller than 5MB",
+        description: "Please upload an image smaller than 20MB",
         variant: "destructive",
       });
       return;
@@ -128,7 +128,7 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
                 </div>
                 <p className="text-sm font-medium">Upload from device</p>
                 <p className="text-xs text-muted-foreground">
-                  JPG, PNG up to 5MB
+                  JPG, PNG up to 20MB
                 </p>
               </>
             )}
