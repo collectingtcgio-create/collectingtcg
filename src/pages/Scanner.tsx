@@ -1,90 +1,67 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { useCardScanner } from "@/hooks/useCardScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, CameraOff, Loader2, Sparkles, X } from "lucide-react";
+import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
+import { ScanResultModal } from "@/components/scanner/ScanResultModal";
+import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
+import { Sparkles, X, Search } from "lucide-react";
 
 export default function Scanner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  
+  const cameraRef = useRef<CameraViewHandle>(null);
+
+  const {
+    isProcessing,
+    scanResult,
+    showResult,
+    setShowResult,
+    showNoCardModal,
+    setShowNoCardModal,
+    isAddingToBinder,
+    identifyCard,
+    addToBinder,
+    resetScanner,
+  } = useCardScanner();
+
   // Manual add form
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [cardName, setCardName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
 
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
+  const handleCapture = useCallback(async () => {
+    if (!cameraRef.current) return;
 
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setIsCameraActive(true);
-        setHasPermission(true);
-      }
-    } catch (error) {
-      console.error("Camera error:", error);
-      setHasPermission(false);
+    const imageData = cameraRef.current.captureFrame();
+    if (!imageData) {
       toast({
-        title: "Camera access denied",
-        description: "Please allow camera access to scan cards.",
+        title: "Capture failed",
+        description: "Could not capture frame from camera.",
         variant: "destructive",
       });
+      return;
     }
-  }, [toast]);
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  }, []);
+    // Send to identification function
+    await identifyCard(imageData);
+  }, [identifyCard, toast]);
 
-  const handleScan = async () => {
-    if (!profile) return;
-    
-    setIsProcessing(true);
-    
-    // Simulate scan processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    // For demo, we'll show a toast and prompt manual add
-    toast({
-      title: "Card detected!",
-      description: "Please confirm the card details to add to your collection.",
-    });
-    
+  const handleTryAgain = useCallback(() => {
+    resetScanner();
+    cameraRef.current?.startCamera();
+  }, [resetScanner]);
+
+  const handleSearchManually = useCallback(() => {
+    resetScanner();
     setShowManualAdd(true);
-    setIsProcessing(false);
-    stopCamera();
-  };
+  }, [resetScanner]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,8 +86,8 @@ export default function Scanner() {
     // Add to activity feed
     await supabase.from("activity_feed").insert({
       user_id: profile.id,
-      activity_type: "scan",
-      description: `Added "${cardName.trim()}" to their collection`,
+      activity_type: "manual_add",
+      description: `Manually added "${cardName.trim()}" to their collection`,
     });
 
     toast({
@@ -144,89 +121,41 @@ export default function Scanner() {
         {/* Scanner Area */}
         {!showManualAdd ? (
           <div className="glass-card p-6 neon-border-cyan">
-            {/* Camera View */}
-            <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-6 bg-muted">
-              {isCameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Viewfinder Overlay */}
-                  <div className="absolute inset-8 viewfinder">
-                    {isProcessing && <div className="scan-line" />}
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center">
-                  <Camera className="w-16 h-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-sm">
-                    {hasPermission === false
-                      ? "Camera access denied"
-                      : "Camera not active"}
-                  </p>
-                </div>
-              )}
+            {/* Camera View Component */}
+            <CameraView ref={cameraRef} isProcessing={isProcessing} />
 
-              {/* Processing Overlay */}
-              {isProcessing && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-                    <p className="text-primary font-semibold">Processing...</p>
-                    <p className="text-sm text-muted-foreground">
-                      Analyzing card details
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Controls */}
-            <div className="flex gap-3">
-              {!isCameraActive ? (
+            {/* Capture Button */}
+            {cameraRef.current?.isActive && !isProcessing && (
+              <div className="mt-6">
                 <Button
-                  onClick={startCamera}
-                  className="flex-1 rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300"
+                  onClick={handleCapture}
+                  className="w-full rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground hover:neon-glow-magenta transition-all duration-300 h-14 text-lg"
                 >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Start Camera
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Capture & Identify
                 </Button>
-              ) : (
-                <>
-                  <Button
-                    onClick={stopCamera}
-                    variant="ghost"
-                    className="rounded-full"
-                  >
-                    <CameraOff className="w-4 h-4 mr-2" />
-                    Stop
-                  </Button>
-                  <Button
-                    onClick={handleScan}
-                    disabled={isProcessing}
-                    className="flex-1 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground hover:neon-glow-magenta transition-all duration-300"
-                  >
-                    {isProcessing ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Sparkles className="w-4 h-4 mr-2" />
-                    )}
-                    Scan Card
-                  </Button>
-                </>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Start Camera Button (when camera not active) */}
+            {!cameraRef.current?.isActive && !isProcessing && (
+              <div className="mt-6">
+                <Button
+                  onClick={() => cameraRef.current?.startCamera()}
+                  className="w-full rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300 h-12"
+                >
+                  Start Scanning
+                </Button>
+              </div>
+            )}
 
             {/* Manual Add Option */}
             <div className="mt-4 text-center">
               <button
                 onClick={() => setShowManualAdd(true)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2"
               >
+                <Search className="w-4 h-4" />
                 Or add a card manually →
               </button>
             </div>
@@ -235,7 +164,7 @@ export default function Scanner() {
           /* Manual Add Form */
           <div className="glass-card p-6 neon-border-magenta fade-in">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">Add Card</h2>
+              <h2 className="text-lg font-semibold">Add Card Manually</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -297,6 +226,26 @@ export default function Scanner() {
             </form>
           </div>
         )}
+
+        {/* Scan Result Modal */}
+        <ScanResultModal
+          open={showResult}
+          onOpenChange={(open) => {
+            setShowResult(open);
+            if (!open) resetScanner();
+          }}
+          card={scanResult}
+          onAddToBinder={addToBinder}
+          isAdding={isAddingToBinder}
+        />
+
+        {/* No Card Detected Modal */}
+        <NoCardDetectedModal
+          open={showNoCardModal}
+          onOpenChange={setShowNoCardModal}
+          onTryAgain={handleTryAgain}
+          onSearchManually={handleSearchManually}
+        />
       </div>
     </Layout>
   );
