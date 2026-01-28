@@ -177,7 +177,7 @@ async function fetchMagicCard(cardName: string): Promise<CardResult[]> {
     const data = await response.json();
     const cards = data.data || [data];
 
-    return cards.slice(0, 5).map((card: any) => ({
+    return cards.slice(0, 15).map((card: any) => ({
       id: crypto.randomUUID(),
       card_name: card.name,
       tcg_game: 'magic' as TcgGame,
@@ -213,7 +213,7 @@ async function fetchLorcanaCard(cardName: string): Promise<CardResult[]> {
     const data = await response.json();
     const cards = data.results || data.data || [];
 
-    return cards.slice(0, 5).map((card: any) => ({
+    return cards.slice(0, 15).map((card: any) => ({
       id: crypto.randomUUID(),
       card_name: card.name || card.full_name,
       tcg_game: 'lorcana' as TcgGame,
@@ -251,7 +251,7 @@ async function fetchPokemonCard(cardName: string): Promise<CardResult[]> {
 
     const results: CardResult[] = [];
     
-    for (const card of cards.slice(0, 5)) {
+    for (const card of cards.slice(0, 15)) {
       try {
         const detailResponse = await fetch(`https://api.tcgdex.net/v2/en/cards/${card.id}`);
         if (detailResponse.ok) {
@@ -296,7 +296,7 @@ async function fetchYugiohCard(cardName: string): Promise<CardResult[]> {
     const data = await response.json();
     const cards = data.data || [];
 
-    return cards.slice(0, 5).map((card: any) => {
+    return cards.slice(0, 15).map((card: any) => {
       // Get card prices from TCGPlayer data
       const prices = card.card_prices?.[0] || {};
       const tcgPrice = prices.tcgplayer_price ? parseFloat(prices.tcgplayer_price) : null;
@@ -336,7 +336,7 @@ async function fetchDragonBallCard(cardName: string): Promise<CardResult[]> {
 
   try {
     // JustTCG uses "dragon-ball-super-fusion-world" for Dragon Ball
-    const url = `https://api.justtcg.com/v1/cards?game=dragon-ball-super-fusion-world&q=${encodeURIComponent(cardName)}&limit=5`;
+    const url = `https://api.justtcg.com/v1/cards?game=dragon-ball-super-fusion-world&q=${encodeURIComponent(cardName)}&limit=15`;
     
     console.log("Fetching Dragon Ball cards from JustTCG:", url);
 
@@ -396,7 +396,7 @@ async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<Ca
   }
 
   try {
-    let url = `https://api.justtcg.com/v1/cards?game=one-piece-card-game&q=${encodeURIComponent(cardName)}&limit=5`;
+    let url = `https://api.justtcg.com/v1/cards?game=one-piece-card-game&q=${encodeURIComponent(cardName)}&limit=15`;
     if (setCode) {
       url += `&set=${encodeURIComponent(setCode)}`;
     }
@@ -509,7 +509,7 @@ async function fetchGenericCard(cardName: string, tcgGame: TcgGame): Promise<Car
     };
 
     const response = await fetch(
-      `https://api.justtcg.com/v1/cards?game=${gameMap[tcgGame]}&q=${encodeURIComponent(cardName)}&limit=5`,
+      `https://api.justtcg.com/v1/cards?game=${gameMap[tcgGame]}&q=${encodeURIComponent(cardName)}&limit=15`,
       {
         headers: {
           'x-api-key': apiKey,
@@ -712,7 +712,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: searchResults.length > 0,
-          cards: searchResults.slice(0, 10), // Limit to 10 results
+          cards: searchResults.slice(0, 25), // Limit to 25 results
           processing_time_ms: processingTime,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
