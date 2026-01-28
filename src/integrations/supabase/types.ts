@@ -936,6 +936,7 @@ export type Database = {
           author_id: string
           content: string
           created_at: string
+          gift_type: Database["public"]["Enums"]["gift_type"] | null
           id: string
           post_id: string
         }
@@ -943,6 +944,7 @@ export type Database = {
           author_id: string
           content: string
           created_at?: string
+          gift_type?: Database["public"]["Enums"]["gift_type"] | null
           id?: string
           post_id: string
         }
@@ -950,6 +952,7 @@ export type Database = {
           author_id?: string
           content?: string
           created_at?: string
+          gift_type?: Database["public"]["Enums"]["gift_type"] | null
           id?: string
           post_id?: string
         }
