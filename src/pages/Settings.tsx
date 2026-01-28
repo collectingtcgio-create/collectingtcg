@@ -1,11 +1,13 @@
+import { useState, useEffect } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { UsernameEditor } from "@/components/profile/UsernameEditor";
 import { 
   Settings as SettingsIcon, 
   Shield, 
@@ -13,18 +15,48 @@ import {
   Ban,
   Loader2,
   UserX,
-  ArrowLeft
+  ArrowLeft,
+  User
 } from "lucide-react";
+
+interface ProfileWithUsernameChange {
+  id: string;
+  username: string;
+  last_username_change_at: string | null;
+}
 
 export default function Settings() {
   const { user, profile } = useAuth();
   const { settings, blockedUsers, isLoading, updatePrivacy, unblockUser } = useUserSettings();
+  const [profileData, setProfileData] = useState<ProfileWithUsernameChange | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    if (profile) {
+      fetchProfileData();
+    }
+  }, [profile]);
+
+  const fetchProfileData = async () => {
+    if (!profile) return;
+    
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, last_username_change_at")
+      .eq("id", profile.id)
+      .single();
+    
+    if (data) {
+      setProfileData(data as ProfileWithUsernameChange);
+    }
+    setLoadingProfile(false);
+  };
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (isLoading) {
+  if (isLoading || loadingProfile) {
     return (
       <Layout>
         <div className="container mx-auto px-4 flex items-center justify-center min-h-[60vh]">
@@ -50,6 +82,25 @@ export default function Settings() {
           <p className="text-muted-foreground mt-1">
             Manage your account preferences
           </p>
+        </div>
+
+        {/* Account Settings */}
+        <div className="glass-card neon-border-magenta overflow-hidden mb-6">
+          <div className="bg-secondary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <User className="w-5 h-5 text-secondary" />
+              Account Settings
+            </h2>
+          </div>
+          <div className="p-4">
+            {profileData && (
+              <UsernameEditor
+                currentUsername={profileData.username}
+                lastUsernameChangeAt={profileData.last_username_change_at}
+                onUpdate={fetchProfileData}
+              />
+            )}
+          </div>
         </div>
 
         {/* Privacy Settings */}
