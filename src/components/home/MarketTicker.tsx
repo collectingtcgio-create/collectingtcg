@@ -11,7 +11,7 @@ interface HolyGrailItem {
   priceChange?: number; // percentage
 }
 
-// Static list of "Holy Grail" items - these are the most sought-after TCG collectibles
+// Static list of "Holy Grail" items - mixed order for variety
 const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
   // Pokemon
   {
@@ -21,19 +21,13 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
     game: "pokemon",
     image_url: "https://images.pokemontcg.io/base1/4_hires.png",
   },
+  // One Piece - moved up for visibility
   {
-    id: "pikachu-illustrator",
-    name: "Pikachu Illustrator",
+    id: "luffy-op01-alt",
+    name: "Monkey D. Luffy (Alt Art)",
     type: "card",
-    game: "pokemon",
-    image_url: "https://images.pokemontcg.io/basep/4_hires.png",
-  },
-  {
-    id: "base-set-booster-box",
-    name: "Base Set Booster Box (Sealed)",
-    type: "sealed",
-    game: "pokemon",
-    image_url: "https://product-images.tcgplayer.com/fit-in/437x437/88579.jpg",
+    game: "onepiece",
+    image_url: "https://limitlesstcg.nyc3.digitaloceanspaces.com/one-piece/OP01/OP01-003_ALT.webp",
   },
   // Magic: The Gathering
   {
@@ -43,19 +37,13 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
     game: "magic",
     image_url: "https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7c10.jpg",
   },
+  // One Piece
   {
-    id: "mox-sapphire",
-    name: "Mox Sapphire (Beta)",
+    id: "shanks-op01",
+    name: "Shanks (OP01-120 SEC)",
     type: "card",
-    game: "magic",
-    image_url: "https://cards.scryfall.io/large/front/e/a/ea1feac0-d3a7-45eb-9719-1cdaf51ea0b6.jpg",
-  },
-  {
-    id: "alpha-booster-box",
-    name: "Alpha Booster Box (Sealed)",
-    type: "sealed",
-    game: "magic",
-    image_url: "https://product-images.tcgplayer.com/fit-in/437x437/7831.jpg",
+    game: "onepiece",
+    image_url: "https://limitlesstcg.nyc3.digitaloceanspaces.com/one-piece/OP01/OP01-120_SR.webp",
   },
   // Yu-Gi-Oh!
   {
@@ -65,6 +53,39 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
     game: "yugioh",
     image_url: "https://images.ygoprodeck.com/images/cards/89631139.jpg",
   },
+  // Pokemon
+  {
+    id: "pikachu-illustrator",
+    name: "Pikachu Illustrator",
+    type: "card",
+    game: "pokemon",
+    image_url: "https://images.pokemontcg.io/basep/4_hires.png",
+  },
+  // One Piece - Booster Box
+  {
+    id: "op01-booster-box",
+    name: "OP-01 Romance Dawn Booster Box",
+    type: "sealed",
+    game: "onepiece",
+    image_url: "https://limitlesstcg.nyc3.digitaloceanspaces.com/one-piece/OP01/OP01_booster.webp",
+  },
+  // Magic
+  {
+    id: "mox-sapphire",
+    name: "Mox Sapphire (Beta)",
+    type: "card",
+    game: "magic",
+    image_url: "https://cards.scryfall.io/large/front/e/a/ea1feac0-d3a7-45eb-9719-1cdaf51ea0b6.jpg",
+  },
+  // One Piece
+  {
+    id: "nami-op01",
+    name: "Nami (OP01-016 SR)",
+    type: "card",
+    game: "onepiece",
+    image_url: "https://limitlesstcg.nyc3.digitaloceanspaces.com/one-piece/OP01/OP01-016_SR.webp",
+  },
+  // Yu-Gi-Oh!
   {
     id: "dark-magician-lob",
     name: "Dark Magician (LOB-005)",
@@ -72,29 +93,31 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
     game: "yugioh",
     image_url: "https://images.ygoprodeck.com/images/cards/46986414.jpg",
   },
-  // One Piece
-  {
-    id: "luffy-op01-alt",
-    name: "Monkey D. Luffy (Alt Art)",
-    type: "card",
-    game: "onepiece",
-    image_url: "https://product-images.tcgplayer.com/fit-in/437x437/507251.jpg",
-  },
-  {
-    id: "shanks-op01",
-    name: "Shanks (OP01-120 SEC)",
-    type: "card",
-    game: "onepiece",
-    image_url: "https://product-images.tcgplayer.com/fit-in/437x437/508087.jpg",
-  },
   // Lorcana
   {
     id: "elsa-enchanted",
     name: "Elsa - Spirit of Winter (Enchanted)",
     type: "card",
     game: "lorcana",
-    image_url: "https://product-images.tcgplayer.com/fit-in/437x437/526044.jpg",
+    image_url: "https://lorcana-api.com/images/elsa/spirit_of_winter/elsa-spirit_of_winter-large.png",
   },
+  // Pokemon - Sealed
+  {
+    id: "base-set-booster-box",
+    name: "Base Set Booster Box (Sealed)",
+    type: "sealed",
+    game: "pokemon",
+    image_url: "https://images.pokemontcg.io/base1/4_hires.png",
+  },
+  // Magic - Sealed
+  {
+    id: "alpha-booster-box",
+    name: "Alpha Booster Box (Sealed)",
+    type: "sealed",
+    game: "magic",
+    image_url: "https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7c10.jpg",
+  },
+  // Lorcana
   {
     id: "mickey-mouse-enchanted",
     name: "Mickey Mouse - Wayward Sorcerer (Enchanted)",
@@ -115,8 +138,10 @@ function generateMockPrice(item: Omit<HolyGrailItem, "price" | "priceChange">): 
     "alpha-booster-box": 150000,
     "blue-eyes-lob": 12500,
     "dark-magician-lob": 8500,
-    "luffy-op01-alt": 850,
-    "shanks-op01": 420,
+    "luffy-op01-alt": 1250,
+    "shanks-op01": 680,
+    "op01-booster-box": 185,
+    "nami-op01": 95,
     "elsa-enchanted": 285,
     "mickey-mouse-enchanted": 195,
   };
