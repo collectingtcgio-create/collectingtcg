@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Activity, Radio, UserPlus, CreditCard, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { MarketTicker } from "@/components/home/MarketTicker";
+import { EventsCalendar } from "@/components/events/EventsCalendar";
 interface ActivityItem {
   id: string;
   user_id: string;
@@ -251,6 +252,11 @@ export default function Home() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* TCG Global Events Calendar */}
+        <div className="mt-8">
+          <EventsCalendar />
         </div>
       </div>
     </Layout>
