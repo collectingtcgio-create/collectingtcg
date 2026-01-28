@@ -78,16 +78,21 @@ const extractYoutubeId = (url: string): { type: string; id: string; videoId?: st
   return null;
 };
 
-// Build YouTube embed URL
+// Build YouTube embed URL - always autoplay and show playlist mode
 const buildYoutubeEmbedUrl = (embed: { type: string; id: string; videoId?: string }, autoplay: boolean): string => {
-  const autoplayParam = autoplay ? '&autoplay=1&mute=1' : '';
+  // Always autoplay muted for better UX, browsers require muted for autoplay
+  const autoplayParam = autoplay ? 'autoplay=1&mute=1' : '';
   
   if (embed.type === 'playlist') {
-    // For playlists, use videoseries with list parameter
-    return `https://www.youtube.com/embed/videoseries?list=${embed.id}${autoplayParam}`;
+    // For playlists, use videoseries with list parameter - this shows the full playlist
+    const baseUrl = `https://www.youtube.com/embed/videoseries?list=${embed.id}`;
+    return autoplayParam ? `${baseUrl}&${autoplayParam}` : baseUrl;
   }
   
-  return `https://www.youtube.com/embed/${embed.id}?${autoplayParam.replace('&', '')}`;
+  // For single videos
+  return autoplayParam 
+    ? `https://www.youtube.com/embed/${embed.id}?${autoplayParam}` 
+    : `https://www.youtube.com/embed/${embed.id}`;
 };
 
 export function MusicPlayerSection({ 
