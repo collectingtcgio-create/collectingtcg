@@ -13,6 +13,7 @@ import { SocialLinksEditor, SocialLinksDisplay } from "@/components/profile/Soci
 import { BioEditor } from "@/components/profile/BioEditor";
 import { StatusEditor, StatusDisplay } from "@/components/profile/StatusEditor";
 import { WallPosts } from "@/components/profile/WallPosts";
+import { CreatorBadge } from "@/components/profile/CreatorBadge";
 import { 
   UserPlus, 
   UserMinus, 
@@ -211,8 +212,9 @@ export default function Profile() {
         {/* MySpace-style Header Banner */}
         <div className="glass-card p-4 mb-4 neon-border-cyan fade-in">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent flex items-center gap-2">
               {profileData.username}
+              <CreatorBadge userId={profileData.user_id} />
             </h1>
             {!isOwnProfile && user && (
               <div className="flex items-center gap-2">
@@ -265,7 +267,10 @@ export default function Profile() {
 
               {/* User Info */}
               <div className="space-y-2 text-sm">
-                <p className="font-medium">{profileData.username}</p>
+                <p className="font-medium flex items-center gap-1.5">
+                  {profileData.username}
+                  <CreatorBadge userId={profileData.user_id} className="inline-flex" />
+                </p>
                 
                 {/* Status */}
                 {isOwnProfile ? (
@@ -526,11 +531,11 @@ export default function Profile() {
                         
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
-                            {item.user_cards.image_url ? (
+                      {item.user_cards.image_url ? (
                               <img
                                 src={item.user_cards.image_url}
                                 alt={item.user_cards.card_name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                className="w-full h-full object-contain bg-muted/30 group-hover:scale-105 transition-transform"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">

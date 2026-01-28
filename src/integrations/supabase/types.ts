@@ -326,6 +326,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_live: boolean | null
+          last_username_change_at: string | null
           status: string | null
           tiktok_url: string | null
           twitter_url: string | null
@@ -343,6 +344,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          last_username_change_at?: string | null
           status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
@@ -360,6 +362,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          last_username_change_at?: string | null
           status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
