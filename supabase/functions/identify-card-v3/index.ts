@@ -450,36 +450,82 @@ async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<Ca
   }
 }
 
-// Google Vision + PriceCharting for Marvel Non-Sport cards
+// Marvel Non-Sport cards - search using common set names and character names
 async function fetchMarvelCard(cardName: string, setName?: string): Promise<CardResult[]> {
-  // For Marvel non-sport cards, we try to search PriceCharting
-  // First, let's construct a search query
-  const searchQuery = setName ? `${setName} ${cardName}` : cardName;
+  const results: CardResult[] = [];
   
-  try {
-    // Note: PriceCharting doesn't have a public API, so we'll return a structured result
-    // that the user can manually price, or use Google Vision for text extraction
-    
-    // Try to parse out year and manufacturer from the set name
-    const yearMatch = setName?.match(/(\d{4})/);
-    const year = yearMatch ? yearMatch[1] : null;
-    
-    return [{
-      id: crypto.randomUUID(),
-      card_name: cardName,
-      tcg_game: 'marvel' as TcgGame,
-      set_name: setName || 'Marvel Non-Sport',
-      set_code: year || undefined,
-      rarity: 'base',
-      image_url: null,
-      price_estimate: null,
-      variant: 'standard',
-      confidence: 0.7,
-    }];
-  } catch (error) {
-    console.error("Marvel card fetch error:", error);
-    return [];
+  // Common Marvel card sets for matching
+  const marvelSets = [
+    { name: '1992 Skybox Marvel Masterpieces', year: '1992', manufacturer: 'Skybox' },
+    { name: '1993 Skybox Marvel Masterpieces', year: '1993', manufacturer: 'Skybox' },
+    { name: '1994 Fleer Marvel Masterpieces', year: '1994', manufacturer: 'Fleer' },
+    { name: '1995 Fleer Marvel Metal', year: '1995', manufacturer: 'Fleer' },
+    { name: '1995 Fleer Ultra X-Men', year: '1995', manufacturer: 'Fleer' },
+    { name: '1994 Fleer Ultra X-Men', year: '1994', manufacturer: 'Fleer' },
+    { name: '1996 Fleer X-Men', year: '1996', manufacturer: 'Fleer' },
+    { name: '1994 Fleer Amazing Spider-Man', year: '1994', manufacturer: 'Fleer' },
+    { name: '1995 Fleer Marvel Overpower', year: '1995', manufacturer: 'Fleer' },
+    { name: '2022 Upper Deck Marvel Allure', year: '2022', manufacturer: 'Upper Deck' },
+    { name: '2021 Upper Deck Marvel Annual', year: '2021', manufacturer: 'Upper Deck' },
+    { name: '2020 Upper Deck Marvel Ages', year: '2020', manufacturer: 'Upper Deck' },
+  ];
+
+  // Popular Marvel characters for auto-suggestions
+  const characters = [
+    'Wolverine', 'Spider-Man', 'Iron Man', 'Thor', 'Hulk', 'Captain America',
+    'Black Widow', 'Deadpool', 'Venom', 'Thanos', 'Magneto', 'Storm',
+    'Cyclops', 'Jean Grey', 'Rogue', 'Gambit', 'Beast', 'Nightcrawler',
+    'Professor X', 'Mystique', 'Sabretooth', 'Cable', 'Bishop', 'Psylocke',
+    'Colossus', 'Iceman', 'Angel', 'Jubilee', 'Kitty Pryde', 'Havok',
+    'Doctor Doom', 'Green Goblin', 'Kingpin', 'Carnage', 'Doctor Octopus'
+  ];
+
+  const searchLower = cardName.toLowerCase();
+  
+  // Match characters
+  const matchedCharacters = characters.filter(char => 
+    char.toLowerCase().includes(searchLower) || 
+    searchLower.includes(char.toLowerCase())
+  );
+
+  // Generate results for matched characters across popular sets
+  if (matchedCharacters.length > 0) {
+    for (const char of matchedCharacters.slice(0, 3)) {
+      for (const set of marvelSets.slice(0, 5)) {
+        results.push({
+          id: crypto.randomUUID(),
+          card_name: char,
+          tcg_game: 'marvel' as TcgGame,
+          set_name: set.name,
+          set_code: set.year,
+          rarity: 'base',
+          image_url: null,
+          price_estimate: null,
+          variant: 'standard',
+          confidence: 0.6,
+        });
+      }
+    }
+  } else {
+    // If no character match, return generic results with the search term
+    for (const set of marvelSets.slice(0, 8)) {
+      results.push({
+        id: crypto.randomUUID(),
+        card_name: cardName,
+        tcg_game: 'marvel' as TcgGame,
+        set_name: set.name,
+        set_code: set.year,
+        rarity: 'base',
+        image_url: null,
+        price_estimate: null,
+        variant: 'standard',
+        confidence: 0.5,
+      });
+    }
   }
+
+  console.log(`Marvel search for "${cardName}" returned ${results.length} results`);
+  return results;
 }
 
 // Generic card fetch for other TCGs via JustTCG
@@ -700,6 +746,9 @@ Deno.serve(async (req) => {
             break;
           case 'dragonball':
             searchResults = await fetchDragonBallCard(search_query);
+            break;
+          case 'marvel':
+            searchResults = await fetchMarvelCard(search_query);
             break;
           default:
             searchResults = await fetchGenericCard(search_query, gameToSearch);
