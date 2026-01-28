@@ -17,9 +17,9 @@ export function FloatingGiftWidget() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - positioned to the left of the chat popup */}
       <motion.div
-        className="fixed bottom-24 md:bottom-6 right-4 z-50"
+        className="fixed bottom-24 md:bottom-6 right-20 z-[60]"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.5, type: "spring" }}
@@ -56,13 +56,13 @@ export function FloatingGiftWidget() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-44 md:bottom-24 right-4 z-50 w-80 max-h-[70vh] overflow-auto rounded-xl border border-border bg-card shadow-2xl"
+            className="fixed bottom-44 md:bottom-24 right-20 z-[60] w-80 max-h-[70vh] overflow-auto rounded-xl border border-border bg-card shadow-2xl"
             style={{
               boxShadow: "0 0 30px rgba(255, 0, 255, 0.2), 0 0 60px rgba(0, 255, 255, 0.1)",
             }}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-card/95 backdrop-blur p-4 border-b border-border">
+            <div className="sticky top-0 bg-card/95 backdrop-blur-sm p-4 border-b border-border z-10">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   <Gift className="w-5 h-5 text-secondary" />
@@ -84,7 +84,7 @@ export function FloatingGiftWidget() {
                   <motion.div
                     key={gift.id}
                     whileHover={{ scale: 1.03 }}
-                    className="relative p-3 rounded-xl border-2 bg-muted/30 transition-all"
+                    className="relative p-3 rounded-xl border-2 bg-muted/30 transition-all cursor-pointer"
                     style={{
                       borderColor: gift.color,
                       boxShadow: `0 0 10px ${gift.glowColor}`,
@@ -114,7 +114,7 @@ export function FloatingGiftWidget() {
             </div>
 
             {/* Buy Credits CTA */}
-            <div className="sticky bottom-0 bg-card/95 backdrop-blur p-4 border-t border-border">
+            <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm p-4 border-t border-border z-10">
               <Button 
                 className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
                 onClick={() => {
