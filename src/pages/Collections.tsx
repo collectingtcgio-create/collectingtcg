@@ -23,6 +23,7 @@ interface Card {
   price_estimate: number;
   created_at: string;
   tcg_game?: string | null;
+  quantity: number;
 }
 
 export default function Collections() {
@@ -50,8 +51,8 @@ export default function Collections() {
       .order("created_at", { ascending: false });
 
     if (data) {
-      setCards(data);
-      const total = data.reduce((sum, card) => sum + (Number(card.price_estimate) || 0), 0);
+      setCards(data.map(c => ({ ...c, quantity: c.quantity || 1 })));
+      const total = data.reduce((sum, card) => sum + (Number(card.price_estimate) || 0) * (card.quantity || 1), 0);
       setTotalValue(total);
     }
     setLoading(false);
@@ -106,7 +107,7 @@ export default function Collections() {
             {/* Stats */}
             <div className="glass-card px-4 py-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-primary" />
-              <span className="font-semibold">{cards.length}</span>
+              <span className="font-semibold">{cards.reduce((sum, c) => sum + c.quantity, 0)}</span>
               <span className="text-muted-foreground text-sm">cards</span>
             </div>
             <div className="glass-card px-4 py-2 flex items-center gap-2">
@@ -188,13 +189,25 @@ export default function Collections() {
 
                 {/* Card Info */}
                 <div className="p-3">
-                  <h3 className="font-medium text-sm truncate mb-1">
-                    {card.card_name}
-                  </h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-medium text-sm truncate flex-1">
+                      {card.card_name}
+                    </h3>
+                    {card.quantity > 1 && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-primary/20 text-primary rounded">
+                        x{card.quantity}
+                      </span>
+                    )}
+                  </div>
                   {card.price_estimate > 0 && (
                     <p className="text-xs text-primary flex items-center gap-1">
                       <DollarSign className="w-3 h-3" />
-                      {Number(card.price_estimate).toFixed(2)}
+                      {(Number(card.price_estimate) * card.quantity).toFixed(2)}
+                      {card.quantity > 1 && (
+                        <span className="text-muted-foreground ml-1">
+                          (${Number(card.price_estimate).toFixed(2)} ea)
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
