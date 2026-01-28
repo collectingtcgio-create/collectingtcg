@@ -18,6 +18,7 @@ import { FollowersModal } from "@/components/profile/FollowersModal";
 import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
 import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
 import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
+import { MusicPlayerSection } from "@/components/profile/MusicPlayerSection";
 import { 
   UserPlus, 
   UserMinus, 
@@ -52,6 +53,8 @@ interface ProfileData {
   instagram_url?: string;
   facebook_url?: string;
   website_url?: string;
+  spotify_playlist_url?: string;
+  youtube_playlist_url?: string;
 }
 
 interface TopEightItem {
@@ -190,6 +193,34 @@ export default function Profile() {
       setIsFollowing(true);
       setFollowerCount((prev) => prev + 1);
     }
+  };
+
+  const handleMusicSave = async (spotifyUrl: string, youtubeUrl: string) => {
+    if (!currentProfile) return;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        spotify_playlist_url: spotifyUrl,
+        youtube_playlist_url: youtubeUrl,
+      })
+      .eq("id", currentProfile.id);
+    
+    if (error) {
+      toast({
+        title: "Failed to save music",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+    
+    toast({
+      title: "Music updated",
+      description: "Your music player settings have been saved.",
+    });
+    
+    fetchProfileData();
   };
 
   if (!user && !id) {
@@ -524,7 +555,18 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Top Eight (MySpace style) */}
+            {/* Music Player Section */}
+            <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "125ms" }}>
+              <div className="p-4">
+                <MusicPlayerSection
+                  spotifyUrl={profileData.spotify_playlist_url || ""}
+                  youtubeUrl={profileData.youtube_playlist_url || ""}
+                  isOwnProfile={isOwnProfile}
+                  onSave={handleMusicSave}
+                />
+              </div>
+            </div>
+
             <div className="glass-card overflow-hidden fade-in relative" style={{ animationDelay: "150ms" }}>
               <div className="bg-secondary/20 px-4 py-2 border-b border-border/50 flex items-center justify-between">
                 <h3 className="font-semibold text-sm text-secondary flex items-center gap-2">
