@@ -6,36 +6,11 @@ import { Switch } from "@/components/ui/switch";
 import { Music, Youtube, Edit2, Save, X, Play } from "lucide-react";
 
 interface MusicPlayerSectionProps {
-  spotifyUrl: string;
   youtubeUrl: string;
   autoplay: boolean;
   isOwnProfile: boolean;
-  onSave: (spotifyUrl: string, youtubeUrl: string, autoplay: boolean) => Promise<void>;
+  onSave: (youtubeUrl: string, autoplay: boolean) => Promise<void>;
 }
-
-// Extract Spotify embed ID from various URL formats
-const extractSpotifyId = (url: string): { type: string; id: string } | null => {
-  if (!url) return null;
-  
-  // Handle open.spotify.com URLs
-  const patterns = [
-    /spotify\.com\/playlist\/([a-zA-Z0-9]+)/,
-    /spotify\.com\/album\/([a-zA-Z0-9]+)/,
-    /spotify\.com\/track\/([a-zA-Z0-9]+)/,
-    /spotify\.com\/artist\/([a-zA-Z0-9]+)/,
-  ];
-  
-  const types = ['playlist', 'album', 'track', 'artist'];
-  
-  for (let i = 0; i < patterns.length; i++) {
-    const match = url.match(patterns[i]);
-    if (match) {
-      return { type: types[i], id: match[1] };
-    }
-  }
-  
-  return null;
-};
 
 // Extract YouTube video/playlist ID from various URL formats
 const extractYoutubeId = (url: string): { type: string; id: string; videoId?: string } | null => {
@@ -109,34 +84,23 @@ const buildYoutubeEmbedUrl = (
 };
 
 export function MusicPlayerSection({ 
-  spotifyUrl, 
   youtubeUrl,
   autoplay,
   isOwnProfile, 
   onSave 
 }: MusicPlayerSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editSpotify, setEditSpotify] = useState(spotifyUrl);
   const [editYoutube, setEditYoutube] = useState(youtubeUrl);
   const [editAutoplay, setEditAutoplay] = useState(autoplay);
   const [saving, setSaving] = useState(false);
 
-  const spotifyEmbed = extractSpotifyId(spotifyUrl);
   const youtubeEmbed = extractYoutubeId(youtubeUrl);
   const editYoutubeParsed = extractYoutubeId(editYoutube);
-
-  // Spotify shows volume controls more reliably in the full-size embed.
-  // (The compact 152px player often hides the volume icon, especially on mobile.)
-  const spotifyHeight = spotifyEmbed
-    ? spotifyEmbed.type === "track" || spotifyEmbed.type === "artist"
-      ? 152
-      : 352
-    : 152;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(editSpotify, editYoutube, editAutoplay);
+      await onSave(editYoutube, editAutoplay);
       setIsEditing(false);
     } finally {
       setSaving(false);
@@ -144,14 +108,13 @@ export function MusicPlayerSection({
   };
 
   const handleCancel = () => {
-    setEditSpotify(spotifyUrl);
     setEditYoutube(youtubeUrl);
     setEditAutoplay(autoplay);
     setIsEditing(false);
   };
 
   // Don't show section if no music configured and not own profile
-  if (!spotifyUrl && !youtubeUrl && !isOwnProfile) {
+  if (!youtubeUrl && !isOwnProfile) {
     return null;
   }
 
@@ -178,23 +141,6 @@ export function MusicPlayerSection({
       {isEditing ? (
         <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-card/50">
           <div className="space-y-2">
-            <Label htmlFor="spotify-url" className="flex items-center gap-2">
-              <Music className="w-4 h-4 text-[#1DB954]" />
-              Spotify URL
-            </Label>
-            <Input
-              id="spotify-url"
-              placeholder="https://open.spotify.com/playlist/..."
-              value={editSpotify}
-              onChange={(e) => setEditSpotify(e.target.value)}
-              className="bg-background/50"
-            />
-            <p className="text-xs text-muted-foreground">
-              Paste a Spotify playlist, album, track, or artist URL
-            </p>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="youtube-url" className="flex items-center gap-2">
               <Youtube className="w-4 h-4 text-[#FF0000]" />
               YouTube URL
@@ -215,7 +161,7 @@ export function MusicPlayerSection({
                   ? "Detected: Playlist"
                   : editYoutubeParsed?.type === "video"
                     ? "Detected: Video (to show a playlist, paste a URL that contains list=...)"
-                    : "Couldn’t recognize this URL—try a YouTube playlist link containing list=..."}
+                    : "Couldn't recognize this URL—try a YouTube playlist link containing list=..."}
               </p>
             )}
           </div>
@@ -240,10 +186,6 @@ export function MusicPlayerSection({
             />
           </div>
 
-          <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-            💡 Volume controls are inside each player—hover over the speaker icon within the Spotify/YouTube player.
-          </p>
-
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>
               <X className="w-4 h-4 mr-1" />
@@ -258,31 +200,10 @@ export function MusicPlayerSection({
       ) : (
         <div className="space-y-4">
           {/* Autoplay indicator */}
-          {autoplay && (spotifyEmbed || youtubeEmbed) && (
+          {autoplay && youtubeEmbed && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Play className="w-3 h-3" />
               <span>Autoplay enabled (use the player controls to adjust volume)</span>
-            </div>
-          )}
-
-          {/* Spotify Player */}
-          {spotifyEmbed && (
-            <div className="rounded-lg overflow-hidden">
-              <iframe
-                key={`${spotifyEmbed.type}:${spotifyEmbed.id}:${autoplay ? "1" : "0"}`}
-                src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0${autoplay ? "&autoplay=1" : ""}`}
-                width="100%"
-                height={spotifyHeight}
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
-
-              <p className="mt-2 text-xs text-muted-foreground">
-                Volume can only be adjusted inside the Spotify player (speaker icon). This embed is expanded
-                to make the volume control visible.
-              </p>
             </div>
           )}
 
@@ -304,7 +225,7 @@ export function MusicPlayerSection({
           )}
 
           {/* Empty state for own profile */}
-          {!spotifyEmbed && !youtubeEmbed && isOwnProfile && (
+          {!youtubeEmbed && isOwnProfile && (
             <div className="text-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-lg">
               <Music className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No music configured yet</p>
