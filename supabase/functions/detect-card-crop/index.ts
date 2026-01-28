@@ -42,8 +42,19 @@ Deno.serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: `Analyze this image and detect if there's a trading card (Pokemon, One Piece, Magic, Yu-Gi-Oh, sports card, etc.) in it. 
-                
+                text: `Analyze this image and detect if there's a trading card game (TCG) card in it. 
+
+Supported card types include:
+- Pokémon TCG
+- One Piece Card Game
+- Magic: The Gathering
+- Yu-Gi-Oh!
+- Dragon Ball Super Card Game / Dragon Ball Z
+- Disney Lorcana
+- Union Arena
+- Sports cards (Baseball, Basketball, Football, etc.)
+- Other collectible trading cards
+
 If a card is detected, return the crop coordinates as percentages (0-100) of the image dimensions in this exact JSON format:
 {
   "detected": true,
@@ -54,7 +65,7 @@ If a card is detected, return the crop coordinates as percentages (0-100) of the
     "height": <height percentage>
   },
   "confidence": <0-100>,
-  "cardType": "<type of card detected>"
+  "cardType": "<specific type of card detected, e.g. 'Pokémon', 'Magic: The Gathering', 'Yu-Gi-Oh!', 'One Piece', 'Dragon Ball', 'Lorcana', 'Union Arena', 'Sports Card', etc.>"
 }
 
 If no card is detected, return:
