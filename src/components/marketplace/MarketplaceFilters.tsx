@@ -112,12 +112,12 @@ export function MarketplaceFilters({
         {/* Condition Filter */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Condition</Label>
-          <Select value={condition} onValueChange={(v) => onConditionChange(v as CardCondition | '')}>
+          <Select value={condition || 'all'} onValueChange={(v) => onConditionChange(v === 'all' ? '' : v as CardCondition)}>
             <SelectTrigger className="bg-background/50">
               <SelectValue placeholder="Any Condition" />
             </SelectTrigger>
             <SelectContent className="bg-background border-border">
-              <SelectItem value="">Any Condition</SelectItem>
+              <SelectItem value="all">Any Condition</SelectItem>
               {(Object.keys(conditionLabels) as CardCondition[]).map((c) => (
                 <SelectItem key={c} value={c}>
                   {conditionLabels[c]}
