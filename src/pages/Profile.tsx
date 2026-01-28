@@ -660,7 +660,7 @@ export default function Profile() {
                             }}
                             className="w-full h-full flex flex-col items-center justify-center p-1 group-hover:scale-105 transition-transform"
                           >
-                            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-1 overflow-hidden ring-2 ring-primary/30">
+                            <div className="w-4/5 aspect-square rounded-full bg-muted flex items-center justify-center mb-1 overflow-hidden ring-2 ring-primary/30">
                               {item.friend.avatar_url ? (
                                 <img
                                   src={item.friend.avatar_url}
@@ -668,7 +668,7 @@ export default function Profile() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <span className="text-lg font-medium">
+                                <span className="text-2xl font-medium">
                                   {item.friend.username[0].toUpperCase()}
                                 </span>
                               )}
