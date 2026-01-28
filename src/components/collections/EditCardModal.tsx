@@ -357,10 +357,11 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
                 <Input
                   type="number"
                   min={1}
+                  max={20}
                   value={quantity}
                   onChange={(e) => {
                     const val = parseInt(e.target.value) || 1;
-                    if (val >= 1) handleQuantityChange(val);
+                    if (val >= 1 && val <= 20) handleQuantityChange(val);
                   }}
                   className="w-20 text-center"
                   disabled={isSavingQuantity}
@@ -369,7 +370,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
                   variant="outline"
                   size="icon"
                   onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={isSavingQuantity}
+                  disabled={quantity >= 20 || isSavingQuantity}
                   className="h-8 w-8"
                 >
                   <Plus className="w-4 h-4" />
