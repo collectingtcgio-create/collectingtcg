@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Search from "./pages/Search";
 import Scanner from "./pages/Scanner";
 import Collections from "./pages/Collections";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/search" element={<Search />} />
             <Route path="/scanner" element={<Scanner />} />
             <Route path="/collections" element={<Collections />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

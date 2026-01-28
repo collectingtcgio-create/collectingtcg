@@ -275,6 +275,51 @@ export type Database = {
           },
         ]
       }
+      tournament_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string
+          external_link: string | null
+          game_type: Database["public"]["Enums"]["tcg_event_game"]
+          id: string
+          is_major: boolean | null
+          location: string
+          start_date: string
+          status: Database["public"]["Enums"]["event_status"] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date: string
+          external_link?: string | null
+          game_type: Database["public"]["Enums"]["tcg_event_game"]
+          id?: string
+          is_major?: boolean | null
+          location: string
+          start_date: string
+          status?: Database["public"]["Enums"]["event_status"] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          external_link?: string | null
+          game_type?: Database["public"]["Enums"]["tcg_event_game"]
+          id?: string
+          is_major?: boolean | null
+          location?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["event_status"] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_cards: {
         Row: {
           card_cache_id: string | null
@@ -323,14 +368,78 @@ export type Database = {
           },
         ]
       }
+      user_event_notifications: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_event_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
+      event_status:
+        | "upcoming"
+        | "open_registration"
+        | "sold_out"
+        | "live"
+        | "completed"
+      tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
         | "pokemon"
         | "magic"
@@ -466,6 +575,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
+      event_status: [
+        "upcoming",
+        "open_registration",
+        "sold_out",
+        "live",
+        "completed",
+      ],
+      tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [
         "pokemon",
         "magic",
