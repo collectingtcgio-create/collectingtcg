@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag, Mail, Settings } from "lucide-react";
@@ -6,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { StartStreamModal } from "@/components/live/StartStreamModal";
 
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
@@ -20,15 +20,8 @@ const navItems = [
 
 export function Header() {
   const location = useLocation();
-  const { user, profile, signOut, toggleLive } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { unreadCount } = useMessages();
-  const [isLiveLoading, setIsLiveLoading] = useState(false);
-
-  const handleGoLive = async () => {
-    setIsLiveLoading(true);
-    await toggleLive();
-    setIsLiveLoading(false);
-  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/30">
@@ -76,19 +69,21 @@ export function Header() {
           <div className="flex items-center gap-3">
             {user && (
               <>
-                <Button
-                  onClick={handleGoLive}
-                  disabled={isLiveLoading}
-                  className={cn(
-                    "rounded-full px-6 font-semibold transition-all duration-300",
-                    profile?.is_live
-                      ? "bg-secondary hover:bg-secondary/80 neon-glow-magenta pulse-live"
-                      : "bg-muted hover:bg-muted/80 text-foreground hover:neon-glow-magenta"
-                  )}
-                >
-                  <Radio className={cn("w-4 h-4 mr-2", profile?.is_live && "animate-pulse")} />
-                  {profile?.is_live ? "LIVE" : "GO LIVE"}
-                </Button>
+                <StartStreamModal
+                  trigger={
+                    <Button
+                      className={cn(
+                        "rounded-full px-6 font-semibold transition-all duration-300",
+                        profile?.is_live
+                          ? "bg-secondary hover:bg-secondary/80 neon-glow-magenta pulse-live"
+                          : "bg-muted hover:bg-muted/80 text-foreground hover:neon-glow-magenta"
+                      )}
+                    >
+                      <Radio className={cn("w-4 h-4 mr-2", profile?.is_live && "animate-pulse")} />
+                      {profile?.is_live ? "LIVE" : "GO LIVE"}
+                    </Button>
+                  }
+                />
                 <Button
                   variant="ghost"
                   size="icon"
