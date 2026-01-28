@@ -148,12 +148,15 @@ export default function Search() {
     setAddingCardId(card.id);
 
     try {
+      // Map tcg_game to valid database enum (marvel not in DB enum)
+      const dbTcgGame = card.tcg_game === 'marvel' ? null : card.tcg_game;
+      
       const { error } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: card.card_name,
         image_url: card.image_url || null,
         price_estimate: card.price_market || 0,
-        tcg_game: card.tcg_game,
+        tcg_game: dbTcgGame || null,
       });
 
       if (error) throw error;

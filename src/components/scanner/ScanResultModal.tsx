@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookPlus, Check, ExternalLink, Loader2, DollarSign, ImageOff } from "lucide-react";
 
-export type TcgGame = 'pokemon' | 'magic' | 'yugioh' | 'onepiece' | 'dragonball' | 'lorcana' | 'unionarena';
+export type TcgGame = 'pokemon' | 'magic' | 'yugioh' | 'onepiece' | 'dragonball' | 'lorcana' | 'unionarena' | 'marvel';
 
 export const TCG_GAME_LABELS: Record<TcgGame, string> = {
   pokemon: 'Pokémon',
@@ -23,6 +23,7 @@ export const TCG_GAME_LABELS: Record<TcgGame, string> = {
   dragonball: 'Dragon Ball',
   lorcana: 'Disney Lorcana',
   unionarena: 'Union Arena',
+  marvel: 'Marvel Non-Sport',
 };
 
 // One Piece card back placeholder
@@ -35,10 +36,13 @@ export interface CardResult {
   image_url: string | null;
   price_estimate: number | null;
   set_name?: string;
+  set_code?: string;
   rarity?: string;
   card_number?: string;
   confidence?: number;
   price_market?: number;
+  price_foil?: number;
+  variant?: string;
 }
 
 interface ScanResultModalProps {
