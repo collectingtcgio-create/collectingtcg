@@ -10,9 +10,11 @@ import {
   CreditCard, 
   Loader2,
   DollarSign,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EditCardModal } from "@/components/collections/EditCardModal";
 
 interface Card {
   id: string;
@@ -20,6 +22,7 @@ interface Card {
   image_url: string;
   price_estimate: number;
   created_at: string;
+  tcg_game?: string | null;
 }
 
 export default function Collections() {
@@ -28,6 +31,8 @@ export default function Collections() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalValue, setTotalValue] = useState(0);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -72,6 +77,11 @@ export default function Collections() {
       title: "Card removed",
       description: "The card has been removed from your collection.",
     });
+  };
+
+  const handleEditCard = (card: Card) => {
+    setEditingCard(card);
+    setShowEditModal(true);
   };
 
   if (!user) {
@@ -157,13 +167,23 @@ export default function Collections() {
                     </div>
                   )}
 
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDelete(card.id)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEditCard(card)}
+                      className="w-8 h-8 rounded-full bg-primary/80 text-primary-foreground flex items-center justify-center hover:bg-primary"
+                      title="Edit / Rescan"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(card.id)}
+                      className="w-8 h-8 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center hover:bg-destructive"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Card Info */}
@@ -183,6 +203,14 @@ export default function Collections() {
           </div>
         )}
       </div>
+
+      {/* Edit Card Modal */}
+      <EditCardModal
+        card={editingCard}
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        onCardUpdated={fetchCards}
+      />
     </Layout>
   );
 }
