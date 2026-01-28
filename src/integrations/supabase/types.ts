@@ -326,6 +326,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_live: boolean | null
+          status: string | null
           tiktok_url: string | null
           twitter_url: string | null
           updated_at: string
@@ -342,6 +343,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -358,6 +360,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -582,6 +585,90 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      wall_post_replies: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wall_post_replies_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wall_post_replies_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "wall_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wall_posts: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wall_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wall_posts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

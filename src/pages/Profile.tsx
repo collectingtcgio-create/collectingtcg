@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Navigate, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,13 +10,15 @@ import { SendMessageModal } from "@/components/messages/SendMessageModal";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { TopEightEditor } from "@/components/profile/TopEightEditor";
 import { SocialLinksEditor, SocialLinksDisplay } from "@/components/profile/SocialLinksEditor";
+import { BioEditor } from "@/components/profile/BioEditor";
+import { StatusEditor, StatusDisplay } from "@/components/profile/StatusEditor";
+import { WallPosts } from "@/components/profile/WallPosts";
 import { 
   UserPlus, 
   UserMinus, 
   Users, 
   Grid3X3, 
-  MessageSquare, 
-  Send,
+  MessageSquare,
   Loader2,
   CreditCard,
   Mail,
@@ -38,6 +39,7 @@ interface ProfileData {
   is_live: boolean;
   created_at: string;
   updated_at: string;
+  status?: string;
   email_contact?: string;
   tiktok_url?: string;
   twitter_url?: string;
@@ -63,17 +65,6 @@ interface TopEightItem {
   };
 }
 
-interface Kudo {
-  id: string;
-  message: string;
-  created_at: string;
-  author: {
-    id: string;
-    username: string;
-    avatar_url: string;
-  };
-}
-
 export default function Profile() {
   const { id } = useParams();
   const { user, profile: currentProfile } = useAuth();
@@ -82,14 +73,11 @@ export default function Profile() {
   
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [topEight, setTopEight] = useState<TopEightItem[]>([]);
-  const [kudos, setKudos] = useState<Kudo[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [cardCount, setCardCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [kudoText, setKudoText] = useState("");
-  const [sendingKudo, setSendingKudo] = useState(false);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [topEightEditorOpen, setTopEightEditorOpen] = useState(false);
   const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
@@ -133,21 +121,6 @@ export default function Profile() {
 
     if (topEightData) {
       setTopEight(topEightData as unknown as TopEightItem[]);
-    }
-
-    // Fetch kudos
-    const { data: kudosData } = await supabase
-      .from("kudos")
-      .select(`
-        *,
-        author:profiles!kudos_author_id_fkey(id, username, avatar_url)
-      `)
-      .eq("profile_id", targetProfileId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (kudosData) {
-      setKudos(kudosData as unknown as Kudo[]);
     }
 
     // Fetch follower/following/card counts
@@ -206,42 +179,6 @@ export default function Profile() {
       setIsFollowing(true);
       setFollowerCount((prev) => prev + 1);
     }
-  };
-
-  const handleSendKudo = async () => {
-    if (!currentProfile || !targetProfileId || !kudoText.trim()) return;
-
-    setSendingKudo(true);
-
-    const { data, error } = await supabase
-      .from("kudos")
-      .insert({
-        profile_id: targetProfileId,
-        author_id: currentProfile.id,
-        message: kudoText.trim(),
-      })
-      .select(`
-        *,
-        author:profiles!kudos_author_id_fkey(id, username, avatar_url)
-      `)
-      .single();
-
-    if (error) {
-      toast({
-        title: "Failed to send kudos",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else if (data) {
-      setKudos((prev) => [data as unknown as Kudo, ...prev]);
-      setKudoText("");
-      toast({
-        title: "Kudos sent!",
-        description: "Your message has been posted.",
-      });
-    }
-
-    setSendingKudo(false);
   };
 
   if (!user && !id) {
@@ -329,6 +266,17 @@ export default function Profile() {
               {/* User Info */}
               <div className="space-y-2 text-sm">
                 <p className="font-medium">{profileData.username}</p>
+                
+                {/* Status */}
+                {isOwnProfile ? (
+                  <StatusEditor 
+                    currentStatus={profileData.status || ""} 
+                    onUpdate={fetchProfileData} 
+                  />
+                ) : (
+                  <StatusDisplay status={profileData.status || ""} />
+                )}
+                
                 <p className="text-muted-foreground">
                   {cardCount} cards collected
                 </p>
@@ -526,9 +474,16 @@ export default function Profile() {
               </div>
               <div className="p-4">
                 <h4 className="font-semibold text-sm text-primary mb-2">About me:</h4>
-                <p className="text-sm text-foreground/80 whitespace-pre-wrap">
-                  {profileData.bio || "No bio yet. This collector hasn't written about themselves."}
-                </p>
+                {isOwnProfile ? (
+                  <BioEditor 
+                    currentBio={profileData.bio || ""} 
+                    onUpdate={fetchProfileData} 
+                  />
+                ) : (
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap">
+                    {profileData.bio || "No bio yet. This collector hasn't written about themselves."}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -631,106 +586,20 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Kudos Wall (Comments section - MySpace style) */}
+            {/* Wall Posts (Facebook-style - MySpace inspired) */}
             <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "200ms" }}>
-              <div className="bg-primary/20 px-4 py-2 border-b border-border/50 flex items-center justify-between">
+              <div className="bg-primary/20 px-4 py-2 border-b border-border/50">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" />
-                  {profileData.username}'s Kudos Wall
+                  {profileData.username}'s Wall
                 </h3>
-                <span className="text-xs text-muted-foreground">
-                  {kudos.length} comments
-                </span>
               </div>
               <div className="p-4">
-                {/* Send Kudos Form */}
-                {user && !isOwnProfile && (
-                  <div className="flex gap-3 mb-6 pb-4 border-b border-border/50">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {currentProfile?.avatar_url ? (
-                        <img
-                          src={currentProfile.avatar_url}
-                          alt={currentProfile.username}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium">
-                          {currentProfile?.username?.[0]?.toUpperCase() || "?"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <Textarea
-                        value={kudoText}
-                        onChange={(e) => setKudoText(e.target.value)}
-                        placeholder={`Leave ${profileData.username} some kudos...`}
-                        className="bg-input border-border resize-none mb-2"
-                        rows={2}
-                      />
-                      <Button
-                        onClick={handleSendKudo}
-                        disabled={sendingKudo || !kudoText.trim()}
-                        size="sm"
-                        className="rounded-full bg-primary hover:bg-primary/80 hover:neon-glow-cyan"
-                      >
-                        {sendingKudo ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Send className="w-4 h-4 mr-2" />
-                        )}
-                        Post Kudos
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Kudos List */}
-                {kudos.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    No kudos yet. Be the first to leave some!
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {kudos.map((kudo) => (
-                      <div
-                        key={kudo.id}
-                        className="flex gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                      >
-                        <Link to={`/profile/${kudo.author?.id}`}>
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden ring-2 ring-transparent hover:ring-primary/50 transition-all">
-                            {kudo.author?.avatar_url ? (
-                              <img
-                                src={kudo.author.avatar_url}
-                                alt={kudo.author.username}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-sm font-medium">
-                                {kudo.author?.username?.[0]?.toUpperCase() || "?"}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Link
-                              to={`/profile/${kudo.author?.id}`}
-                              className="font-medium text-sm text-primary hover:underline"
-                            >
-                              {kudo.author?.username || "Unknown"}
-                            </Link>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(kudo.created_at), {
-                                addSuffix: true,
-                              })}
-                            </span>
-                          </div>
-                          <p className="text-sm text-foreground/80">{kudo.message}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <WallPosts
+                  profileId={profileData.id}
+                  profileUsername={profileData.username}
+                  isOwnProfile={isOwnProfile}
+                />
               </div>
             </div>
           </div>
