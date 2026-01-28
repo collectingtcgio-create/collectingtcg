@@ -3,84 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Sample card database for simulation - mix of One Piece and Pokémon cards
-const SAMPLE_CARDS = [
-  {
-    card_name: "Monkey D. Luffy",
-    set_name: "Romance Dawn",
-    rarity: "Super Rare",
-    card_number: "OP01-003",
-    image_url: "https://images.pokemontcg.io/base1/4.png", // Placeholder
-    price_estimate: 45.99,
-  },
-  {
-    card_name: "Charizard VMAX",
-    set_name: "Champion's Path",
-    rarity: "Secret Rare",
-    card_number: "074/073",
-    image_url: "https://images.pokemontcg.io/swsh35/74_hires.png",
-    price_estimate: 189.99,
-  },
-  {
-    card_name: "Pikachu V",
-    set_name: "Vivid Voltage",
-    rarity: "Ultra Rare",
-    card_number: "043/185",
-    image_url: "https://images.pokemontcg.io/swsh4/43_hires.png",
-    price_estimate: 12.50,
-  },
-  {
-    card_name: "Roronoa Zoro",
-    set_name: "Paramount War",
-    rarity: "Leader",
-    card_number: "OP02-001",
-    image_url: "https://images.pokemontcg.io/base1/15.png", // Placeholder
-    price_estimate: 32.00,
-  },
-  {
-    card_name: "Mewtwo GX",
-    set_name: "Shining Legends",
-    rarity: "GX",
-    card_number: "39/73",
-    image_url: "https://images.pokemontcg.io/sm35/39_hires.png",
-    price_estimate: 24.99,
-  },
-  {
-    card_name: "Nami",
-    set_name: "Romance Dawn",
-    rarity: "Rare",
-    card_number: "OP01-016",
-    image_url: "https://images.pokemontcg.io/base1/64.png", // Placeholder
-    price_estimate: 8.75,
-  },
-  {
-    card_name: "Umbreon VMAX",
-    set_name: "Evolving Skies",
-    rarity: "Alternate Art Secret",
-    card_number: "215/203",
-    image_url: "https://images.pokemontcg.io/swsh7/215_hires.png",
-    price_estimate: 425.00,
-  },
-  {
-    card_name: "Shanks",
-    set_name: "Paramount War",
-    rarity: "Secret Rare",
-    card_number: "OP02-120",
-    image_url: "https://images.pokemontcg.io/base1/2.png", // Placeholder
-    price_estimate: 89.99,
-  },
-];
-
-interface RequestBody {
-  image_data?: string; // Base64 encoded image
-  mode?: "simulate" | "identify"; // For future API integration
-}
+type TcgGame = 'pokemon' | 'magic' | 'yugioh' | 'onepiece' | 'dragonball' | 'lorcana' | 'unionarena';
 
 interface CardResult {
   card_name: string;
+  tcg_game: TcgGame;
   set_name?: string;
   rarity?: string;
   card_number?: string;
@@ -91,13 +21,182 @@ interface CardResult {
 
 interface ApiResponse {
   success: boolean;
-  card?: CardResult;
+  cards?: CardResult[];
   error?: string;
   processing_time_ms?: number;
 }
 
+const TCG_DETECTION_PROMPT = `You are an expert trading card game identifier. Analyze this image and identify the trading card(s) shown.
+
+Supported TCGs:
+- pokemon (Pokémon TCG)
+- magic (Magic: The Gathering)
+- yugioh (Yu-Gi-Oh!)
+- onepiece (One Piece Card Game)
+- dragonball (Dragon Ball Super Card Game)
+- lorcana (Disney Lorcana)
+- unionarena (Union Arena)
+
+For each card visible in the image, provide:
+1. card_name: The exact card name as printed
+2. tcg_game: One of the supported game identifiers above
+3. set_name: The set/expansion name if visible
+4. card_number: The card number/code if visible
+5. rarity: The rarity (common, uncommon, rare, ultra rare, secret rare, etc.)
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "cards": [
+    {
+      "card_name": "Card Name Here",
+      "tcg_game": "pokemon",
+      "set_name": "Set Name",
+      "card_number": "123/456",
+      "rarity": "Rare"
+    }
+  ]
+}
+
+If no trading card is detected, respond with:
+{"cards": [], "error": "No trading card detected in image"}`;
+
+async function identifyWithAI(imageData: string): Promise<{ cards: any[]; error?: string }> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) {
+    throw new Error("LOVABLE_API_KEY not configured");
+  }
+
+  // Extract base64 content from data URL
+  const base64Content = imageData.split(",")[1] || imageData;
+  const mimeMatch = imageData.match(/data:([^;]+);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: TCG_DETECTION_PROMPT },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64Content}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 1000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("AI Gateway error:", response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again in a moment.");
+    }
+    if (response.status === 402) {
+      throw new Error("AI credits exhausted. Please add credits to continue.");
+    }
+    throw new Error(`AI identification failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    return { cards: [], error: "No response from AI" };
+  }
+
+  // Parse JSON from response
+  try {
+    // Try to extract JSON from the response (AI might include markdown)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return { 
+        cards: parsed.cards || [], 
+        error: parsed.error 
+      };
+    }
+    return { cards: [], error: "Could not parse AI response" };
+  } catch (e) {
+    console.error("JSON parse error:", e, "Content:", content);
+    return { cards: [], error: "Failed to parse card data" };
+  }
+}
+
+// Fetch card details and pricing from our fetch-card-data function
+async function enrichCardData(
+  cards: any[],
+  supabaseUrl: string,
+  authHeader: string
+): Promise<CardResult[]> {
+  const enrichedCards: CardResult[] = [];
+
+  for (const card of cards) {
+    try {
+      // Search our cache/APIs for this card
+      const response = await fetch(`${supabaseUrl}/functions/v1/fetch-card-data`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: card.card_name,
+          tcg_game: card.tcg_game,
+          limit: 1,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const fetchedCard = data.cards?.[0];
+
+        if (fetchedCard) {
+          enrichedCards.push({
+            card_name: fetchedCard.card_name || card.card_name,
+            tcg_game: fetchedCard.tcg_game || card.tcg_game,
+            set_name: fetchedCard.set_name || card.set_name,
+            rarity: fetchedCard.rarity || card.rarity,
+            card_number: fetchedCard.card_number || card.card_number,
+            image_url: fetchedCard.image_url || null,
+            price_estimate: fetchedCard.price_market || fetchedCard.price_mid || null,
+            confidence: 0.9,
+          });
+          continue;
+        }
+      }
+    } catch (e) {
+      console.error("Error enriching card data:", e);
+    }
+
+    // Fallback: return what we got from AI
+    enrichedCards.push({
+      card_name: card.card_name,
+      tcg_game: card.tcg_game,
+      set_name: card.set_name,
+      rarity: card.rarity,
+      card_number: card.card_number,
+      image_url: null,
+      price_estimate: null,
+      confidence: 0.7,
+    });
+  }
+
+  return enrichedCards;
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -134,10 +233,9 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const body: RequestBody = await req.json();
-    const { image_data, mode = "simulate" } = body;
+    const body = await req.json();
+    const { image_data } = body;
 
-    // Validate image data is provided
     if (!image_data) {
       return new Response(
         JSON.stringify({ success: false, error: "No image data provided" }),
@@ -145,7 +243,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate base64 format
     if (!image_data.startsWith("data:image/")) {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid image format. Expected base64 data URL." }),
@@ -153,64 +250,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    let result: CardResult;
+    // Use AI to identify the card
+    console.log("Starting AI card identification...");
+    const aiResult = await identifyWithAI(image_data);
 
-    if (mode === "identify") {
-      // FUTURE: Integration with external image recognition API
-      // Example structure for Google Vision or Perplexity API:
-      //
-      // const visionResponse = await fetch('https://vision.googleapis.com/v1/images:annotate', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${Deno.env.get('GOOGLE_VISION_API_KEY')}`,
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     requests: [{
-      //       image: { content: image_data.split(',')[1] },
-      //       features: [
-      //         { type: 'TEXT_DETECTION' },
-      //         { type: 'WEB_DETECTION' },
-      //       ],
-      //     }],
-      //   }),
-      // });
-      //
-      // const visionData = await visionResponse.json();
-      // Parse the response and match against card database...
-
-      // For now, fall back to simulation
-      result = SAMPLE_CARDS[Math.floor(Math.random() * SAMPLE_CARDS.length)];
-    } else {
-      // SIMULATION MODE: Return a random card
-      // Simulate processing delay (200-800ms)
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 600));
-      
-      // Simulate occasional "no card detected" (10% chance)
-      if (Math.random() < 0.1) {
-        const processingTime = Date.now() - startTime;
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "No card detected in image",
-            processing_time_ms: processingTime,
-          } as ApiResponse),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Return a random sample card
-      result = {
-        ...SAMPLE_CARDS[Math.floor(Math.random() * SAMPLE_CARDS.length)],
-        confidence: 0.85 + Math.random() * 0.14, // 85-99% confidence
-      };
+    if (aiResult.error && aiResult.cards.length === 0) {
+      const processingTime = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: aiResult.error,
+          processing_time_ms: processingTime,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    if (aiResult.cards.length === 0) {
+      const processingTime = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "No card detected in image",
+          processing_time_ms: processingTime,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Enrich with database info and pricing
+    console.log(`AI identified ${aiResult.cards.length} cards, enriching...`);
+    const enrichedCards = await enrichCardData(aiResult.cards, supabaseUrl, authHeader);
 
     const processingTime = Date.now() - startTime;
 
     const response: ApiResponse = {
       success: true,
-      card: result,
+      cards: enrichedCards,
       processing_time_ms: processingTime,
     };
 
@@ -229,7 +305,7 @@ Deno.serve(async (req) => {
         success: false,
         error: error instanceof Error ? error.message : "Internal server error",
         processing_time_ms: processingTime,
-      } as ApiResponse),
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

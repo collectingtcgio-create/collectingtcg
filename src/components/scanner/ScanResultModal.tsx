@@ -11,14 +11,28 @@ import { Badge } from "@/components/ui/badge";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { BookPlus, Check, ExternalLink, Loader2 } from "lucide-react";
 
+export type TcgGame = 'pokemon' | 'magic' | 'yugioh' | 'onepiece' | 'dragonball' | 'lorcana' | 'unionarena';
+
+export const TCG_GAME_LABELS: Record<TcgGame, string> = {
+  pokemon: 'Pokémon',
+  magic: 'Magic: The Gathering',
+  yugioh: 'Yu-Gi-Oh!',
+  onepiece: 'One Piece',
+  dragonball: 'Dragon Ball',
+  lorcana: 'Disney Lorcana',
+  unionarena: 'Union Arena',
+};
+
 export interface CardResult {
   id?: string;
   card_name: string;
+  tcg_game?: TcgGame;
   image_url: string | null;
   price_estimate: number | null;
   set_name?: string;
   rarity?: string;
   card_number?: string;
+  confidence?: number;
 }
 
 interface ScanResultModalProps {
@@ -98,6 +112,11 @@ export function ScanResultModal({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {card.tcg_game && (
+                <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+                  {TCG_GAME_LABELS[card.tcg_game]}
+                </Badge>
+              )}
               {card.rarity && (
                 <Badge variant="secondary" className="bg-secondary/20 text-secondary border-secondary/30">
                   {card.rarity}

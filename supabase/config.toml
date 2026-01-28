@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.detect-card-crop]
 verify_jwt = false
+
+[functions.fetch-card-data]
+verify_jwt = false
