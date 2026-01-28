@@ -42,6 +42,9 @@ interface TopEightEditorProps {
   currentCardId?: string | null;
   currentFriendId?: string | null;
   onUpdate: () => void;
+  /** Optional: ID of the profile being viewed (for fetching their collection) */
+  viewedProfileId?: string;
+  viewedProfileUsername?: string;
 }
 
 export function TopEightEditor({
@@ -51,27 +54,33 @@ export function TopEightEditor({
   currentCardId,
   currentFriendId,
   onUpdate,
+  viewedProfileId,
+  viewedProfileUsername,
 }: TopEightEditorProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"cards" | "friends">("cards");
+  const [tab, setTab] = useState<"cards" | "friends" | "their-cards">("cards");
   const [cards, setCards] = useState<UserCard[]>([]);
+  const [theirCards, setTheirCards] = useState<UserCard[]>([]);
   const [friends, setFriends] = useState<FollowedFriend[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
 
+  // Whether we're viewing another user's profile
+  const isViewingOtherProfile = viewedProfileId && profile && viewedProfileId !== profile.id;
+
   useEffect(() => {
     if (open && profile) {
       fetchData();
     }
-  }, [open, profile]);
+  }, [open, profile, viewedProfileId]);
 
   const fetchData = async () => {
     if (!profile) return;
     setLoading(true);
 
-    // Fetch user's cards
+    // Fetch user's own cards
     const { data: cardsData } = await supabase
       .from("user_cards")
       .select("id, card_name, image_url")
@@ -80,6 +89,19 @@ export function TopEightEditor({
 
     if (cardsData) {
       setCards(cardsData);
+    }
+
+    // If viewing another profile, fetch their cards too
+    if (isViewingOtherProfile && viewedProfileId) {
+      const { data: theirCardsData } = await supabase
+        .from("user_cards")
+        .select("id, card_name, image_url")
+        .eq("user_id", viewedProfileId)
+        .order("created_at", { ascending: false });
+
+      if (theirCardsData) {
+        setTheirCards(theirCardsData);
+      }
     }
 
     // Fetch followed friends
@@ -212,6 +234,10 @@ export function TopEightEditor({
     c.card_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredTheirCards = theirCards.filter((c) =>
+    c.card_name.toLowerCase().includes(search.toLowerCase())
+  );
+
   const filteredFriends = friends.filter((f) =>
     f.username.toLowerCase().includes(search.toLowerCase())
   );
@@ -242,12 +268,18 @@ export function TopEightEditor({
           />
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "cards" | "friends")}>
-          <TabsList className="w-full">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList className={cn("w-full", isViewingOtherProfile && "grid-cols-3")}>
             <TabsTrigger value="cards" className="flex-1 gap-2">
               <CreditCard className="w-4 h-4" />
-              Cards ({cards.length})
+              My Cards ({cards.length})
             </TabsTrigger>
+            {isViewingOtherProfile && (
+              <TabsTrigger value="their-cards" className="flex-1 gap-2">
+                <CreditCard className="w-4 h-4" />
+                {viewedProfileUsername}'s ({theirCards.length})
+              </TabsTrigger>
+            )}
             <TabsTrigger value="friends" className="flex-1 gap-2">
               <Users className="w-4 h-4" />
               Friends ({friends.length})
@@ -295,6 +327,52 @@ export function TopEightEditor({
               )}
             </ScrollArea>
           </TabsContent>
+
+          {isViewingOtherProfile && (
+            <TabsContent value="their-cards" className="mt-4">
+              <ScrollArea className="h-64">
+                {loading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : filteredTheirCards.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {theirCards.length === 0 
+                      ? `${viewedProfileUsername} has no cards` 
+                      : "No cards match your search"}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {filteredTheirCards.map((card) => (
+                      <button
+                        key={card.id}
+                        onClick={() => handleSelectCard(card.id)}
+                        disabled={saving}
+                        className={cn(
+                          "aspect-[3/4] rounded-lg bg-muted/50 border border-border/50 overflow-hidden hover:neon-border-cyan transition-all",
+                          currentCardId === card.id && "ring-2 ring-primary"
+                        )}
+                      >
+                        {card.image_url ? (
+                          <img
+                            src={card.image_url}
+                            alt={card.card_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-1">
+                            <span className="text-[10px] text-center text-muted-foreground line-clamp-3">
+                              {card.card_name}
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          )}
 
           <TabsContent value="friends" className="mt-4">
             <ScrollArea className="h-64">
