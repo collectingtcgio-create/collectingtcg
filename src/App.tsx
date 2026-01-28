@@ -12,6 +12,7 @@ import Scanner from "./pages/Scanner";
 import Collections from "./pages/Collections";
 import Events from "./pages/Events";
 import Marketplace from "./pages/Marketplace";
+import Messages from "./pages/Messages";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/collections" element={<Collections />} />
             <Route path="/events" element={<Events />} />
             <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="/admin" element={<AdminDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

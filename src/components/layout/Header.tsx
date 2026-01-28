@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag } from "lucide-react";
+import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/search", icon: Search, label: "Find Players" },
   { path: "/scanner", icon: Camera, label: "Scanner" },
   { path: "/marketplace", icon: ShoppingBag, label: "Marketplace" },
+  { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
@@ -17,6 +20,7 @@ const navItems = [
 export function Header() {
   const location = useLocation();
   const { user, profile, signOut, toggleLive } = useAuth();
+  const { unreadCount } = useMessages();
   const [isLiveLoading, setIsLiveLoading] = useState(false);
 
   const handleGoLive = async () => {
@@ -44,17 +48,23 @@ export function Header() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
+              const showBadge = item.path === "/messages" && unreadCount > 0;
               return (
                 <Link key={item.path} to={item.path}>
                   <Button
                     variant="ghost"
                     className={cn(
-                      "gap-2 transition-all duration-300",
+                      "gap-2 transition-all duration-300 relative",
                       isActive && "bg-muted neon-border-cyan text-primary"
                     )}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="hidden lg:inline">{item.label}</span>
+                    {showBadge && (
+                      <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 bg-secondary text-secondary-foreground text-xs">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Badge>
+                    )}
                   </Button>
                 </Link>
               );
