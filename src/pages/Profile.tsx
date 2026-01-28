@@ -4,9 +4,12 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SendMessageModal } from "@/components/messages/SendMessageModal";
+import { AvatarUpload } from "@/components/profile/AvatarUpload";
+import { TopEightEditor } from "@/components/profile/TopEightEditor";
 import { 
   UserPlus, 
   UserMinus, 
@@ -20,7 +23,9 @@ import {
   Star,
   Share2,
   Ban,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Settings,
+  Plus
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -67,6 +72,7 @@ export default function Profile() {
   const { id } = useParams();
   const { user, profile: currentProfile } = useAuth();
   const { toast } = useToast();
+  const { blockUser, isUserBlocked } = useUserSettings();
   
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [topEight, setTopEight] = useState<TopEightItem[]>([]);
@@ -79,6 +85,8 @@ export default function Profile() {
   const [kudoText, setKudoText] = useState("");
   const [sendingKudo, setSendingKudo] = useState(false);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [topEightEditorOpen, setTopEightEditorOpen] = useState(false);
+  const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -280,26 +288,35 @@ export default function Profile() {
             <div className="glass-card p-4 neon-border-magenta fade-in" style={{ animationDelay: "50ms" }}>
               {/* Avatar */}
               <div className="mb-4">
-                <div className={`relative inline-block ${profileData.is_live ? "live-border" : ""}`}>
-                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-muted flex items-center justify-center overflow-hidden border-2 border-border">
-                    {profileData.avatar_url ? (
-                      <img
-                        src={profileData.avatar_url}
-                        alt={profileData.username}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-5xl font-bold text-muted-foreground">
-                        {profileData.username[0].toUpperCase()}
+                {isOwnProfile ? (
+                  <AvatarUpload
+                    currentAvatar={profileData.avatar_url}
+                    username={profileData.username}
+                    isLive={profileData.is_live}
+                    onUploadComplete={() => fetchProfileData()}
+                  />
+                ) : (
+                  <div className={`relative inline-block ${profileData.is_live ? "live-border" : ""}`}>
+                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg bg-muted flex items-center justify-center overflow-hidden border-2 border-border">
+                      {profileData.avatar_url ? (
+                        <img
+                          src={profileData.avatar_url}
+                          alt={profileData.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-5xl font-bold text-muted-foreground">
+                          {profileData.username[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    {profileData.is_live && (
+                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-secondary text-secondary-foreground text-xs font-bold rounded-full animate-pulse">
+                        🔴 LIVE
                       </span>
                     )}
                   </div>
-                  {profileData.is_live && (
-                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-secondary text-secondary-foreground text-xs font-bold rounded-full animate-pulse">
-                      🔴 LIVE
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
 
               {/* User Info */}
@@ -400,11 +417,16 @@ export default function Profile() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
-                      disabled
+                      onClick={() => {
+                        if (targetProfileId) {
+                          blockUser.mutate(targetProfileId);
+                        }
+                      }}
+                      disabled={blockUser.isPending || isUserBlocked(targetProfileId || "")}
+                      className="justify-start text-xs h-8 hover:bg-destructive/10 hover:text-destructive"
                     >
                       <Ban className="w-3 h-3 mr-2" />
-                      Block User
+                      {isUserBlocked(targetProfileId || "") ? "Blocked" : "Block User"}
                     </Button>
                     <Button
                       variant="ghost"
@@ -418,9 +440,21 @@ export default function Profile() {
                   </>
                 )}
                 {isOwnProfile && (
-                  <p className="col-span-2 text-xs text-muted-foreground text-center py-4">
-                    This is your profile
-                  </p>
+                  <div className="col-span-2 space-y-2">
+                    <Link to="/settings">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Settings className="w-3 h-3 mr-2" />
+                        Account Settings
+                      </Button>
+                    </Link>
+                    <p className="text-xs text-muted-foreground text-center">
+                      This is your profile
+                    </p>
+                  </div>
                 )}
                 {!user && (
                   <Link to="/auth" className="col-span-2">
@@ -489,12 +523,28 @@ export default function Profile() {
                 <div className="grid grid-cols-4 gap-3">
                   {[...Array(8)].map((_, index) => {
                     const item = topEight.find((t) => t.position === index + 1);
+                    const position = index + 1;
+                    
+                    const handleClick = () => {
+                      if (isOwnProfile) {
+                        setSelectedTopEightPosition(position);
+                        setTopEightEditorOpen(true);
+                      }
+                    };
                     
                     return (
                       <div
                         key={index}
-                        className="aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden hover:neon-border-cyan transition-all duration-300 cursor-pointer group"
+                        onClick={handleClick}
+                        className={`aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden hover:neon-border-cyan transition-all duration-300 cursor-pointer group relative ${isOwnProfile ? "hover:ring-2 hover:ring-primary/50" : ""}`}
                       >
+                        {/* Edit overlay for own profile */}
+                        {isOwnProfile && (
+                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <Plus className="w-6 h-6 text-primary" />
+                          </div>
+                        )}
+                        
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
                             {item.user_cards.image_url ? (
@@ -515,8 +565,13 @@ export default function Profile() {
                             </div>
                           </div>
                         ) : item?.friend ? (
-                          <Link
-                            to={`/profile/${item.friend.id}`}
+                          <div
+                            onClick={(e) => {
+                              if (!isOwnProfile) {
+                                e.stopPropagation();
+                                window.location.href = `/profile/${item.friend!.id}`;
+                              }
+                            }}
                             className="w-full h-full flex flex-col items-center justify-center p-2 group-hover:scale-105 transition-transform"
                           >
                             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-1 overflow-hidden ring-2 ring-primary/30">
@@ -535,10 +590,14 @@ export default function Profile() {
                             <p className="text-xs font-medium truncate text-primary">
                               {item.friend.username}
                             </p>
-                          </Link>
+                          </div>
                         ) : (
                           <div className="text-muted-foreground/30">
-                            <Users className="w-6 h-6" />
+                            {isOwnProfile ? (
+                              <Plus className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            ) : (
+                              <Users className="w-6 h-6" />
+                            )}
                           </div>
                         )}
                       </div>
@@ -661,6 +720,18 @@ export default function Profile() {
           onOpenChange={setMessageModalOpen}
           recipientId={profileData.id}
           recipientUsername={profileData.username}
+        />
+      )}
+
+      {/* Top Eight Editor Modal */}
+      {isOwnProfile && (
+        <TopEightEditor
+          open={topEightEditorOpen}
+          onOpenChange={setTopEightEditorOpen}
+          position={selectedTopEightPosition}
+          currentCardId={topEight.find((t) => t.position === selectedTopEightPosition)?.card_id}
+          currentFriendId={topEight.find((t) => t.position === selectedTopEightPosition)?.friend_id}
+          onUpdate={fetchProfileData}
         />
       )}
     </Layout>

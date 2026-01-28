@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ChatPopup } from "@/components/messages/ChatPopup";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
@@ -13,6 +14,7 @@ import Collections from "./pages/Collections";
 import Events from "./pages/Events";
 import Marketplace from "./pages/Marketplace";
 import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +27,7 @@ const App = () => (
         <AuthProvider>
           <Toaster />
           <Sonner />
+          <ChatPopup />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
@@ -36,6 +39,7 @@ const App = () => (
             <Route path="/events" element={<Events />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<AdminDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
