@@ -750,6 +750,7 @@ export type Database = {
           id: string
           image_url: string | null
           price_estimate: number | null
+          quantity: number
           tcg_game: Database["public"]["Enums"]["tcg_game"] | null
           user_id: string
         }
@@ -760,6 +761,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           price_estimate?: number | null
+          quantity?: number
           tcg_game?: Database["public"]["Enums"]["tcg_game"] | null
           user_id: string
         }
@@ -770,6 +772,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           price_estimate?: number | null
+          quantity?: number
           tcg_game?: Database["public"]["Enums"]["tcg_game"] | null
           user_id?: string
         }

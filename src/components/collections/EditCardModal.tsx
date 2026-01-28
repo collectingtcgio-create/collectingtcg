@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Upload, Loader2, ScanLine, X } from "lucide-react";
+import { Camera, Upload, Loader2, ScanLine, X, Plus, Minus } from "lucide-react";
 
 interface Card {
   id: string;
@@ -18,6 +18,7 @@ interface Card {
   image_url: string;
   price_estimate: number;
   tcg_game?: string | null;
+  quantity: number;
 }
 
 interface EditCardModalProps {
@@ -37,6 +38,14 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [isSavingQuantity, setIsSavingQuantity] = useState(false);
+
+  useEffect(() => {
+    if (card) {
+      setQuantity(card.quantity || 1);
+    }
+  }, [card]);
 
   const stopCamera = () => {
     if (stream) {
@@ -49,7 +58,40 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
   const handleClose = () => {
     stopCamera();
     setPreviewUrl(null);
+    setQuantity(card?.quantity || 1);
     onOpenChange(false);
+  };
+
+  const handleQuantityChange = async (newQuantity: number) => {
+    if (!card || newQuantity < 1) return;
+    
+    setQuantity(newQuantity);
+    setIsSavingQuantity(true);
+    
+    try {
+      const { error } = await supabase
+        .from("user_cards")
+        .update({ quantity: newQuantity })
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Quantity Updated",
+        description: `Now tracking ${newQuantity}x ${card.card_name}`,
+      });
+      
+      onCardUpdated();
+    } catch (error) {
+      setQuantity(card.quantity || 1);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update quantity",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingQuantity(false);
+    }
   };
 
   const startCamera = async () => {
@@ -292,10 +334,54 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
             )}
           </div>
 
-          {/* Card Name */}
-          <div>
-            <Label className="text-sm text-muted-foreground">Card Name</Label>
-            <p className="font-medium">{card.card_name}</p>
+          {/* Card Info */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm text-muted-foreground">Card Name</Label>
+              <p className="font-medium">{card.card_name}</p>
+            </div>
+            
+            {/* Quantity Control */}
+            <div>
+              <Label className="text-sm text-muted-foreground">Quantity</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                  disabled={quantity <= 1 || isSavingQuantity}
+                  className="h-8 w-8"
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <Input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1;
+                    if (val >= 1) handleQuantityChange(val);
+                  }}
+                  className="w-20 text-center"
+                  disabled={isSavingQuantity}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                  disabled={isSavingQuantity}
+                  className="h-8 w-8"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+                {isSavingQuantity && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Total value: ${((card.price_estimate || 0) * quantity).toFixed(2)}
+              </p>
+            </div>
           </div>
 
           {/* Action Buttons */}
