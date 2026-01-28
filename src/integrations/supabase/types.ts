@@ -175,6 +175,60 @@ export type Database = {
           },
         ]
       }
+      gift_transactions: {
+        Row: {
+          created_at: string
+          credit_amount: number
+          gift_type: Database["public"]["Enums"]["gift_type"]
+          id: string
+          platform_revenue: number
+          recipient_earned: number
+          recipient_id: string
+          sender_id: string
+          source: Database["public"]["Enums"]["gift_source"]
+          source_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credit_amount: number
+          gift_type: Database["public"]["Enums"]["gift_type"]
+          id?: string
+          platform_revenue: number
+          recipient_earned: number
+          recipient_id: string
+          sender_id: string
+          source: Database["public"]["Enums"]["gift_source"]
+          source_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credit_amount?: number
+          gift_type?: Database["public"]["Enums"]["gift_type"]
+          id?: string
+          platform_revenue?: number
+          recipient_earned?: number
+          recipient_id?: string
+          sender_id?: string
+          source?: Database["public"]["Enums"]["gift_source"]
+          source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_transactions_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_transactions_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kudos: {
         Row: {
           author_id: string
@@ -208,6 +262,47 @@ export type Database = {
           {
             foreignKeyName: "kudos_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_streams: {
+        Row: {
+          description: string | null
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          started_at: string
+          streamer_id: string
+          title: string
+          viewer_count: number
+        }
+        Insert: {
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          streamer_id: string
+          title: string
+          viewer_count?: number
+        }
+        Update: {
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          streamer_id?: string
+          title?: string
+          viewer_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_streams_streamer_id_fkey"
+            columns: ["streamer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -373,6 +468,48 @@ export type Database = {
         }
         Relationships: []
       }
+      stream_chat: {
+        Row: {
+          content: string
+          created_at: string
+          gift_type: Database["public"]["Enums"]["gift_type"] | null
+          id: string
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          gift_type?: Database["public"]["Enums"]["gift_type"] | null
+          id?: string
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          gift_type?: Database["public"]["Enums"]["gift_type"] | null
+          id?: string
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_chat_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stream_chat_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       top_eight: {
         Row: {
           card_id: string | null
@@ -467,6 +604,97 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_items: {
+        Row: {
+          card_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          trade_id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          trade_id: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_items_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "user_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_items_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trade_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_proposals: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          proposer_id: string
+          recipient_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          proposer_id: string
+          recipient_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          proposer_id?: string
+          recipient_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_proposals_proposer_id_fkey"
+            columns: ["proposer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_proposals_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_cards: {
         Row: {
           card_cache_id: string | null
@@ -544,6 +772,47 @@ export type Database = {
           },
         ]
       }
+      user_haves: {
+        Row: {
+          asking_price: number | null
+          card_name: string
+          condition: Database["public"]["Enums"]["card_condition"]
+          created_at: string
+          id: string
+          notes: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          user_id: string
+        }
+        Insert: {
+          asking_price?: number | null
+          card_name: string
+          condition?: Database["public"]["Enums"]["card_condition"]
+          created_at?: string
+          id?: string
+          notes?: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          user_id: string
+        }
+        Update: {
+          asking_price?: number | null
+          card_name?: string
+          condition?: Database["public"]["Enums"]["card_condition"]
+          created_at?: string
+          id?: string
+          notes?: string | null
+          tcg_game?: Database["public"]["Enums"]["tcg_game"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_haves_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -588,6 +857,79 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_wallets: {
+        Row: {
+          created_at: string
+          earned_balance: number
+          eco_credits: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          earned_balance?: number
+          eco_credits?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          earned_balance?: number
+          eco_credits?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_wants: {
+        Row: {
+          card_name: string
+          created_at: string
+          id: string
+          max_price: number | null
+          notes: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          user_id: string
+        }
+        Insert: {
+          card_name: string
+          created_at?: string
+          id?: string
+          max_price?: number | null
+          notes?: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          user_id: string
+        }
+        Update: {
+          card_name?: string
+          created_at?: string
+          id?: string
+          max_price?: number | null
+          notes?: string | null
+          tcg_game?: Database["public"]["Enums"]["tcg_game"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_wants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wall_post_replies: {
         Row: {
@@ -700,6 +1042,14 @@ export type Database = {
         | "sold_out"
         | "live"
         | "completed"
+      gift_source: "live_stream" | "comment_reply" | "direct_message"
+      gift_type:
+        | "spark_hamster"
+        | "pirate_panda"
+        | "wizard_owl"
+        | "magma_mole"
+        | "ghost_cat"
+        | "mecha_pup"
       listing_status: "active" | "sold" | "cancelled"
       messaging_privacy: "open" | "friends_only"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
@@ -853,6 +1203,15 @@ export const Constants = {
         "sold_out",
         "live",
         "completed",
+      ],
+      gift_source: ["live_stream", "comment_reply", "direct_message"],
+      gift_type: [
+        "spark_hamster",
+        "pirate_panda",
+        "wizard_owl",
+        "magma_mole",
+        "ghost_cat",
+        "mecha_pup",
       ],
       listing_status: ["active", "sold", "cancelled"],
       messaging_privacy: ["open", "friends_only"],

@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { MessagesInbox } from "@/components/messages/MessagesInbox";
+import { MessagesDashboard } from "@/components/messages/MessagesDashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { Mail } from "lucide-react";
 
@@ -13,7 +13,7 @@ export default function Messages() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 max-w-2xl">
+      <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent flex items-center justify-center gap-3">
@@ -21,14 +21,12 @@ export default function Messages() {
             Messages
           </h1>
           <p className="text-muted-foreground">
-            Your private conversations
+            Chat, trade, and connect with collectors
           </p>
         </div>
 
-        {/* Inbox */}
-        <div className="glass-card neon-border-cyan overflow-hidden min-h-[400px]">
-          <MessagesInbox />
-        </div>
+        {/* 3-Pane Dashboard */}
+        <MessagesDashboard />
       </div>
     </Layout>
   );

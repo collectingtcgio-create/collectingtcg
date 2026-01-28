@@ -11,6 +11,7 @@ import { StoreLocator } from "@/components/home/StoreLocator";
 import { MarketHeatmap } from "@/components/home/MarketHeatmap";
 import { SetCountdown } from "@/components/home/SetCountdown";
 import { QuickScanButton } from "@/components/home/QuickScanButton";
+import { ActiveStreamsWidget } from "@/components/live/ActiveStreamsWidget";
 
 interface ActivityItem {
   id: string;
@@ -25,20 +26,13 @@ interface ActivityItem {
   };
 }
 
-interface LiveUser {
-  id: string;
-  username: string;
-  avatar_url: string;
-}
-
 export default function Home() {
   const { user } = useAuth();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    fetchActivities();
 
     // Subscribe to realtime updates
     const activityChannel = supabase
@@ -46,29 +40,14 @@ export default function Home() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "activity_feed" },
-        () => fetchData()
-      )
-      .subscribe();
-
-    const profilesChannel = supabase
-      .channel("profiles-live")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles" },
-        () => fetchLiveUsers()
+        () => fetchActivities()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(activityChannel);
-      supabase.removeChannel(profilesChannel);
     };
   }, []);
-
-  const fetchData = async () => {
-    await Promise.all([fetchActivities(), fetchLiveUsers()]);
-    setLoading(false);
-  };
 
   const fetchActivities = async () => {
     const { data } = await supabase
@@ -80,18 +59,7 @@ export default function Home() {
     if (data) {
       setActivities(data as unknown as ActivityItem[]);
     }
-  };
-
-  const fetchLiveUsers = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url")
-      .eq("is_live", true)
-      .limit(10);
-
-    if (data) {
-      setLiveUsers(data);
-    }
+    setLoading(false);
   };
 
   const getActivityIcon = (type: string) => {
@@ -156,48 +124,9 @@ export default function Home() {
               <div className="glass-card p-4 neon-border-magenta h-full">
                 <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
                   <Radio className="w-4 h-4 text-secondary animate-pulse" />
-                  Live Now
+                  Live Streams
                 </h2>
-
-                {liveUsers.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[calc(100%-40px)] text-center">
-                    <Radio className="w-8 h-8 text-muted-foreground mb-2 opacity-50" />
-                    <p className="text-muted-foreground text-xs">
-                      No one is live right now.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {liveUsers.slice(0, 5).map((liveUser) => (
-                      <Link
-                        key={liveUser.id}
-                        to={`/profile/${liveUser.id}`}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden live-border">
-                          {liveUser.avatar_url ? (
-                            <img
-                              src={liveUser.avatar_url}
-                              alt={liveUser.username}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs font-medium">
-                              {liveUser.username[0].toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-xs">{liveUser.username}</p>
-                          <p className="text-[10px] text-secondary flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-                            Live
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                <ActiveStreamsWidget />
               </div>
             </div>
 

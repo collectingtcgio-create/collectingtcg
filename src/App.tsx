@@ -16,6 +16,7 @@ import Marketplace from "./pages/Marketplace";
 import Messages from "./pages/Messages";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
+import LiveStream from "./pages/LiveStream";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/live/:id" element={<LiveStream />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
