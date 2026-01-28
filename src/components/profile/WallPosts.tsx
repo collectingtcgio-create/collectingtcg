@@ -15,8 +15,15 @@ import {
   X, 
   ChevronDown, 
   ChevronUp,
-  Trash2
+  Trash2,
+  Gift
 } from "lucide-react";
+import { GiftSelector } from "@/components/gifting/GiftSelector";
+import { GiftAnimation } from "@/components/gifting/GiftAnimation";
+import { GiftType, getGiftByType, GIFT_MASCOTS, GiftMascot } from "@/components/gifting/GiftConfig";
+import { Database } from "@/integrations/supabase/types";
+
+type DbGiftType = Database["public"]["Enums"]["gift_type"];
 
 interface WallPost {
   id: string;
@@ -34,6 +41,7 @@ interface WallPostReply {
   id: string;
   content: string;
   created_at: string;
+  gift_type: DbGiftType | null;
   author: {
     id: string;
     username: string;
@@ -45,6 +53,24 @@ interface WallPostsProps {
   profileId: string;
   profileUsername: string;
   isOwnProfile: boolean;
+}
+
+// Get glow class based on gift tier
+function getGiftGlowClass(giftType: DbGiftType | null): string {
+  if (!giftType) return "";
+  const gift = getGiftByType(giftType as GiftType);
+  if (!gift) return "";
+  
+  switch (gift.tier) {
+    case 'bronze':
+      return 'gift-glow-bronze gift-message';
+    case 'silver':
+      return 'gift-glow-silver gift-message';
+    case 'gold':
+      return 'gift-glow-gold gift-message';
+    default:
+      return '';
+  }
 }
 
 export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPostsProps) {
@@ -61,6 +87,8 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   const [replies, setReplies] = useState<Record<string, WallPostReply[]>>({});
   const [replyContent, setReplyContent] = useState<Record<string, string>>({});
   const [submittingReply, setSubmittingReply] = useState<string | null>(null);
+  const [activeGiftAnimation, setActiveGiftAnimation] = useState<GiftMascot | null>(null);
+  const [giftSenderName, setGiftSenderName] = useState<string>("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -274,6 +302,52 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     }
   };
 
+  const handleGiftSent = async (
+    giftType: GiftType, 
+    replyId: string, 
+    postId: string,
+    recipientUsername: string
+  ) => {
+    // Update the reply with the gift type
+    const { error } = await supabase
+      .from("wall_post_replies")
+      .update({ gift_type: giftType })
+      .eq("id", replyId);
+
+    if (!error) {
+      // Trigger the gift animation
+      const gift = getGiftByType(giftType);
+      if (gift) {
+        setGiftSenderName(currentProfile?.username || "Someone");
+        setActiveGiftAnimation(gift);
+      }
+      
+      // Refresh replies to show the glow
+      fetchReplies(postId);
+      
+      // Show notification toast
+      toast({
+        title: `${gift?.emoji} Gift sent!`,
+        description: `You sent a ${gift?.name} to ${recipientUsername}!`,
+      });
+    }
+  };
+
+  const handlePostGiftSent = (giftType: GiftType, post: WallPost) => {
+    // Trigger the gift animation
+    const gift = getGiftByType(giftType);
+    if (gift) {
+      setGiftSenderName(currentProfile?.username || "Someone");
+      setActiveGiftAnimation(gift);
+    }
+    
+    // Show notification toast
+    toast({
+      title: `${gift?.emoji} Gift sent!`,
+      description: `You sent a ${gift?.name} to ${post.author.username}!`,
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -283,289 +357,359 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   }
 
   return (
-    <div className="space-y-4">
-      {/* Create Post Form - Only for profile owner */}
-      {isOwnProfile && user && (
-        <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
-          <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {currentProfile?.avatar_url ? (
-                <img
-                  src={currentProfile.avatar_url}
-                  alt={currentProfile.username}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-medium">
-                  {currentProfile?.username?.[0]?.toUpperCase() || "?"}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 space-y-2">
-              <Textarea
-                value={postContent}
-                onChange={(e) => setPostContent(e.target.value)}
-                placeholder="What's on your mind?"
-                className="bg-input border-border resize-none"
-                rows={3}
-              />
-              
-              {/* Image Preview */}
-              {postImagePreview && (
-                <div className="relative inline-block">
+    <>
+      {/* Gift Animation Overlay */}
+      <GiftAnimation
+        gift={activeGiftAnimation}
+        senderName={giftSenderName}
+        onComplete={() => setActiveGiftAnimation(null)}
+      />
+
+      <div className="space-y-4">
+        {/* Create Post Form - Only for profile owner */}
+        {isOwnProfile && user && (
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <div className="flex gap-3">
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {currentProfile?.avatar_url ? (
                   <img
-                    src={postImagePreview}
-                    alt="Preview"
-                    className="max-h-40 rounded-lg"
+                    src={currentProfile.avatar_url}
+                    alt={currentProfile.username}
+                    className="w-full h-full object-cover"
                   />
+                ) : (
+                  <span className="text-sm font-medium">
+                    {currentProfile?.username?.[0]?.toUpperCase() || "?"}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Textarea
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  placeholder="What's on your mind?"
+                  className="bg-input border-border resize-none"
+                  rows={3}
+                />
+                
+                {/* Image Preview */}
+                {postImagePreview && (
+                  <div className="relative inline-block">
+                    <img
+                      src={postImagePreview}
+                      alt="Preview"
+                      className="max-h-40 rounded-lg"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={removeImage}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Add Photo
+                    </Button>
+                  </div>
                   <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6"
-                    onClick={removeImage}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="ghost"
+                    onClick={handleSubmitPost}
+                    disabled={submitting || !postContent.trim()}
                     size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="rounded-full bg-primary hover:bg-primary/80"
                   >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Add Photo
+                    {submitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Post
                   </Button>
                 </div>
-                <Button
-                  onClick={handleSubmitPost}
-                  disabled={submitting || !postContent.trim()}
-                  size="sm"
-                  className="rounded-full bg-primary hover:bg-primary/80"
-                >
-                  {submitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Send className="w-4 h-4 mr-2" />
-                  )}
-                  Post
-                </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Posts List */}
-      {posts.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">
-          {isOwnProfile 
-            ? "Share your first post!" 
-            : `${profileUsername} hasn't posted anything yet.`}
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-            >
-              {/* Post Header */}
-              <div className="flex items-start gap-3 mb-3">
-                <Link to={`/profile/${post.author?.id}`}>
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden ring-2 ring-transparent hover:ring-primary/50 transition-all">
-                    {post.author?.avatar_url ? (
-                      <img
-                        src={post.author.avatar_url}
-                        alt={post.author.username}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium">
-                        {post.author?.username?.[0]?.toUpperCase() || "?"}
+        {/* Posts List */}
+        {posts.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            {isOwnProfile 
+              ? "Share your first post!" 
+              : `${profileUsername} hasn't posted anything yet.`}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {posts.map((post) => (
+              <div
+                key={post.id}
+                className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+              >
+                {/* Post Header */}
+                <div className="flex items-start gap-3 mb-3">
+                  <Link to={`/profile/${post.author?.id}`}>
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden ring-2 ring-transparent hover:ring-primary/50 transition-all">
+                      {post.author?.avatar_url ? (
+                        <img
+                          src={post.author.avatar_url}
+                          alt={post.author.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm font-medium">
+                          {post.author?.username?.[0]?.toUpperCase() || "?"}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/profile/${post.author?.id}`}
+                        className="font-medium text-sm text-primary hover:underline"
+                      >
+                        {post.author?.username || "Unknown"}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                       </span>
-                    )}
+                    </div>
                   </div>
-                </Link>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/profile/${post.author?.id}`}
-                      className="font-medium text-sm text-primary hover:underline"
+                  {/* Gift button for posts - only show if not own post */}
+                  {currentProfile && currentProfile.id !== post.author?.id && (
+                    <GiftSelector
+                      recipientId={post.author?.id}
+                      source="comment_reply"
+                      sourceId={post.id}
+                      onGiftSent={(giftType) => handlePostGiftSent(giftType, post)}
+                      size="sm"
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-secondary hover:text-secondary hover:neon-glow-magenta"
+                        >
+                          <Gift className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                  )}
+                  {/* Delete button for post author */}
+                  {currentProfile?.id === post.author?.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeletePost(post.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     >
-                      {post.author?.username || "Unknown"}
-                    </Link>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
-                {/* Delete button for post author */}
-                {currentProfile?.id === post.author?.id && (
+
+                {/* Post Content */}
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap mb-3">
+                  {post.content}
+                </p>
+
+                {/* Post Image */}
+                {post.image_url && (
+                  <div className="mb-3">
+                    <img
+                      src={post.image_url}
+                      alt="Post image"
+                      className="max-h-80 rounded-lg object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Replies Toggle */}
+                <div className="pt-2 border-t border-border/50">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeletePost(post.id)}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    size="sm"
+                    onClick={() => toggleReplies(post.id)}
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Post Content */}
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap mb-3">
-                {post.content}
-              </p>
-
-              {/* Post Image */}
-              {post.image_url && (
-                <div className="mb-3">
-                  <img
-                    src={post.image_url}
-                    alt="Post image"
-                    className="max-h-80 rounded-lg object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Replies Toggle */}
-              <div className="pt-2 border-t border-border/50">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleReplies(post.id)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  {replies[post.id]?.length || 0} Replies
-                  {expandedReplies[post.id] ? (
-                    <ChevronUp className="w-4 h-4 ml-1" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 ml-1" />
-                  )}
-                </Button>
-
-                {/* Replies Section */}
-                {expandedReplies[post.id] && (
-                  <div className="mt-3 pl-4 border-l-2 border-border/50 space-y-3">
-                    {/* Reply Form */}
-                    {user && currentProfile && (
-                      <div className="flex gap-2">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {currentProfile.avatar_url ? (
-                            <img
-                              src={currentProfile.avatar_url}
-                              alt={currentProfile.username}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs font-medium">
-                              {currentProfile.username?.[0]?.toUpperCase() || "?"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1 flex gap-2">
-                          <Input
-                            value={replyContent[post.id] || ""}
-                            onChange={(e) =>
-                              setReplyContent((prev) => ({
-                                ...prev,
-                                [post.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Write a reply..."
-                            className="bg-input border-border h-8 text-sm"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmitReply(post.id);
-                              }
-                            }}
-                          />
-                          <Button
-                            size="icon"
-                            onClick={() => handleSubmitReply(post.id)}
-                            disabled={submittingReply === post.id || !replyContent[post.id]?.trim()}
-                            className="h-8 w-8"
-                          >
-                            {submittingReply === post.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Send className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    {replies[post.id]?.length || 0} Replies
+                    {expandedReplies[post.id] ? (
+                      <ChevronUp className="w-4 h-4 ml-1" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 ml-1" />
                     )}
+                  </Button>
 
-                    {/* Replies List */}
-                    {replies[post.id]?.map((reply) => (
-                      <div key={reply.id} className="flex gap-2 group">
-                        <Link to={`/profile/${reply.author?.id}`}>
+                  {/* Replies Section */}
+                  {expandedReplies[post.id] && (
+                    <div className="mt-3 pl-4 border-l-2 border-border/50 space-y-3">
+                      {/* Reply Form */}
+                      {user && currentProfile && (
+                        <div className="flex gap-2">
                           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {reply.author?.avatar_url ? (
+                            {currentProfile.avatar_url ? (
                               <img
-                                src={reply.author.avatar_url}
-                                alt={reply.author.username}
+                                src={currentProfile.avatar_url}
+                                alt={currentProfile.username}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <span className="text-xs font-medium">
-                                {reply.author?.username?.[0]?.toUpperCase() || "?"}
+                                {currentProfile.username?.[0]?.toUpperCase() || "?"}
                               </span>
                             )}
                           </div>
-                        </Link>
-                        <div className="flex-1 bg-muted/30 rounded-lg p-2">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Link
-                              to={`/profile/${reply.author?.id}`}
-                              className="font-medium text-xs text-primary hover:underline"
+                          <div className="flex-1 flex gap-2">
+                            <Input
+                              value={replyContent[post.id] || ""}
+                              onChange={(e) =>
+                                setReplyContent((prev) => ({
+                                  ...prev,
+                                  [post.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="Write a reply..."
+                              className="bg-input border-border h-8 text-sm"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSubmitReply(post.id);
+                                }
+                              }}
+                            />
+                            <Button
+                              size="icon"
+                              onClick={() => handleSubmitReply(post.id)}
+                              disabled={submittingReply === post.id || !replyContent[post.id]?.trim()}
+                              className="h-8 w-8"
                             >
-                              {reply.author?.username || "Unknown"}
-                            </Link>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
-                            </span>
+                              {submittingReply === post.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Send className="w-4 h-4" />
+                              )}
+                            </Button>
                           </div>
-                          <p className="text-sm text-foreground/80">{reply.content}</p>
                         </div>
-                        {/* Delete button for reply author */}
-                        {currentProfile?.id === reply.author?.id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteReply(reply.id, post.id)}
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      )}
 
-                    {replies[post.id]?.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No replies yet</p>
-                    )}
-                  </div>
-                )}
+                      {/* Replies List */}
+                      {replies[post.id]?.map((reply) => {
+                        const giftGlowClass = getGiftGlowClass(reply.gift_type);
+                        const giftInfo = reply.gift_type ? getGiftByType(reply.gift_type as GiftType) : null;
+                        
+                        return (
+                          <div key={reply.id} className="flex gap-2 group">
+                            <Link to={`/profile/${reply.author?.id}`}>
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {reply.author?.avatar_url ? (
+                                  <img
+                                    src={reply.author.avatar_url}
+                                    alt={reply.author.username}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-xs font-medium">
+                                    {reply.author?.username?.[0]?.toUpperCase() || "?"}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                            <div className={`flex-1 bg-muted/30 rounded-lg p-2 ${giftGlowClass}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Link
+                                  to={`/profile/${reply.author?.id}`}
+                                  className="font-medium text-xs text-primary hover:underline"
+                                >
+                                  {reply.author?.username || "Unknown"}
+                                </Link>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
+                                </span>
+                                {/* Gift badge if reply was gifted */}
+                                {giftInfo && (
+                                  <span 
+                                    className="text-xs px-1.5 py-0.5 rounded-full uppercase font-bold"
+                                    style={{ 
+                                      backgroundColor: giftInfo.color,
+                                      color: 'black'
+                                    }}
+                                  >
+                                    {giftInfo.emoji} {giftInfo.tier}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-foreground/80">{reply.content}</p>
+                            </div>
+                            
+                            {/* Actions for reply */}
+                            <div className="flex flex-col gap-1">
+                              {/* Gift button - only show for other users' replies */}
+                              {currentProfile && currentProfile.id !== reply.author?.id && !reply.gift_type && (
+                                <GiftSelector
+                                  recipientId={reply.author?.id}
+                                  source="comment_reply"
+                                  sourceId={reply.id}
+                                  onGiftSent={(giftType) => 
+                                    handleGiftSent(giftType, reply.id, post.id, reply.author?.username || "Unknown")
+                                  }
+                                  size="sm"
+                                  trigger={
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-secondary hover:text-secondary hover:neon-glow-magenta"
+                                    >
+                                      <Gift className="w-3 h-3" />
+                                    </Button>
+                                  }
+                                />
+                              )}
+                              {/* Delete button for reply author */}
+                              {currentProfile?.id === reply.author?.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteReply(reply.id, post.id)}
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {replies[post.id]?.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No replies yet</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
