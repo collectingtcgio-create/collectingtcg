@@ -659,11 +659,70 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { image_data, game_hint } = body;
+    const { image_data, game_hint, search_query } = body;
 
+    // Text-based search mode
+    if (search_query && typeof search_query === 'string') {
+      console.log(`Starting text search for: "${search_query}" with game hint: ${game_hint || 'auto'}...`);
+      
+      let searchResults: CardResult[] = [];
+      const gameToSearch = game_hint as TcgGame | undefined;
+      
+      if (!gameToSearch || gameToSearch === 'auto' as any) {
+        // Search across all TCGs in parallel
+        const [pokemon, magic, yugioh, onepiece, lorcana, dragonball] = await Promise.all([
+          fetchPokemonCard(search_query),
+          fetchMagicCard(search_query),
+          fetchYugiohCard(search_query),
+          fetchOnePieceCard(search_query),
+          fetchLorcanaCard(search_query),
+          fetchDragonBallCard(search_query),
+        ]);
+        
+        searchResults = [...pokemon, ...magic, ...yugioh, ...onepiece, ...lorcana, ...dragonball];
+      } else {
+        // Search specific TCG
+        switch (gameToSearch) {
+          case 'pokemon':
+            searchResults = await fetchPokemonCard(search_query);
+            break;
+          case 'magic':
+            searchResults = await fetchMagicCard(search_query);
+            break;
+          case 'yugioh':
+            searchResults = await fetchYugiohCard(search_query);
+            break;
+          case 'onepiece':
+            searchResults = await fetchOnePieceCard(search_query);
+            break;
+          case 'lorcana':
+            searchResults = await fetchLorcanaCard(search_query);
+            break;
+          case 'dragonball':
+            searchResults = await fetchDragonBallCard(search_query);
+            break;
+          default:
+            searchResults = await fetchGenericCard(search_query, gameToSearch);
+        }
+      }
+
+      const processingTime = Date.now() - startTime;
+      console.log(`Text search found ${searchResults.length} cards in ${processingTime}ms`);
+
+      return new Response(
+        JSON.stringify({
+          success: searchResults.length > 0,
+          cards: searchResults.slice(0, 10), // Limit to 10 results
+          processing_time_ms: processingTime,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Image-based scan mode
     if (!image_data) {
       return new Response(
-        JSON.stringify({ success: false, error: "No image data provided" }),
+        JSON.stringify({ success: false, error: "No image data or search query provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
