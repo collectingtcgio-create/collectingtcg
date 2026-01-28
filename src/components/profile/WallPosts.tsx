@@ -661,7 +661,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                             </div>
                             
                             {/* Actions for reply */}
-                            <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
                               {/* Gift button - only show for other users' replies */}
                               {currentProfile && currentProfile.id !== reply.author?.id && !reply.gift_type && (
                                 <GiftSelector
@@ -676,9 +676,9 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-secondary hover:text-secondary hover:neon-glow-magenta"
+                                      className="h-7 w-7 text-secondary hover:text-secondary hover:bg-secondary/10"
                                     >
-                                      <Gift className="w-3 h-3" />
+                                      <Gift className="w-4 h-4" />
                                     </Button>
                                   }
                                 />
@@ -689,9 +689,9 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleDeleteReply(reply.id, post.id)}
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               )}
                             </div>
