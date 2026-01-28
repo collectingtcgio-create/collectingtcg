@@ -8,10 +8,11 @@ import { useCardScanner } from "@/hooks/useCardScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
-import { ScanResultModal, CardResult } from "@/components/scanner/ScanResultModal";
+import { ScanResultModal, CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
-import { CardSelectionModal } from "@/components/scanner/CardSelectionModal";
+import { CardSelectionGrid } from "@/components/scanner/CardSelectionGrid";
 import { ImageUpload } from "@/components/scanner/ImageUpload";
+import { GameSelector } from "@/components/scanner/GameSelector";
 import { Sparkles, X, Search } from "lucide-react";
 
 export default function Scanner() {
@@ -20,6 +21,7 @@ export default function Scanner() {
   const cameraRef = useRef<CameraViewHandle>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [selectedGame, setSelectedGame] = useState<TcgGame | 'auto'>('auto');
 
   const {
     isProcessing,
@@ -60,9 +62,10 @@ export default function Scanner() {
     // Save captured image for potential use in modal
     setCapturedImage(imageData);
 
-    // Send to identification function
-    await identifyCard(imageData);
-  }, [identifyCard, toast]);
+    // Send to identification function with game hint
+    const gameHint = selectedGame !== 'auto' ? selectedGame : undefined;
+    await identifyCard(imageData, gameHint);
+  }, [identifyCard, toast, selectedGame]);
 
   const handleTryAgain = useCallback(() => {
     resetScanner();
@@ -133,6 +136,13 @@ export default function Scanner() {
         {/* Scanner Area */}
         {!showManualAdd ? (
           <div className="glass-card p-6 neon-border-cyan">
+            {/* Game Selector */}
+            <GameSelector 
+              value={selectedGame}
+              onChange={setSelectedGame}
+              disabled={isProcessing}
+            />
+
             {/* Camera View Component */}
             <CameraView 
               ref={cameraRef} 
@@ -248,12 +258,13 @@ export default function Scanner() {
           </div>
         )}
 
-        {/* Card Selection Modal (multiple matches) */}
-        <CardSelectionModal
+        {/* Card Selection Grid (multiple matches) */}
+        <CardSelectionGrid
           open={showSelectionModal}
           onOpenChange={setShowSelectionModal}
           cards={scanResults}
           onSelect={selectCard}
+          onManualSearch={handleSearchManually}
         />
 
         {/* Scan Result Modal (single match or after selection) */}

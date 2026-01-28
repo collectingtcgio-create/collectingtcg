@@ -23,7 +23,7 @@ export function useCardScanner() {
   const [showNoCardModal, setShowNoCardModal] = useState(false);
   const [isAddingToBinder, setIsAddingToBinder] = useState(false);
 
-  const identifyCard = useCallback(async (imageData: string): Promise<ScanResult> => {
+  const identifyCard = useCallback(async (imageData: string, gameHint?: string): Promise<ScanResult> => {
     setIsProcessing(true);
     setScanResults([]);
     setSelectedCard(null);
@@ -35,9 +35,10 @@ export function useCardScanner() {
         throw new Error("Not authenticated");
       }
 
-      const response = await supabase.functions.invoke("identify-card", {
+      const response = await supabase.functions.invoke("identify-card-v3", {
         body: {
           image_data: imageData,
+          game_hint: gameHint && gameHint !== 'auto' ? gameHint : undefined,
         },
       });
 
@@ -100,13 +101,16 @@ export function useCardScanner() {
     setIsAddingToBinder(true);
 
     try {
+      // Map tcg_game to valid database enum (marvel not in DB enum)
+      const dbTcgGame = cardToAdd.tcg_game === 'marvel' ? null : cardToAdd.tcg_game;
+      
       // Insert the card into user_cards with tcg_game
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: cardToAdd.card_name,
         image_url: cardToAdd.image_url || null,
         price_estimate: cardToAdd.price_estimate || cardToAdd.price_market || 0,
-        tcg_game: cardToAdd.tcg_game || null,
+        tcg_game: dbTcgGame || null,
       });
 
       if (insertError) {
