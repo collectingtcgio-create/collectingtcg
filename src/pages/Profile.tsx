@@ -576,16 +576,15 @@ export default function Profile() {
                     return (
                       <div
                         key={index}
-                        onClick={handleClick}
-                        className={`aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden hover:neon-border-cyan transition-all duration-300 cursor-pointer group relative ${isOwnProfile ? "hover:ring-2 hover:ring-primary/50" : ""}`}
+                        onClick={isOwnProfile ? handleClick : (item?.user_cards || item?.friend) ? handleClick : undefined}
+                        className={`aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden transition-all duration-300 group relative ${
+                          isOwnProfile 
+                            ? "cursor-pointer hover:neon-border-cyan hover:ring-2 hover:ring-primary/50" 
+                            : (item?.user_cards || item?.friend) 
+                              ? "cursor-pointer hover:neon-border-cyan" 
+                              : ""
+                        }`}
                       >
-                        {/* Edit overlay for own profile */}
-                        {isOwnProfile && (
-                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <Plus className="w-6 h-6 text-primary" />
-                          </div>
-                        )}
-                        
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
                             {item.user_cards.image_url ? (
@@ -634,11 +633,7 @@ export default function Profile() {
                           </div>
                         ) : (
                           <div className="text-muted-foreground/30">
-                            {isOwnProfile ? (
-                              <Plus className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            ) : (
-                              <Users className="w-6 h-6" />
-                            )}
+                            <Users className="w-6 h-6" />
                           </div>
                         )}
                       </div>
