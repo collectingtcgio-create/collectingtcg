@@ -460,6 +460,7 @@ export type Database = {
           instagram_url: string | null
           is_live: boolean | null
           last_username_change_at: string | null
+          spotify_playlist_url: string | null
           status: string | null
           tiktok_url: string | null
           twitter_url: string | null
@@ -467,6 +468,7 @@ export type Database = {
           user_id: string
           username: string
           website_url: string | null
+          youtube_playlist_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -478,6 +480,7 @@ export type Database = {
           instagram_url?: string | null
           is_live?: boolean | null
           last_username_change_at?: string | null
+          spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
@@ -485,6 +488,7 @@ export type Database = {
           user_id: string
           username: string
           website_url?: string | null
+          youtube_playlist_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -496,6 +500,7 @@ export type Database = {
           instagram_url?: string | null
           is_live?: boolean | null
           last_username_change_at?: string | null
+          spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
@@ -503,6 +508,7 @@ export type Database = {
           user_id?: string
           username?: string
           website_url?: string | null
+          youtube_playlist_url?: string | null
         }
         Relationships: []
       }
