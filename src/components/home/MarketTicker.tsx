@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { TrendingUp, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp } from "lucide-react";
 
 interface HolyGrailItem {
   id: string;
@@ -162,66 +161,18 @@ function getGameEmoji(game: string): string {
 
 export function MarketTicker() {
   const [items, setItems] = useState<HolyGrailItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
-    fetchLivePrices();
-    
-    // Refresh prices every 5 minutes
-    const interval = setInterval(fetchLivePrices, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchLivePrices = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("fetch-market-prices");
-
-      if (error) throw error;
-
-      if (data?.success && data.prices) {
-        // Merge live prices with static items
-        const priceMap = new Map<string, { price: number | null; priceChange: number }>(
-          data.prices.map((p: { id: string; price: number | null; priceChange?: number }) => [
-            p.id, 
-            { price: p.price, priceChange: p.priceChange || 0 }
-          ])
-        );
-
-        const mergedItems = HOLY_GRAIL_ITEMS.map((item) => {
-          const liveData = priceMap.get(item.id);
-          return {
-            ...item,
-            price: liveData?.price ?? FALLBACK_PRICES[item.id] ?? null,
-            priceChange: liveData?.priceChange ?? (Math.random() - 0.5) * 5,
-          };
-        });
-
-        setItems(mergedItems);
-        setIsLive(true);
-      } else {
-        // Use fallback prices
-        loadFallbackPrices();
-      }
-    } catch (error) {
-      console.error("Failed to fetch live prices:", error);
-      loadFallbackPrices();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFallbackPrices = () => {
-    const fallbackItems = HOLY_GRAIL_ITEMS.map((item) => ({
+    // Use cached/static prices only - no API calls
+    const cachedItems = HOLY_GRAIL_ITEMS.map((item) => ({
       ...item,
       price: FALLBACK_PRICES[item.id] || null,
-      priceChange: (Math.random() - 0.5) * 5,
+      priceChange: undefined, // Remove fake price changes
     }));
-    setItems(fallbackItems);
-    setIsLive(false);
-  };
+    setItems(cachedItems);
+  }, []);
 
-  if (items.length === 0 && !loading) return null;
+  if (items.length === 0) return null;
 
   // Duplicate items for seamless loop
   const duplicatedItems = [...items, ...items];
@@ -231,13 +182,9 @@ export function MarketTicker() {
       <div className="flex items-center gap-2 mb-3 px-4">
         <TrendingUp className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-semibold text-foreground">Holy Grails Market</h2>
-        {loading ? (
-          <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
-        ) : (
-          <span className={`text-xs px-2 py-0.5 rounded ${isLive ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-            {isLive ? '● LIVE' : 'Cached'}
-          </span>
-        )}
+        <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
+          Estimated
+        </span>
       </div>
 
       <div className="relative">
