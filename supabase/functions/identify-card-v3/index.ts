@@ -281,6 +281,112 @@ async function fetchPokemonCard(cardName: string): Promise<CardResult[]> {
   }
 }
 
+// YGOProDeck API for Yu-Gi-Oh! cards
+async function fetchYugiohCard(cardName: string): Promise<CardResult[]> {
+  try {
+    const response = await fetch(
+      `https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=${encodeURIComponent(cardName)}`
+    );
+
+    if (!response.ok) {
+      console.error("YGOProDeck API error:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const cards = data.data || [];
+
+    return cards.slice(0, 5).map((card: any) => {
+      // Get card prices from TCGPlayer data
+      const prices = card.card_prices?.[0] || {};
+      const tcgPrice = prices.tcgplayer_price ? parseFloat(prices.tcgplayer_price) : null;
+      
+      // Get best image (prefer cropped art for display)
+      const images = card.card_images?.[0] || {};
+      const imageUrl = images.image_url || images.image_url_cropped;
+
+      return {
+        id: crypto.randomUUID(),
+        card_name: card.name,
+        tcg_game: 'yugioh' as TcgGame,
+        set_name: card.card_sets?.[0]?.set_name || null,
+        set_code: card.card_sets?.[0]?.set_code || null,
+        card_number: card.card_sets?.[0]?.set_code || card.id?.toString(),
+        rarity: card.card_sets?.[0]?.set_rarity || null,
+        image_url: imageUrl,
+        price_estimate: tcgPrice,
+        price_market: tcgPrice,
+        variant: 'standard',
+        confidence: 0.95,
+      };
+    });
+  } catch (error) {
+    console.error("YGOProDeck error:", error);
+    return [];
+  }
+}
+
+// DBS Cards API / JustTCG for Dragon Ball Super cards
+async function fetchDragonBallCard(cardName: string): Promise<CardResult[]> {
+  const apiKey = Deno.env.get("JUSTTCG_API_KEY");
+  if (!apiKey) {
+    console.log("JustTCG API key not configured for Dragon Ball");
+    return [];
+  }
+
+  try {
+    // JustTCG uses "dragon-ball-super-fusion-world" for Dragon Ball
+    const url = `https://api.justtcg.com/v1/cards?game=dragon-ball-super-fusion-world&q=${encodeURIComponent(cardName)}&limit=5`;
+    
+    console.log("Fetching Dragon Ball cards from JustTCG:", url);
+
+    const response = await fetch(url, {
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("JustTCG Dragon Ball API error:", response.status, errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    const cards = data.data || data || [];
+
+    if (!Array.isArray(cards)) return [];
+
+    return cards.map((card: any) => {
+      let marketPrice = null;
+      if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
+        const highestPriceVariant = card.variants.reduce((max: any, v: any) => 
+          (v.price || 0) > (max.price || 0) ? v : max, card.variants[0]);
+        marketPrice = highestPriceVariant?.price || null;
+      }
+
+      return {
+        id: crypto.randomUUID(),
+        card_name: card.name,
+        tcg_game: 'dragonball' as TcgGame,
+        set_name: card.set?.name || card.setName,
+        set_code: card.set?.id || card.setCode,
+        card_number: card.card_id || card.number || card.collector_number,
+        rarity: card.rarity,
+        image_url: card.image_url || card.image || card.images?.large || card.images?.small,
+        price_estimate: marketPrice,
+        price_market: marketPrice,
+        variant: 'standard',
+        confidence: 0.95,
+      };
+    });
+  } catch (error) {
+    console.error("JustTCG Dragon Ball error:", error);
+    return [];
+  }
+}
+
 // JustTCG for One Piece cards
 async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<CardResult[]> {
   const apiKey = Deno.env.get("JUSTTCG_API_KEY");
@@ -476,6 +582,12 @@ async function enrichCardData(cards: any[]): Promise<CardResult[]> {
         break;
       case 'onepiece':
         results = await fetchOnePieceCard(card.card_name);
+        break;
+      case 'yugioh':
+        results = await fetchYugiohCard(card.card_name);
+        break;
+      case 'dragonball':
+        results = await fetchDragonBallCard(card.card_name);
         break;
       case 'marvel':
         results = await fetchMarvelCard(card.card_name, card.set_name);
