@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { Bell, BellRing, ExternalLink, MapPin, Calendar, Star, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TournamentEvent, GAME_CONFIGS, STATUS_CONFIG } from './types';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +55,9 @@ export function EventDetailModal({
             <div>
               <p className="text-sm text-muted-foreground">{gameConfig.name}</p>
               <DialogTitle className="text-xl">{event.title}</DialogTitle>
+              <DialogDescription className="sr-only">
+                {event.description || `Details for ${event.title} tournament`}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

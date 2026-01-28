@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ export function EventsCalendarCompact() {
           Upcoming Events
         </h2>
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" asChild>
-          <a href="#events-full">View All</a>
+          <Link to="/events">View All</Link>
         </Button>
       </div>
 
