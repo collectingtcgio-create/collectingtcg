@@ -13,10 +13,11 @@ export interface CameraViewHandle {
 interface CameraViewProps {
   onCapture?: (imageData: string) => void;
   isProcessing?: boolean;
+  onCameraStateChange?: (isActive: boolean) => void;
 }
 
 export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
-  ({ onCapture, isProcessing = false }, ref) => {
+  ({ onCapture, isProcessing = false, onCameraStateChange }, ref) => {
     const { toast } = useToast();
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,6 +67,7 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
 
         await videoEl.play();
         setIsCameraActive(true);
+        onCameraStateChange?.(true);
         setHasPermission(true);
       } catch (error: any) {
         setHasPermission(false);
@@ -100,7 +102,8 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
         videoRef.current.srcObject = null;
       }
       setIsCameraActive(false);
-    }, []);
+      onCameraStateChange?.(false);
+    }, [onCameraStateChange]);
 
     const captureFrame = useCallback((): string | null => {
       const video = videoRef.current;
