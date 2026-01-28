@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SendMessageModal } from "@/components/messages/SendMessageModal";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { TopEightEditor } from "@/components/profile/TopEightEditor";
+import { SocialLinksEditor, SocialLinksDisplay } from "@/components/profile/SocialLinksEditor";
 import { 
   UserPlus, 
   UserMinus, 
@@ -24,7 +25,6 @@ import {
   Share2,
   Ban,
   Link as LinkIcon,
-  Settings,
   Plus
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
@@ -38,6 +38,12 @@ interface ProfileData {
   is_live: boolean;
   created_at: string;
   updated_at: string;
+  email_contact?: string;
+  tiktok_url?: string;
+  twitter_url?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+  website_url?: string;
 }
 
 interface TopEightItem {
@@ -87,6 +93,7 @@ export default function Profile() {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [topEightEditorOpen, setTopEightEditorOpen] = useState(false);
   const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
+  const [socialLinksEditorOpen, setSocialLinksEditorOpen] = useState(false);
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -437,23 +444,40 @@ export default function Profile() {
                       <Star className="w-3 h-3 mr-2" />
                       Rank User
                     </Button>
+                    {/* Social Links Display for other profiles */}
+                    <div className="col-span-2 pt-2 border-t border-border/50">
+                      <SocialLinksDisplay
+                        links={{
+                          email_contact: profileData.email_contact || "",
+                          tiktok_url: profileData.tiktok_url || "",
+                          twitter_url: profileData.twitter_url || "",
+                          instagram_url: profileData.instagram_url || "",
+                          facebook_url: profileData.facebook_url || "",
+                          website_url: profileData.website_url || "",
+                        }}
+                        isOwnProfile={false}
+                        onEditClick={() => {}}
+                      />
+                    </div>
                   </>
                 )}
                 {isOwnProfile && (
-                  <div className="col-span-2 space-y-2">
-                    <Link to="/settings">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
-                      >
-                        <Settings className="w-3 h-3 mr-2" />
-                        Account Settings
-                      </Button>
-                    </Link>
-                    <p className="text-xs text-muted-foreground text-center">
+                  <div className="col-span-2 space-y-3">
+                    <p className="text-xs text-muted-foreground text-center pb-2 border-b border-border/50">
                       This is your profile
                     </p>
+                    <SocialLinksDisplay
+                      links={{
+                        email_contact: profileData.email_contact || "",
+                        tiktok_url: profileData.tiktok_url || "",
+                        twitter_url: profileData.twitter_url || "",
+                        instagram_url: profileData.instagram_url || "",
+                        facebook_url: profileData.facebook_url || "",
+                        website_url: profileData.website_url || "",
+                      }}
+                      isOwnProfile={true}
+                      onEditClick={() => setSocialLinksEditorOpen(true)}
+                    />
                   </div>
                 )}
                 {!user && (
@@ -731,6 +755,23 @@ export default function Profile() {
           position={selectedTopEightPosition}
           currentCardId={topEight.find((t) => t.position === selectedTopEightPosition)?.card_id}
           currentFriendId={topEight.find((t) => t.position === selectedTopEightPosition)?.friend_id}
+          onUpdate={fetchProfileData}
+        />
+      )}
+
+      {/* Social Links Editor Modal */}
+      {isOwnProfile && profileData && (
+        <SocialLinksEditor
+          open={socialLinksEditorOpen}
+          onOpenChange={setSocialLinksEditorOpen}
+          currentLinks={{
+            email_contact: profileData.email_contact || "",
+            tiktok_url: profileData.tiktok_url || "",
+            twitter_url: profileData.twitter_url || "",
+            instagram_url: profileData.instagram_url || "",
+            facebook_url: profileData.facebook_url || "",
+            website_url: profileData.website_url || "",
+          }}
           onUpdate={fetchProfileData}
         />
       )}
