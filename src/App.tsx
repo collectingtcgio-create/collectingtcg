@@ -11,6 +11,7 @@ import Search from "./pages/Search";
 import Scanner from "./pages/Scanner";
 import Collections from "./pages/Collections";
 import Events from "./pages/Events";
+import Marketplace from "./pages/Marketplace";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/scanner" element={<Scanner />} />
             <Route path="/collections" element={<Collections />} />
             <Route path="/events" element={<Events />} />
+            <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/admin" element={<AdminDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
