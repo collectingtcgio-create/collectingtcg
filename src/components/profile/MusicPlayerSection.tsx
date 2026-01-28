@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Music, Youtube, Edit2, Save, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Music, Youtube, Edit2, Save, X, Play } from "lucide-react";
 
 interface MusicPlayerSectionProps {
   spotifyUrl: string;
   youtubeUrl: string;
+  autoplay: boolean;
   isOwnProfile: boolean;
-  onSave: (spotifyUrl: string, youtubeUrl: string) => Promise<void>;
+  onSave: (spotifyUrl: string, youtubeUrl: string, autoplay: boolean) => Promise<void>;
 }
 
 // Extract Spotify embed ID from various URL formats
@@ -36,20 +38,34 @@ const extractSpotifyId = (url: string): { type: string; id: string } | null => {
 };
 
 // Extract YouTube video/playlist ID from various URL formats
-const extractYoutubeId = (url: string): { type: string; id: string } | null => {
+const extractYoutubeId = (url: string): { type: string; id: string; videoId?: string } | null => {
   if (!url) return null;
   
-  // Playlist patterns
-  const playlistMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);
-  if (playlistMatch) {
-    return { type: 'playlist', id: playlistMatch[1] };
+  // Check for playlist first - various formats
+  // Format: youtube.com/playlist?list=PLxxxxxx
+  const playlistOnlyMatch = url.match(/youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/);
+  if (playlistOnlyMatch) {
+    return { type: 'playlist', id: playlistOnlyMatch[1] };
   }
   
-  // Video patterns
+  // Format: youtube.com/watch?v=xxxxx&list=PLxxxxxx or youtube.com/watch?list=PLxxxxxx&v=xxxxx
+  const playlistWithVideoMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+  const videoInPlaylistMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+  if (playlistWithVideoMatch) {
+    return { 
+      type: 'playlist', 
+      id: playlistWithVideoMatch[1],
+      videoId: videoInPlaylistMatch?.[1]
+    };
+  }
+  
+  // Video patterns (when no playlist)
   const videoPatterns = [
     /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
     /youtu\.be\/([a-zA-Z0-9_-]+)/,
     /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]+)/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/,
   ];
   
   for (const pattern of videoPatterns) {
@@ -62,15 +78,29 @@ const extractYoutubeId = (url: string): { type: string; id: string } | null => {
   return null;
 };
 
+// Build YouTube embed URL
+const buildYoutubeEmbedUrl = (embed: { type: string; id: string; videoId?: string }, autoplay: boolean): string => {
+  const autoplayParam = autoplay ? '&autoplay=1&mute=1' : '';
+  
+  if (embed.type === 'playlist') {
+    // For playlists, use videoseries with list parameter
+    return `https://www.youtube.com/embed/videoseries?list=${embed.id}${autoplayParam}`;
+  }
+  
+  return `https://www.youtube.com/embed/${embed.id}?${autoplayParam.replace('&', '')}`;
+};
+
 export function MusicPlayerSection({ 
   spotifyUrl, 
-  youtubeUrl, 
+  youtubeUrl,
+  autoplay,
   isOwnProfile, 
   onSave 
 }: MusicPlayerSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editSpotify, setEditSpotify] = useState(spotifyUrl);
   const [editYoutube, setEditYoutube] = useState(youtubeUrl);
+  const [editAutoplay, setEditAutoplay] = useState(autoplay);
   const [saving, setSaving] = useState(false);
 
   const spotifyEmbed = extractSpotifyId(spotifyUrl);
@@ -79,7 +109,7 @@ export function MusicPlayerSection({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(editSpotify, editYoutube);
+      await onSave(editSpotify, editYoutube, editAutoplay);
       setIsEditing(false);
     } finally {
       setSaving(false);
@@ -89,6 +119,7 @@ export function MusicPlayerSection({
   const handleCancel = () => {
     setEditSpotify(spotifyUrl);
     setEditYoutube(youtubeUrl);
+    setEditAutoplay(autoplay);
     setIsEditing(false);
   };
 
@@ -143,14 +174,34 @@ export function MusicPlayerSection({
             </Label>
             <Input
               id="youtube-url"
-              placeholder="https://youtube.com/watch?v=... or playlist URL"
+              placeholder="https://youtube.com/playlist?list=... or video URL"
               value={editYoutube}
               onChange={(e) => setEditYoutube(e.target.value)}
               className="bg-background/50"
             />
             <p className="text-xs text-muted-foreground">
-              Paste a YouTube video or playlist URL
+              Paste a YouTube playlist URL (e.g., youtube.com/playlist?list=...) or video URL
             </p>
+          </div>
+
+          {/* Autoplay Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+            <div className="flex items-center gap-2">
+              <Play className="w-4 h-4 text-primary" />
+              <div>
+                <Label htmlFor="autoplay-toggle" className="text-sm font-medium cursor-pointer">
+                  Autoplay Music
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Music will start playing (muted) when visitors view your profile
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="autoplay-toggle"
+              checked={editAutoplay}
+              onCheckedChange={setEditAutoplay}
+            />
           </div>
 
           <div className="flex gap-2 justify-end">
@@ -166,6 +217,14 @@ export function MusicPlayerSection({
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Autoplay indicator */}
+          {autoplay && (spotifyEmbed || youtubeEmbed) && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Play className="w-3 h-3" />
+              <span>Autoplay enabled (starts muted)</span>
+            </div>
+          )}
+
           {/* Spotify Player */}
           {spotifyEmbed && (
             <div className="rounded-lg overflow-hidden">
@@ -185,11 +244,7 @@ export function MusicPlayerSection({
           {youtubeEmbed && (
             <div className="rounded-lg overflow-hidden aspect-video">
               <iframe
-                src={
-                  youtubeEmbed.type === 'playlist'
-                    ? `https://www.youtube.com/embed/videoseries?list=${youtubeEmbed.id}`
-                    : `https://www.youtube.com/embed/${youtubeEmbed.id}`
-                }
+                src={buildYoutubeEmbedUrl(youtubeEmbed, autoplay)}
                 width="100%"
                 height="100%"
                 frameBorder="0"

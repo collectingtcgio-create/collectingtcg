@@ -460,6 +460,7 @@ export type Database = {
           instagram_url: string | null
           is_live: boolean | null
           last_username_change_at: string | null
+          music_autoplay: boolean | null
           spotify_playlist_url: string | null
           status: string | null
           tiktok_url: string | null
@@ -480,6 +481,7 @@ export type Database = {
           instagram_url?: string | null
           is_live?: boolean | null
           last_username_change_at?: string | null
+          music_autoplay?: boolean | null
           spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
@@ -500,6 +502,7 @@ export type Database = {
           instagram_url?: string | null
           is_live?: boolean | null
           last_username_change_at?: string | null
+          music_autoplay?: boolean | null
           spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
