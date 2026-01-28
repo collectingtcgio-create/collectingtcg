@@ -193,6 +193,66 @@ export type Database = {
           },
         ]
       }
+      marketplace_listings: {
+        Row: {
+          asking_price: number
+          card_id: string | null
+          card_name: string
+          condition: Database["public"]["Enums"]["card_condition"]
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          seller_id: string
+          status: Database["public"]["Enums"]["listing_status"]
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          updated_at: string
+        }
+        Insert: {
+          asking_price: number
+          card_id?: string | null
+          card_name: string
+          condition?: Database["public"]["Enums"]["card_condition"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          seller_id: string
+          status?: Database["public"]["Enums"]["listing_status"]
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          updated_at?: string
+        }
+        Update: {
+          asking_price?: number
+          card_id?: string | null
+          card_name?: string
+          condition?: Database["public"]["Enums"]["card_condition"]
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          seller_id?: string
+          status?: Database["public"]["Enums"]["listing_status"]
+          tcg_game?: Database["public"]["Enums"]["tcg_game"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_listings_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "user_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -433,12 +493,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      card_condition:
+        | "near_mint"
+        | "lightly_played"
+        | "moderately_played"
+        | "heavily_played"
+        | "damaged"
       event_status:
         | "upcoming"
         | "open_registration"
         | "sold_out"
         | "live"
         | "completed"
+      listing_status: "active" | "sold" | "cancelled"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
         | "pokemon"
@@ -448,6 +515,7 @@ export type Database = {
         | "dragonball"
         | "lorcana"
         | "unionarena"
+        | "marvel"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -576,6 +644,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      card_condition: [
+        "near_mint",
+        "lightly_played",
+        "moderately_played",
+        "heavily_played",
+        "damaged",
+      ],
       event_status: [
         "upcoming",
         "open_registration",
@@ -583,6 +658,7 @@ export const Constants = {
         "live",
         "completed",
       ],
+      listing_status: ["active", "sold", "cancelled"],
       tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [
         "pokemon",
@@ -592,6 +668,7 @@ export const Constants = {
         "dragonball",
         "lorcana",
         "unionarena",
+        "marvel",
       ],
     },
   },

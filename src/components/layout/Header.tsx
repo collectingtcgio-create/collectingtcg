@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, Camera, BookOpen, User, Radio, LogOut } from "lucide-react";
+import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ const navItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/search", icon: Search, label: "Find Players" },
   { path: "/scanner", icon: Camera, label: "Scanner" },
+  { path: "/marketplace", icon: ShoppingBag, label: "Marketplace" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
