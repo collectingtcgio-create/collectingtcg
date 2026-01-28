@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag, Mail } from "lucide-react";
+import { Home, Search, Camera, BookOpen, User, Radio, LogOut, ShoppingBag, Mail, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ const navItems = [
   { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
   { path: "/profile", icon: User, label: "Profile" },
+  { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function Header() {

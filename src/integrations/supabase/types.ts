@@ -49,6 +49,27 @@ export type Database = {
           },
         ]
       }
+      blocked_users: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       card_cache: {
         Row: {
           card_name: string
@@ -520,6 +541,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          created_at: string
+          id: string
+          messaging_privacy: Database["public"]["Enums"]["messaging_privacy"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messaging_privacy?: Database["public"]["Enums"]["messaging_privacy"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messaging_privacy?: Database["public"]["Enums"]["messaging_privacy"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -548,6 +593,7 @@ export type Database = {
         | "live"
         | "completed"
       listing_status: "active" | "sold" | "cancelled"
+      messaging_privacy: "open" | "friends_only"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
         | "pokemon"
@@ -701,6 +747,7 @@ export const Constants = {
         "completed",
       ],
       listing_status: ["active", "sold", "cancelled"],
+      messaging_privacy: ["open", "friends_only"],
       tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [
         "pokemon",
