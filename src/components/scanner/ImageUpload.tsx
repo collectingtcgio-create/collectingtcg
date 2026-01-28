@@ -179,6 +179,45 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
+  const uploadImage = useCallback(async (imageData: string) => {
+    setUploading(true);
+    try {
+      // Convert base64 to blob
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+
+      const fileExt = "jpg";
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("card-images")
+        .upload(fileName, blob, { contentType: "image/jpeg" });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from("card-images")
+        .getPublicUrl(fileName);
+
+      onUpload(data.publicUrl);
+      toast({
+        title: "Image uploaded!",
+        description: "Your card image has been saved.",
+      });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Could not upload image",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setUploading(false);
+    }
+  }, [userId, onUpload, toast]);
+
   const applyCrop = useCallback(async () => {
     if (!originalImage || !cropBox || !canvasRef.current) return;
 
@@ -209,13 +248,16 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
       setPreview(croppedBase64);
       setCropBox(null);
 
-      toast({
-        title: "Crop applied!",
-        description: "Card has been cropped. Ready to upload.",
-      });
+      // Auto-upload after crop
+      await uploadImage(croppedBase64);
     };
     img.src = originalImage;
-  }, [originalImage, cropBox, toast]);
+  }, [originalImage, cropBox, uploadImage]);
+
+  const handleSkipCropAndUpload = useCallback(async () => {
+    if (!preview) return;
+    await uploadImage(preview);
+  }, [preview, uploadImage]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -256,44 +298,6 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
     reader.readAsDataURL(file);
   };
 
-  const uploadImage = async () => {
-    if (!preview) return;
-
-    setUploading(true);
-    try {
-      // Convert base64 to blob
-      const response = await fetch(preview);
-      const blob = await response.blob();
-
-      const fileExt = "jpg";
-      const fileName = `${userId}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("card-images")
-        .upload(fileName, blob, { contentType: "image/jpeg" });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data } = supabase.storage
-        .from("card-images")
-        .getPublicUrl(fileName);
-
-      onUpload(data.publicUrl);
-      toast({
-        title: "Image uploaded!",
-        description: "Your card image has been uploaded successfully.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message || "Could not upload image",
-        variant: "destructive",
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleRemove = () => {
     setPreview(null);
@@ -463,7 +467,7 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
             <Button
               type="button"
               size="sm"
-              onClick={uploadImage}
+              onClick={handleSkipCropAndUpload}
               disabled={uploading}
               className="flex-1 bg-primary hover:bg-primary/80"
             >
@@ -472,7 +476,7 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {uploading ? "Uploading..." : "Confirm Upload"}
+              {uploading ? "Uploading..." : "Upload Image"}
             </Button>
           </div>
         </div>
