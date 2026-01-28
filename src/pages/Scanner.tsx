@@ -17,6 +17,7 @@ export default function Scanner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const cameraRef = useRef<CameraViewHandle>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   const {
     isProcessing,
@@ -123,10 +124,14 @@ export default function Scanner() {
         {!showManualAdd ? (
           <div className="glass-card p-6 neon-border-cyan">
             {/* Camera View Component */}
-            <CameraView ref={cameraRef} isProcessing={isProcessing} />
+            <CameraView 
+              ref={cameraRef} 
+              isProcessing={isProcessing} 
+              onCameraStateChange={setIsCameraActive}
+            />
 
             {/* Capture Button */}
-            {cameraRef.current?.isActive && !isProcessing && (
+            {isCameraActive && !isProcessing && (
               <div className="mt-6">
                 <Button
                   onClick={handleCapture}
@@ -139,7 +144,7 @@ export default function Scanner() {
             )}
 
             {/* Start Camera Button (when camera not active) */}
-            {!cameraRef.current?.isActive && !isProcessing && (
+            {!isCameraActive && !isProcessing && (
               <div className="mt-6">
                 <Button
                   onClick={() => cameraRef.current?.startCamera()}
