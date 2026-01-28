@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Music, Youtube, Edit2, Save, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Music, Youtube, Edit2, Save, X, Play } from "lucide-react";
 
 interface MusicPlayerSectionProps {
   spotifyUrl: string;
   youtubeUrl: string;
+  autoplay: boolean;
   isOwnProfile: boolean;
-  onSave: (spotifyUrl: string, youtubeUrl: string) => Promise<void>;
+  onSave: (spotifyUrl: string, youtubeUrl: string, autoplay: boolean) => Promise<void>;
 }
 
 // Extract Spotify embed ID from various URL formats
@@ -76,9 +78,10 @@ const extractYoutubeId = (url: string): { type: string; id: string; videoId?: st
   return null;
 };
 
-// Build YouTube embed URL
+// Build YouTube embed URL with autoplay support (muted due to browser restrictions)
 const buildYoutubeEmbedUrl = (
   embed: { type: string; id: string; videoId?: string },
+  autoplay: boolean,
 ): string => {
   const params = new URLSearchParams();
 
@@ -88,6 +91,12 @@ const buildYoutubeEmbedUrl = (
   // Reduce cross-video recommendations
   params.set("rel", "0");
   params.set("modestbranding", "1");
+
+  // Autoplay must be muted to work in browsers
+  if (autoplay) {
+    params.set("autoplay", "1");
+    params.set("mute", "1");
+  }
 
   if (embed.type === "playlist") {
     // Force playlist mode (this shows the playlist queue)
@@ -102,12 +111,14 @@ const buildYoutubeEmbedUrl = (
 export function MusicPlayerSection({ 
   spotifyUrl, 
   youtubeUrl,
+  autoplay,
   isOwnProfile, 
   onSave 
 }: MusicPlayerSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editSpotify, setEditSpotify] = useState(spotifyUrl);
   const [editYoutube, setEditYoutube] = useState(youtubeUrl);
+  const [editAutoplay, setEditAutoplay] = useState(autoplay);
   const [saving, setSaving] = useState(false);
 
   const spotifyEmbed = extractSpotifyId(spotifyUrl);
@@ -117,7 +128,7 @@ export function MusicPlayerSection({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(editSpotify, editYoutube);
+      await onSave(editSpotify, editYoutube, editAutoplay);
       setIsEditing(false);
     } finally {
       setSaving(false);
@@ -127,6 +138,7 @@ export function MusicPlayerSection({
   const handleCancel = () => {
     setEditSpotify(spotifyUrl);
     setEditYoutube(youtubeUrl);
+    setEditAutoplay(autoplay);
     setIsEditing(false);
   };
 
@@ -200,6 +212,26 @@ export function MusicPlayerSection({
             )}
           </div>
 
+          {/* Autoplay Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+            <div className="flex items-center gap-2">
+              <Play className="w-4 h-4 text-primary" />
+              <div>
+                <Label htmlFor="autoplay-toggle" className="text-sm font-medium cursor-pointer">
+                  Autoplay Music
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Starts muted (unmute using player controls)
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="autoplay-toggle"
+              checked={editAutoplay}
+              onCheckedChange={setEditAutoplay}
+            />
+          </div>
+
           <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
             💡 Volume controls are inside each player—hover over the speaker icon within the Spotify/YouTube player.
           </p>
@@ -217,12 +249,20 @@ export function MusicPlayerSection({
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Autoplay indicator */}
+          {autoplay && (spotifyEmbed || youtubeEmbed) && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Play className="w-3 h-3" />
+              <span>Autoplay enabled (starts muted—click to unmute)</span>
+            </div>
+          )}
+
           {/* Spotify Player */}
           {spotifyEmbed && (
             <div className="rounded-lg overflow-hidden">
               <iframe
-                key={`${spotifyEmbed.type}:${spotifyEmbed.id}`}
-                src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0`}
+                key={`${spotifyEmbed.type}:${spotifyEmbed.id}:${autoplay ? "1" : "0"}`}
+                src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0${autoplay ? "&autoplay=1" : ""}`}
                 width="100%"
                 height="152"
                 frameBorder="0"
@@ -237,12 +277,12 @@ export function MusicPlayerSection({
           {youtubeEmbed && (
             <div className="rounded-lg overflow-hidden aspect-video">
               <iframe
-                key={`${youtubeEmbed.type}:${youtubeEmbed.id}`}
-                src={buildYoutubeEmbedUrl(youtubeEmbed)}
+                key={`${youtubeEmbed.type}:${youtubeEmbed.id}:${autoplay ? "1" : "0"}`}
+                src={buildYoutubeEmbedUrl(youtubeEmbed, autoplay)}
                 width="100%"
                 height="100%"
                 frameBorder="0"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 loading="lazy"
                 className="rounded-lg"
