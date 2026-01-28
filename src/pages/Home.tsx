@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Activity, Radio, UserPlus, CreditCard, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { MarketTicker } from "@/components/home/MarketTicker";
-import { EventsCalendar } from "@/components/events/EventsCalendar";
+import { EventsCalendarCompact } from "@/components/events/EventsCalendarCompact";
 interface ActivityItem {
   id: string;
   user_id: string;
@@ -70,7 +70,7 @@ export default function Home() {
       .from("activity_feed")
       .select("*, profiles(username, avatar_url, is_live)")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(8);
 
     if (data) {
       setActivities(data as unknown as ActivityItem[]);
@@ -126,47 +126,45 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Live Now Section */}
+        <div className="grid lg:grid-cols-4 gap-4">
+          {/* Live Now Section - Compact */}
           <div className="lg:col-span-1">
-            <div className="glass-card p-6 neon-border-magenta">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Radio className="w-5 h-5 text-secondary animate-pulse" />
+            <div className="glass-card p-4 neon-border-magenta">
+              <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+                <Radio className="w-4 h-4 text-secondary animate-pulse" />
                 Live Now
               </h2>
 
               {liveUsers.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No one is live right now. Be the first!
+                <p className="text-muted-foreground text-xs">
+                  No one is live right now.
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {liveUsers.map((liveUser) => (
+                <div className="space-y-2">
+                  {liveUsers.slice(0, 5).map((liveUser) => (
                     <Link
                       key={liveUser.id}
                       to={`/profile/${liveUser.id}`}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden live-border">
-                          {liveUser.avatar_url ? (
-                            <img
-                              src={liveUser.avatar_url}
-                              alt={liveUser.username}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-sm font-medium">
-                              {liveUser.username[0].toUpperCase()}
-                            </span>
-                          )}
-                        </div>
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden live-border">
+                        {liveUser.avatar_url ? (
+                          <img
+                            src={liveUser.avatar_url}
+                            alt={liveUser.username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs font-medium">
+                            {liveUser.username[0].toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <div>
-                        <p className="font-medium text-sm">{liveUser.username}</p>
-                        <p className="text-xs text-secondary flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                          Streaming
+                        <p className="font-medium text-xs">{liveUser.username}</p>
+                        <p className="text-[10px] text-secondary flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                          Live
                         </p>
                       </div>
                     </Link>
@@ -176,42 +174,42 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Activity Feed */}
+          {/* Activity Feed - Compact */}
           <div className="lg:col-span-2">
-            <div className="glass-card p-6 neon-border-cyan">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
+            <div className="glass-card p-4 neon-border-cyan">
+              <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" />
                 Global Activity
               </h2>
 
               {loading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="animate-pulse flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-muted" />
+                <div className="space-y-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="animate-pulse flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-muted" />
                       <div className="flex-1">
-                        <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-                        <div className="h-3 bg-muted rounded w-1/2" />
+                        <div className="h-3 bg-muted rounded w-3/4 mb-1" />
+                        <div className="h-2 bg-muted rounded w-1/2" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : activities.length === 0 ? (
-                <div className="text-center py-12">
-                  <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No activity yet. Start scanning cards to see updates here!
+                <div className="text-center py-6">
+                  <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground text-xs">
+                    No activity yet. Start scanning cards!
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {activities.map((activity, index) => (
+                <div className="space-y-2">
+                  {activities.slice(0, 6).map((activity, index) => (
                     <div
                       key={activity.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors fade-in"
-                      style={{ animationDelay: `${index * 50}ms` }}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors fade-in"
+                      style={{ animationDelay: `${index * 30}ms` }}
                     >
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                         {activity.profiles?.avatar_url ? (
                           <img
                             src={activity.profiles.avatar_url}
@@ -219,44 +217,43 @@ export default function Home() {
                             className="w-full h-full rounded-full object-cover"
                           />
                         ) : (
-                          <span className="text-sm font-medium">
+                          <span className="text-xs font-medium">
                             {activity.profiles?.username?.[0]?.toUpperCase() || "?"}
                           </span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1.5">
                           {getActivityIcon(activity.activity_type)}
-                          <span className="font-medium text-sm">
+                          <span className="font-medium text-xs truncate">
                             {activity.profiles?.username || "Unknown"}
                           </span>
                           {activity.profiles?.is_live && (
-                            <span className="px-2 py-0.5 text-xs bg-secondary/20 text-secondary rounded-full">
+                            <span className="px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary rounded-full">
                               LIVE
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {activity.description}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDistanceToNow(new Date(activity.created_at), {
-                            addSuffix: true,
-                          })}
-                        </p>
                       </div>
+                      <p className="text-[10px] text-muted-foreground flex-shrink-0">
+                        {formatDistanceToNow(new Date(activity.created_at), {
+                          addSuffix: true,
+                        }).replace(' ago', '').replace('about ', '')}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* TCG Global Events Calendar */}
-        <div className="mt-8">
-          <EventsCalendar />
+          {/* TCG Global Events - Compact */}
+          <div className="lg:col-span-1">
+            <EventsCalendarCompact />
+          </div>
         </div>
       </div>
     </Layout>
