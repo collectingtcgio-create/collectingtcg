@@ -125,6 +125,14 @@ export function MusicPlayerSection({
   const youtubeEmbed = extractYoutubeId(youtubeUrl);
   const editYoutubeParsed = extractYoutubeId(editYoutube);
 
+  // Spotify shows volume controls more reliably in the full-size embed.
+  // (The compact 152px player often hides the volume icon, especially on mobile.)
+  const spotifyHeight = spotifyEmbed
+    ? spotifyEmbed.type === "track" || spotifyEmbed.type === "artist"
+      ? 152
+      : 352
+    : 152;
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -253,7 +261,7 @@ export function MusicPlayerSection({
           {autoplay && (spotifyEmbed || youtubeEmbed) && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Play className="w-3 h-3" />
-              <span>Autoplay enabled (starts muted—click to unmute)</span>
+              <span>Autoplay enabled (use the player controls to adjust volume)</span>
             </div>
           )}
 
@@ -264,12 +272,17 @@ export function MusicPlayerSection({
                 key={`${spotifyEmbed.type}:${spotifyEmbed.id}:${autoplay ? "1" : "0"}`}
                 src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0${autoplay ? "&autoplay=1" : ""}`}
                 width="100%"
-                height="152"
+                height={spotifyHeight}
                 frameBorder="0"
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
                 className="rounded-lg"
               />
+
+              <p className="mt-2 text-xs text-muted-foreground">
+                Volume can only be adjusted inside the Spotify player (speaker icon). This embed is expanded
+                to make the volume control visible.
+              </p>
             </div>
           )}
 
