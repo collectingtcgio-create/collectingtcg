@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
+import { FloatingGiftWidget } from "@/components/gifting/FloatingGiftWidget";
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <MobileNav />
+      <FloatingGiftWidget />
     </div>
   );
 }
