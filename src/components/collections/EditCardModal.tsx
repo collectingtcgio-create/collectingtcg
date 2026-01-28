@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Upload, Loader2, ScanLine, X, Plus, Minus } from "lucide-react";
+import { Camera, Upload, Loader2, ScanLine, X, Plus, Minus, DollarSign } from "lucide-react";
 
 interface Card {
   id: string;
@@ -40,10 +40,13 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isSavingQuantity, setIsSavingQuantity] = useState(false);
+  const [price, setPrice] = useState(0);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
 
   useEffect(() => {
     if (card) {
       setQuantity(card.quantity || 1);
+      setPrice(card.price_estimate || 0);
     }
   }, [card]);
 
@@ -59,6 +62,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
     stopCamera();
     setPreviewUrl(null);
     setQuantity(card?.quantity || 1);
+    setPrice(card?.price_estimate || 0);
     onOpenChange(false);
   };
 
@@ -91,6 +95,38 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
       });
     } finally {
       setIsSavingQuantity(false);
+    }
+  };
+
+  const handlePriceChange = async (newPrice: number) => {
+    if (!card || newPrice < 0) return;
+    
+    setPrice(newPrice);
+    setIsSavingPrice(true);
+    
+    try {
+      const { error } = await supabase
+        .from("user_cards")
+        .update({ price_estimate: newPrice })
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Price Updated",
+        description: `Price set to $${newPrice.toFixed(2)}`,
+      });
+      
+      onCardUpdated();
+    } catch (error) {
+      setPrice(card.price_estimate || 0);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update price",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPrice(false);
     }
   };
 
@@ -379,8 +415,34 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                 )}
               </div>
+            </div>
+
+            {/* Price Control */}
+            <div>
+              <Label className="text-sm text-muted-foreground">Price per Card ($)</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="relative flex-1">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={price}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      if (val >= 0) setPrice(val);
+                    }}
+                    onBlur={() => handlePriceChange(price)}
+                    className="pl-8"
+                    disabled={isSavingPrice}
+                  />
+                </div>
+                {isSavingPrice && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Total value: ${((card.price_estimate || 0) * quantity).toFixed(2)}
+                Total value: ${(price * quantity).toFixed(2)}
               </p>
             </div>
           </div>
