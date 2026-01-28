@@ -11,9 +11,10 @@ import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { ScanResultModal, CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
 import { CardSelectionGrid } from "@/components/scanner/CardSelectionGrid";
+import { CardNameSearch } from "@/components/scanner/CardNameSearch";
 import { ImageUpload } from "@/components/scanner/ImageUpload";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Sparkles, X, Search } from "lucide-react";
+import { Sparkles, X, Search, Type } from "lucide-react";
 
 export default function Scanner() {
   const { user, profile } = useAuth();
@@ -42,6 +43,7 @@ export default function Scanner() {
 
   // Manual add form
   const [showManualAdd, setShowManualAdd] = useState(false);
+  const [showCardSearch, setShowCardSearch] = useState(false);
   const [cardName, setCardName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
@@ -77,6 +79,11 @@ export default function Scanner() {
     resetScanner();
     setShowManualAdd(true);
   }, [resetScanner]);
+
+  const handleCardSearchSelect = useCallback((card: CardResult) => {
+    // Show the result modal with the selected card from search
+    selectCard(card);
+  }, [selectCard]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,14 +182,22 @@ export default function Scanner() {
               </div>
             )}
 
-            {/* Manual Add Option */}
-            <div className="mt-4 text-center">
+            {/* Card Name Search + Manual Add Options */}
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <button
+                onClick={() => setShowCardSearch(true)}
+                className="text-sm text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-2 font-medium"
+              >
+                <Type className="w-4 h-4" />
+                Search by name
+              </button>
+              <span className="text-muted-foreground">|</span>
               <button
                 onClick={() => setShowManualAdd(true)}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
-                Or add a card manually →
+                Add manually
               </button>
             </div>
           </div>
@@ -291,6 +306,13 @@ export default function Scanner() {
           onOpenChange={setShowNoCardModal}
           onTryAgain={handleTryAgain}
           onSearchManually={handleSearchManually}
+        />
+
+        {/* Card Name Search Modal */}
+        <CardNameSearch
+          open={showCardSearch}
+          onOpenChange={setShowCardSearch}
+          onCardSelect={handleCardSearchSelect}
         />
       </div>
     </Layout>
