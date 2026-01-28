@@ -17,6 +17,7 @@ import { CreatorBadge } from "@/components/profile/CreatorBadge";
 import { FollowersModal } from "@/components/profile/FollowersModal";
 import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
 import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
+import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
 import { 
   UserPlus, 
   UserMinus, 
@@ -642,6 +643,13 @@ export default function Profile() {
                 </div>
               </div>
             </div>
+
+            {/* Global Post Section (only for own profile) */}
+            {isOwnProfile && (
+              <div className="fade-in" style={{ animationDelay: "175ms" }}>
+                <GlobalPostSection isOwnProfile={isOwnProfile} />
+              </div>
+            )}
 
             {/* Wall Posts (Facebook-style - MySpace inspired) */}
             <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "200ms" }}>

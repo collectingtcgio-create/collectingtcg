@@ -229,6 +229,44 @@ export type Database = {
           },
         ]
       }
+      global_posts: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kudos: {
         Row: {
           author_id: string
