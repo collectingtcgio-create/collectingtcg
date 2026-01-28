@@ -78,21 +78,34 @@ const extractYoutubeId = (url: string): { type: string; id: string; videoId?: st
   return null;
 };
 
-// Build YouTube embed URL - always autoplay and show playlist mode
-const buildYoutubeEmbedUrl = (embed: { type: string; id: string; videoId?: string }, autoplay: boolean): string => {
-  // Always autoplay muted for better UX, browsers require muted for autoplay
-  const autoplayParam = autoplay ? 'autoplay=1&mute=1' : '';
-  
-  if (embed.type === 'playlist') {
-    // For playlists, use videoseries with list parameter - this shows the full playlist
-    const baseUrl = `https://www.youtube.com/embed/videoseries?list=${embed.id}`;
-    return autoplayParam ? `${baseUrl}&${autoplayParam}` : baseUrl;
+// Build YouTube embed URL.
+// Important: browsers typically block autoplay WITH sound; we only autoplay reliably when muted.
+const buildYoutubeEmbedUrl = (
+  embed: { type: string; id: string; videoId?: string },
+  autoplay: boolean,
+): string => {
+  const params = new URLSearchParams();
+
+  // Better behavior on mobile Safari
+  params.set("playsinline", "1");
+
+  // Reduce cross-video recommendations; not always honored but harmless
+  params.set("rel", "0");
+  params.set("modestbranding", "1");
+
+  if (autoplay) {
+    params.set("autoplay", "1");
+    params.set("mute", "1");
   }
-  
-  // For single videos
-  return autoplayParam 
-    ? `https://www.youtube.com/embed/${embed.id}?${autoplayParam}` 
-    : `https://www.youtube.com/embed/${embed.id}`;
+
+  if (embed.type === "playlist") {
+    // Force playlist mode (this shows the playlist queue; YouTube embeds always play a video)
+    params.set("listType", "playlist");
+    params.set("list", embed.id);
+    return `https://www.youtube.com/embed?${params.toString()}`;
+  }
+
+  return `https://www.youtube.com/embed/${embed.id}?${params.toString()}`;
 };
 
 export function MusicPlayerSection({ 
@@ -110,6 +123,7 @@ export function MusicPlayerSection({
 
   const spotifyEmbed = extractSpotifyId(spotifyUrl);
   const youtubeEmbed = extractYoutubeId(youtubeUrl);
+  const editYoutubeParsed = extractYoutubeId(editYoutube);
 
   const handleSave = async () => {
     setSaving(true);
@@ -187,6 +201,15 @@ export function MusicPlayerSection({
             <p className="text-xs text-muted-foreground">
               Paste a YouTube playlist URL (e.g., youtube.com/playlist?list=...) or video URL
             </p>
+            {editYoutube?.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {editYoutubeParsed?.type === "playlist"
+                  ? "Detected: Playlist"
+                  : editYoutubeParsed?.type === "video"
+                    ? "Detected: Video (to show a playlist, paste a URL that contains list=...)"
+                    : "Couldn’t recognize this URL—try a YouTube playlist link containing list=..."}
+              </p>
+            )}
           </div>
 
           {/* Autoplay Toggle */}
@@ -198,7 +221,7 @@ export function MusicPlayerSection({
                   Autoplay Music
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Music will start playing (muted) when visitors view your profile
+                  Autoplay starts muted (browsers block autoplay with sound)
                 </p>
               </div>
             </div>
@@ -234,7 +257,8 @@ export function MusicPlayerSection({
           {spotifyEmbed && (
             <div className="rounded-lg overflow-hidden">
               <iframe
-                src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0`}
+                key={`${spotifyEmbed.type}:${spotifyEmbed.id}:${autoplay ? "1" : "0"}`}
+                src={`https://open.spotify.com/embed/${spotifyEmbed.type}/${spotifyEmbed.id}?utm_source=generator&theme=0${autoplay ? "&autoplay=1" : ""}`}
                 width="100%"
                 height="152"
                 frameBorder="0"
@@ -249,6 +273,7 @@ export function MusicPlayerSection({
           {youtubeEmbed && (
             <div className="rounded-lg overflow-hidden aspect-video">
               <iframe
+                key={`${youtubeEmbed.type}:${youtubeEmbed.id}:${autoplay ? "1" : "0"}`}
                 src={buildYoutubeEmbedUrl(youtubeEmbed, autoplay)}
                 width="100%"
                 height="100%"
