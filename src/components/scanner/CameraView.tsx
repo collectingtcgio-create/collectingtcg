@@ -31,6 +31,13 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
       
       setIsInitializing(true);
       try {
+        console.log("Requesting camera access...");
+        
+        // Check if mediaDevices API is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera API not supported in this browser");
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "environment",
@@ -39,22 +46,60 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
           },
         });
 
+        console.log("Camera stream obtained:", stream.getVideoTracks().length, "video tracks");
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
-          setIsCameraActive(true);
-          setHasPermission(true);
+          
+          // Wait for video to be ready before setting active
+          videoRef.current.onloadedmetadata = () => {
+            console.log("Video metadata loaded, playing...");
+            videoRef.current?.play().then(() => {
+              console.log("Video playing successfully");
+              setIsCameraActive(true);
+              setHasPermission(true);
+              setIsInitializing(false);
+            }).catch((playError) => {
+              console.error("Video play error:", playError);
+              setIsInitializing(false);
+              toast({
+                title: "Camera playback failed",
+                description: "Could not start video playback.",
+                variant: "destructive",
+              });
+            });
+          };
+          
+          videoRef.current.onerror = (e) => {
+            console.error("Video element error:", e);
+            setIsInitializing(false);
+          };
+        } else {
+          console.error("Video ref not available");
+          setIsInitializing(false);
         }
-      } catch (error) {
-        console.error("Camera error:", error);
+      } catch (error: any) {
+        console.error("Camera error:", error.name, error.message);
         setHasPermission(false);
+        setIsInitializing(false);
+        
+        let description = "Please allow camera access to scan cards.";
+        if (error.name === "NotAllowedError") {
+          description = "Camera permission was denied. Please allow access in your browser settings.";
+        } else if (error.name === "NotFoundError") {
+          description = "No camera found on this device.";
+        } else if (error.name === "NotReadableError") {
+          description = "Camera is in use by another application.";
+        } else if (error.message) {
+          description = error.message;
+        }
+        
         toast({
-          title: "Camera access denied",
-          description: "Please allow camera access to scan cards.",
+          title: "Camera access failed",
+          description,
           variant: "destructive",
         });
-      } finally {
-        setIsInitializing(false);
       }
     }, [toast]);
 
