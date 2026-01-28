@@ -15,6 +15,8 @@ import { StatusEditor, StatusDisplay } from "@/components/profile/StatusEditor";
 import { WallPosts } from "@/components/profile/WallPosts";
 import { CreatorBadge } from "@/components/profile/CreatorBadge";
 import { FollowersModal } from "@/components/profile/FollowersModal";
+import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
+import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
 import { 
   UserPlus, 
   UserMinus, 
@@ -28,7 +30,8 @@ import {
   Share2,
   Ban,
   Link as LinkIcon,
-  Plus
+  Plus,
+  BookOpen
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -86,6 +89,9 @@ export default function Profile() {
   const [socialLinksEditorOpen, setSocialLinksEditorOpen] = useState(false);
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
   const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
+  const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
+  const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -322,9 +328,19 @@ export default function Profile() {
 
               {/* View Links (MySpace style) */}
               <div className="mt-4 pt-4 border-t border-border/50">
-                <p className="text-xs text-muted-foreground mb-2">View My:</p>
-                <div className="flex gap-2 text-xs">
-                  <Link to={`/collections`} className="text-primary hover:underline">Cards</Link>
+                <p className="text-xs text-muted-foreground mb-2">View {isOwnProfile ? "My" : `${profileData.username}'s`}:</p>
+                <div className="flex gap-2 text-xs flex-wrap">
+                  {isOwnProfile ? (
+                    <Link to="/collections" className="text-primary hover:underline">Cards</Link>
+                  ) : (
+                    <button
+                      onClick={() => setCollectionModalOpen(true)}
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      Collection
+                    </button>
+                  )}
                   <span className="text-muted-foreground">|</span>
                   <span className="text-muted-foreground">Decks</span>
                   <span className="text-muted-foreground">|</span>
@@ -508,15 +524,34 @@ export default function Profile() {
             </div>
 
             {/* Top Eight (MySpace style) */}
-            <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "150ms" }}>
+            <div className="glass-card overflow-hidden fade-in relative" style={{ animationDelay: "150ms" }}>
               <div className="bg-secondary/20 px-4 py-2 border-b border-border/50 flex items-center justify-between">
                 <h3 className="font-semibold text-sm text-secondary flex items-center gap-2">
                   <Grid3X3 className="w-4 h-4" />
                   {profileData.username}'s Top 8
                 </h3>
-                <span className="text-xs text-muted-foreground">
-                  ({topEight.length}/8)
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    ({topEight.length}/8)
+                  </span>
+                  {isOwnProfile && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Find first empty position
+                        const filledPositions = topEight.map(t => t.position);
+                        const emptyPosition = [1,2,3,4,5,6,7,8].find(p => !filledPositions.includes(p)) || 1;
+                        setSelectedTopEightPosition(emptyPosition);
+                        setTopEightEditorOpen(true);
+                      }}
+                      className="h-7 px-2 text-xs hover:bg-primary/20"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="p-4">
                 <div className="grid grid-cols-4 gap-3">
@@ -528,6 +563,13 @@ export default function Profile() {
                       if (isOwnProfile) {
                         setSelectedTopEightPosition(position);
                         setTopEightEditorOpen(true);
+                      } else if (item?.user_cards) {
+                        // Show card preview for non-owners
+                        setPreviewCard({
+                          imageUrl: item.user_cards.image_url,
+                          cardName: item.user_cards.card_name,
+                        });
+                        setCardPreviewOpen(true);
                       }
                     };
                     
@@ -546,7 +588,7 @@ export default function Profile() {
                         
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
-                      {item.user_cards.image_url ? (
+                            {item.user_cards.image_url ? (
                               <img
                                 src={item.user_cards.image_url}
                                 alt={item.user_cards.card_name}
@@ -637,16 +679,16 @@ export default function Profile() {
       )}
 
       {/* Top Eight Editor Modal */}
-      {isOwnProfile && (
-        <TopEightEditor
-          open={topEightEditorOpen}
-          onOpenChange={setTopEightEditorOpen}
-          position={selectedTopEightPosition}
-          currentCardId={topEight.find((t) => t.position === selectedTopEightPosition)?.card_id}
-          currentFriendId={topEight.find((t) => t.position === selectedTopEightPosition)?.friend_id}
-          onUpdate={fetchProfileData}
-        />
-      )}
+      <TopEightEditor
+        open={topEightEditorOpen}
+        onOpenChange={setTopEightEditorOpen}
+        position={selectedTopEightPosition}
+        currentCardId={topEight.find((t) => t.position === selectedTopEightPosition)?.card_id}
+        currentFriendId={topEight.find((t) => t.position === selectedTopEightPosition)?.friend_id}
+        onUpdate={fetchProfileData}
+        viewedProfileId={!isOwnProfile ? targetProfileId : undefined}
+        viewedProfileUsername={!isOwnProfile ? profileData?.username : undefined}
+      />
 
       {/* Social Links Editor Modal */}
       {isOwnProfile && profileData && (
@@ -673,6 +715,26 @@ export default function Profile() {
           profileId={profileData.id}
           profileUsername={profileData.username}
           initialTab={followersModalTab}
+        />
+      )}
+
+      {/* Card Preview Modal */}
+      {previewCard && (
+        <CardPreviewModal
+          open={cardPreviewOpen}
+          onOpenChange={setCardPreviewOpen}
+          imageUrl={previewCard.imageUrl}
+          cardName={previewCard.cardName}
+        />
+      )}
+
+      {/* User Collection Modal */}
+      {profileData && !isOwnProfile && (
+        <UserCollectionModal
+          open={collectionModalOpen}
+          onOpenChange={setCollectionModalOpen}
+          userId={profileData.id}
+          username={profileData.username}
         />
       )}
     </Layout>
