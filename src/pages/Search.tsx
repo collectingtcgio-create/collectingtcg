@@ -67,6 +67,8 @@ export default function Search() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("players");
+
+  const ALL_SETS_VALUE = "__all_sets__";
   
   // Player search
   const [query, setQuery] = useState("");
@@ -367,12 +369,15 @@ export default function Search() {
 
                   {/* One Piece Set Dropdown */}
                   {selectedGame === "onepiece" && (
-                    <Select value={selectedSet} onValueChange={setSelectedSet}>
+                    <Select
+                      value={selectedSet === "" ? ALL_SETS_VALUE : selectedSet}
+                      onValueChange={(v) => setSelectedSet(v === ALL_SETS_VALUE ? "" : v)}
+                    >
                       <SelectTrigger className="flex-1 bg-background">
                         <SelectValue placeholder="All Sets" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border-border z-50 max-h-[300px]">
-                        <SelectItem value="">All Sets</SelectItem>
+                        <SelectItem value={ALL_SETS_VALUE}>All Sets</SelectItem>
                         {ONE_PIECE_SETS.map((set) => (
                           <SelectItem key={set.code} value={set.code}>
                             {set.code} - {set.name}
