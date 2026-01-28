@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Activity, Radio, UserPlus, CreditCard, Clock } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Radio } from "lucide-react";
 import { MarketTicker } from "@/components/home/MarketTicker";
 import { EventsCalendarCompact } from "@/components/events/EventsCalendarCompact";
 import { StoreLocator } from "@/components/home/StoreLocator";
@@ -12,68 +10,10 @@ import { MarketHeatmap } from "@/components/home/MarketHeatmap";
 import { SetCountdown } from "@/components/home/SetCountdown";
 import { QuickScanButton } from "@/components/home/QuickScanButton";
 import { ActiveStreamsWidget } from "@/components/live/ActiveStreamsWidget";
-
-interface ActivityItem {
-  id: string;
-  user_id: string;
-  activity_type: string;
-  description: string;
-  created_at: string;
-  profiles: {
-    username: string;
-    avatar_url: string;
-    is_live: boolean;
-  };
-}
+import { GlobalFeed } from "@/components/home/GlobalFeed";
 
 export default function Home() {
   const { user } = useAuth();
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchActivities();
-
-    // Subscribe to realtime updates
-    const activityChannel = supabase
-      .channel("activity-feed")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "activity_feed" },
-        () => fetchActivities()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(activityChannel);
-    };
-  }, []);
-
-  const fetchActivities = async () => {
-    const { data } = await supabase
-      .from("activity_feed")
-      .select("*, profiles(username, avatar_url, is_live)")
-      .order("created_at", { ascending: false })
-      .limit(8);
-
-    if (data) {
-      setActivities(data as unknown as ActivityItem[]);
-    }
-    setLoading(false);
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "scan":
-        return <CreditCard className="w-4 h-4 text-primary" />;
-      case "follow":
-        return <UserPlus className="w-4 h-4 text-secondary" />;
-      case "live":
-        return <Radio className="w-4 h-4 text-secondary" />;
-      default:
-        return <Activity className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
 
   return (
     <Layout>
@@ -100,116 +40,49 @@ export default function Home() {
             </div>
           )}
 
-          {/* Bento Grid Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 auto-rows-fr">
-            {/* Row 1: Quick Scan (prominent) + Market Heatmap + Set Countdown */}
-            <div className="md:col-span-1 lg:col-span-1 xl:col-span-1 min-h-[200px]">
-              <QuickScanButton variant="tile" />
+          {/* Bento Grid Layout - Reorganized with Global Feed on top */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {/* Row 1: Global Feed (prominent, wide) */}
+            <div className="col-span-full lg:col-span-4 xl:col-span-4 min-h-[400px]">
+              <GlobalFeed />
             </div>
 
-            <div className="md:col-span-1 lg:col-span-1 xl:col-span-2 min-h-[200px]">
-              <MarketHeatmap />
+            {/* Right side widgets */}
+            <div className="md:col-span-2 lg:col-span-2 xl:col-span-2 space-y-4">
+              {/* Quick Scan */}
+              <div className="min-h-[120px]">
+                <QuickScanButton variant="tile" />
+              </div>
+
+              {/* Market Heatmap */}
+              <div className="min-h-[120px]">
+                <MarketHeatmap />
+              </div>
+
+              {/* Live Streams */}
+              <div className="min-h-[160px]">
+                <div className="glass-card p-4 neon-border-magenta h-full">
+                  <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-secondary animate-pulse" />
+                    Live Streams
+                  </h2>
+                  <ActiveStreamsWidget />
+                </div>
+              </div>
             </div>
 
+            {/* Row 2: Set Countdown + Events Calendar */}
             <div className="md:col-span-2 lg:col-span-2 xl:col-span-3 min-h-[200px]">
               <SetCountdown />
             </div>
 
-            {/* Row 2: Store Locator (wide) + Live Now */}
-            <div className="md:col-span-2 lg:col-span-2 xl:col-span-3 min-h-[280px]">
-              <StoreLocator />
-            </div>
-
-            <div className="md:col-span-1 lg:col-span-1 xl:col-span-1 min-h-[280px]">
-              <div className="glass-card p-4 neon-border-magenta h-full">
-                <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-secondary animate-pulse" />
-                  Live Streams
-                </h2>
-                <ActiveStreamsWidget />
-              </div>
-            </div>
-
-            <div className="md:col-span-1 lg:col-span-1 xl:col-span-2 min-h-[280px]">
+            <div className="md:col-span-2 lg:col-span-2 xl:col-span-3 min-h-[200px]">
               <EventsCalendarCompact />
             </div>
 
-            {/* Row 3: Activity Feed (full width) */}
-            <div className="col-span-full min-h-[240px]">
-              <div className="glass-card p-4 neon-border-cyan h-full">
-                <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-primary" />
-                  Global Activity
-                </h2>
-
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="animate-pulse flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-muted" />
-                        <div className="flex-1">
-                          <div className="h-3 bg-muted rounded w-3/4 mb-1" />
-                          <div className="h-2 bg-muted rounded w-1/2" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : activities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Activity className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-                    <p className="text-muted-foreground text-sm">
-                      No activity yet. Start scanning cards!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {activities.slice(0, 8).map((activity, index) => (
-                      <div
-                        key={activity.id}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors fade-in"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                          {activity.profiles?.avatar_url ? (
-                            <img
-                              src={activity.profiles.avatar_url}
-                              alt={activity.profiles.username}
-                              className="w-full h-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs font-medium">
-                              {activity.profiles?.username?.[0]?.toUpperCase() || "?"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            {getActivityIcon(activity.activity_type)}
-                            <span className="font-medium text-xs truncate">
-                              {activity.profiles?.username || "Unknown"}
-                            </span>
-                            {activity.profiles?.is_live && (
-                              <span className="px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary rounded-full">
-                                LIVE
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {activity.description}
-                          </p>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground flex-shrink-0">
-                          {formatDistanceToNow(new Date(activity.created_at), {
-                            addSuffix: true,
-                          })
-                            .replace(" ago", "")
-                            .replace("about ", "")}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {/* Row 3: Store Locator (full width, at the bottom) */}
+            <div className="col-span-full min-h-[300px]">
+              <StoreLocator />
             </div>
           </div>
         </div>
