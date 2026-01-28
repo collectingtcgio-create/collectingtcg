@@ -196,7 +196,7 @@ export default function Profile() {
     }
   };
 
-  const handleMusicSave = async (spotifyUrl: string, youtubeUrl: string, autoplay: boolean) => {
+  const handleMusicSave = async (spotifyUrl: string, youtubeUrl: string) => {
     if (!currentProfile) return;
     
     const { error } = await supabase
@@ -204,7 +204,6 @@ export default function Profile() {
       .update({
         spotify_playlist_url: spotifyUrl,
         youtube_playlist_url: youtubeUrl,
-        music_autoplay: autoplay,
       })
       .eq("id", currentProfile.id);
     
@@ -563,7 +562,6 @@ export default function Profile() {
                 <MusicPlayerSection
                   spotifyUrl={profileData.spotify_playlist_url || ""}
                   youtubeUrl={profileData.youtube_playlist_url || ""}
-                  autoplay={profileData.music_autoplay || false}
                   isOwnProfile={isOwnProfile}
                   onSave={handleMusicSave}
                 />
