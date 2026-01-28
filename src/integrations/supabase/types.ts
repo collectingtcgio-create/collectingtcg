@@ -49,6 +49,75 @@ export type Database = {
           },
         ]
       }
+      card_cache: {
+        Row: {
+          card_name: string
+          card_number: string | null
+          created_at: string
+          external_id: string
+          id: string
+          image_url: string | null
+          image_url_small: string | null
+          metadata: Json | null
+          price_currency: string | null
+          price_high: number | null
+          price_low: number | null
+          price_market: number | null
+          price_mid: number | null
+          price_source: string | null
+          price_updated_at: string | null
+          rarity: string | null
+          set_code: string | null
+          set_name: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          updated_at: string
+        }
+        Insert: {
+          card_name: string
+          card_number?: string | null
+          created_at?: string
+          external_id: string
+          id?: string
+          image_url?: string | null
+          image_url_small?: string | null
+          metadata?: Json | null
+          price_currency?: string | null
+          price_high?: number | null
+          price_low?: number | null
+          price_market?: number | null
+          price_mid?: number | null
+          price_source?: string | null
+          price_updated_at?: string | null
+          rarity?: string | null
+          set_code?: string | null
+          set_name?: string | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          updated_at?: string
+        }
+        Update: {
+          card_name?: string
+          card_number?: string | null
+          created_at?: string
+          external_id?: string
+          id?: string
+          image_url?: string | null
+          image_url_small?: string | null
+          metadata?: Json | null
+          price_currency?: string | null
+          price_high?: number | null
+          price_low?: number | null
+          price_market?: number | null
+          price_mid?: number | null
+          price_source?: string | null
+          price_updated_at?: string | null
+          rarity?: string | null
+          set_code?: string | null
+          set_name?: string | null
+          tcg_game?: Database["public"]["Enums"]["tcg_game"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       follows: {
         Row: {
           created_at: string
@@ -208,30 +277,43 @@ export type Database = {
       }
       user_cards: {
         Row: {
+          card_cache_id: string | null
           card_name: string
           created_at: string
           id: string
           image_url: string | null
           price_estimate: number | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"] | null
           user_id: string
         }
         Insert: {
+          card_cache_id?: string | null
           card_name: string
           created_at?: string
           id?: string
           image_url?: string | null
           price_estimate?: number | null
+          tcg_game?: Database["public"]["Enums"]["tcg_game"] | null
           user_id: string
         }
         Update: {
+          card_cache_id?: string | null
           card_name?: string
           created_at?: string
           id?: string
           image_url?: string | null
           price_estimate?: number | null
+          tcg_game?: Database["public"]["Enums"]["tcg_game"] | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_cards_card_cache_id_fkey"
+            columns: ["card_cache_id"]
+            isOneToOne: false
+            referencedRelation: "card_cache"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_cards_user_id_fkey"
             columns: ["user_id"]
@@ -249,7 +331,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      tcg_game:
+        | "pokemon"
+        | "magic"
+        | "yugioh"
+        | "onepiece"
+        | "dragonball"
+        | "lorcana"
+        | "unionarena"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -376,6 +465,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tcg_game: [
+        "pokemon",
+        "magic",
+        "yugioh",
+        "onepiece",
+        "dragonball",
+        "lorcana",
+        "unionarena",
+      ],
+    },
   },
 } as const
