@@ -11,6 +11,7 @@ type TcgGame = 'pokemon' | 'magic' | 'yugioh' | 'onepiece' | 'dragonball' | 'lor
 interface CardSearchRequest {
   query: string;
   tcg_game?: TcgGame;
+  set_code?: string;
   limit?: number;
 }
 
@@ -33,10 +34,32 @@ interface CardResult {
   price_source?: string;
 }
 
+// One Piece TCG Sets for manual search
+const ONE_PIECE_SETS = [
+  { code: 'OP01', name: 'Romance Dawn' },
+  { code: 'OP02', name: 'Paramount War' },
+  { code: 'OP03', name: 'Pillars of Strength' },
+  { code: 'OP04', name: 'Kingdoms of Intrigue' },
+  { code: 'OP05', name: 'Awakening of the New Era' },
+  { code: 'OP06', name: 'Wings of the Captain' },
+  { code: 'OP07', name: '500 Years in the Future' },
+  { code: 'OP08', name: 'Two Legends' },
+  { code: 'OP09', name: 'The Four Emperors' },
+  { code: 'ST01', name: 'Straw Hat Crew' },
+  { code: 'ST02', name: 'Worst Generation' },
+  { code: 'ST03', name: 'The Seven Warlords of the Sea' },
+  { code: 'ST04', name: 'Animal Kingdom Pirates' },
+  { code: 'ST05', name: 'One Piece Film Edition' },
+  { code: 'ST06', name: 'Absolute Justice' },
+  { code: 'ST07', name: 'Big Mom Pirates' },
+  { code: 'ST08', name: 'Monkey.D.Luffy' },
+  { code: 'ST09', name: 'Yamato' },
+  { code: 'ST10', name: 'The Three Captains' },
+];
+
 // TCGdex API for Pokémon cards
 async function searchPokemonCards(query: string, limit: number = 10): Promise<CardResult[]> {
   try {
-    // Search by name
     const response = await fetch(
       `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(query)}`
     );
@@ -50,7 +73,6 @@ async function searchPokemonCards(query: string, limit: number = 10): Promise<Ca
     
     if (!Array.isArray(cards)) return [];
 
-    // Get detailed info for each card (limited)
     const results: CardResult[] = [];
     for (const card of cards.slice(0, limit)) {
       try {
@@ -83,44 +105,137 @@ async function searchPokemonCards(query: string, limit: number = 10): Promise<Ca
   }
 }
 
-// OPTCG API for One Piece cards (https://optcgapi.com)
-async function searchOnePieceCards(query: string, limit: number = 10): Promise<CardResult[]> {
+// JustTCG API for One Piece cards with images and pricing
+async function searchOnePieceCardsJustTCG(query: string, setCode?: string, limit: number = 10): Promise<CardResult[]> {
+  const apiKey = Deno.env.get("JUSTTCG_API_KEY");
+  if (!apiKey) {
+    console.log("JustTCG API key not configured");
+    return [];
+  }
+
   try {
-    // First, search for cards by name using the OPTCG API
-    const response = await fetch(
-      `https://optcgapi.com/api/cards/?name=${encodeURIComponent(query)}`
-    );
-    
+    // Build query params
+    let url = `https://api.justtcg.com/v1/cards?game=one-piece&q=${encodeURIComponent(query)}`;
+    if (setCode) {
+      url += `&set=${encodeURIComponent(setCode)}`;
+    }
+    url += `&limit=${limit}`;
+
+    console.log("Fetching One Piece cards from JustTCG:", url);
+
+    const response = await fetch(url, {
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
     if (!response.ok) {
-      console.error("OPTCG API error:", response.status);
+      const errorText = await response.text();
+      console.error("JustTCG API error:", response.status, errorText);
+      if (response.status === 429) {
+        console.warn("JustTCG rate limit reached");
+      }
       return [];
     }
 
     const data = await response.json();
+    const cards = data.data || data || [];
+
+    console.log(`JustTCG returned ${cards.length} One Piece cards`);
+
+    if (!Array.isArray(cards)) return [];
+
+    return cards.slice(0, limit).map((card: any) => {
+      // Extract market price from variants
+      let marketPrice = null;
+      if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
+        const highestPriceVariant = card.variants.reduce((max: any, v: any) => 
+          (v.price || 0) > (max.price || 0) ? v : max, card.variants[0]);
+        marketPrice = highestPriceVariant?.price || null;
+      }
+
+      return {
+        id: crypto.randomUUID(),
+        external_id: card.id || card.card_id || `op-${card.name}`,
+        tcg_game: 'onepiece' as TcgGame,
+        card_name: card.name,
+        set_name: card.set?.name || card.setName,
+        set_code: card.set?.id || card.setCode,
+        card_number: card.card_id || card.number || card.collector_number,
+        rarity: card.rarity,
+        image_url: card.image_url || card.image || card.images?.large || card.images?.small,
+        image_url_small: card.images?.small || card.image_url || card.image,
+        price_market: marketPrice,
+        price_currency: 'USD',
+        price_source: 'justtcg',
+      };
+    });
+  } catch (error) {
+    console.error("JustTCG One Piece search error:", error);
+    return [];
+  }
+}
+
+// Fallback: TCG Codex API for One Piece cards
+async function searchOnePieceCardsTCGCodex(query: string, limit: number = 10): Promise<CardResult[]> {
+  try {
+    const response = await fetch(
+      `https://api.tcgcodex.com/api/cards?name=${encodeURIComponent(query)}&game=onepiece`
+    );
     
-    // The API returns paginated results with a 'results' array
-    const cards = data.results || data || [];
+    if (!response.ok) {
+      console.error("TCG Codex API error:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const cards = data.data || data.results || data || [];
     
     if (!Array.isArray(cards)) return [];
 
-    // Map the OPTCG API response to our CardResult format
     return cards.slice(0, limit).map((card: any) => ({
       id: crypto.randomUUID(),
-      external_id: card.card_id || card.id || `op-${card.name}`,
+      external_id: card.id || card.code || `op-${card.name}`,
       tcg_game: 'onepiece' as TcgGame,
       card_name: card.name,
-      set_name: card.card_set?.name || card.set_name,
-      set_code: card.card_set?.id || card.card_id?.split('-')[0],
-      card_number: card.card_id || card.number,
+      set_name: card.set?.name || card.setName,
+      set_code: card.set?.code || card.setCode,
+      card_number: card.number || card.code,
       rarity: card.rarity,
-      image_url: card.image || card.card_image,
-      image_url_small: card.image || card.card_image,
+      image_url: card.imageUrl || card.image,
+      image_url_small: card.thumbnailUrl || card.image,
       price_currency: 'USD',
     }));
   } catch (error) {
-    console.error("One Piece search error:", error);
+    console.error("TCG Codex One Piece search error:", error);
     return [];
   }
+}
+
+// Combined One Piece search: JustTCG primary, TCG Codex fallback
+async function searchOnePieceCards(query: string, setCode?: string, limit: number = 10): Promise<CardResult[]> {
+  // Try JustTCG first (has images AND pricing)
+  let results = await searchOnePieceCardsJustTCG(query, setCode, limit);
+  
+  if (results.length === 0) {
+    console.log("JustTCG returned no results, trying TCG Codex...");
+    // Fallback to TCG Codex for images
+    results = await searchOnePieceCardsTCGCodex(query, limit);
+    
+    // If TCG Codex found cards, try to get pricing from JustTCG
+    for (const card of results) {
+      if (!card.price_market) {
+        const priceResults = await searchOnePieceCardsJustTCG(card.card_name, undefined, 1);
+        if (priceResults.length > 0 && priceResults[0].price_market) {
+          card.price_market = priceResults[0].price_market;
+          card.price_source = 'justtcg';
+        }
+      }
+    }
+  }
+
+  return results;
 }
 
 // JustTCG API for multi-game pricing
@@ -129,6 +244,7 @@ async function fetchJustTCGPrices(cardName: string, tcgGame: TcgGame): Promise<{
   price_mid?: number;
   price_high?: number;
   price_market?: number;
+  image_url?: string;
 }> {
   const apiKey = Deno.env.get("JUSTTCG_API_KEY");
   if (!apiKey) {
@@ -137,22 +253,21 @@ async function fetchJustTCGPrices(cardName: string, tcgGame: TcgGame): Promise<{
   }
 
   try {
-    // Map our game types to JustTCG's format
     const gameMap: Record<TcgGame, string> = {
       pokemon: 'pokemon',
       magic: 'mtg',
       yugioh: 'yugioh',
-      onepiece: 'onepiece',
+      onepiece: 'one-piece',
       dragonball: 'dbs',
       lorcana: 'lorcana',
       unionarena: 'unionarena',
     };
 
     const response = await fetch(
-      `https://api.justtcg.com/v1/cards/search?q=${encodeURIComponent(cardName)}&game=${gameMap[tcgGame]}`,
+      `https://api.justtcg.com/v1/cards?game=${gameMap[tcgGame]}&q=${encodeURIComponent(cardName)}`,
       {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'x-api-key': apiKey,
           'Content-Type': 'application/json',
         },
       }
@@ -170,11 +285,20 @@ async function fetchJustTCGPrices(cardName: string, tcgGame: TcgGame): Promise<{
 
     if (!card) return {};
 
+    // Extract market price from variants
+    let marketPrice = null;
+    if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
+      const highestPriceVariant = card.variants.reduce((max: any, v: any) => 
+        (v.price || 0) > (max.price || 0) ? v : max, card.variants[0]);
+      marketPrice = highestPriceVariant?.price || null;
+    }
+
     return {
       price_low: card.prices?.low || card.priceLow,
       price_mid: card.prices?.mid || card.priceMid,
       price_high: card.prices?.high || card.priceHigh,
-      price_market: card.prices?.market || card.priceMarket,
+      price_market: marketPrice || card.prices?.market || card.priceMarket,
+      image_url: card.image_url || card.image || card.images?.large,
     };
   } catch (error) {
     console.error("JustTCG price fetch error:", error);
@@ -182,18 +306,17 @@ async function fetchJustTCGPrices(cardName: string, tcgGame: TcgGame): Promise<{
   }
 }
 
-// Generic search for other TCGs (uses AI identification + JustTCG)
+// Generic search for other TCGs
 async function searchGenericCards(query: string, tcgGame: TcgGame, limit: number = 10): Promise<CardResult[]> {
-  // For games without dedicated free APIs, we create a basic result
-  // and try to get pricing from JustTCG
-  const prices = await fetchJustTCGPrices(query, tcgGame);
+  const pricesAndImage = await fetchJustTCGPrices(query, tcgGame);
   
   return [{
     id: crypto.randomUUID(),
     external_id: `${tcgGame}-${query.toLowerCase().replace(/\s+/g, '-')}`,
     tcg_game: tcgGame,
     card_name: query,
-    ...prices,
+    image_url: pricesAndImage.image_url,
+    ...pricesAndImage,
     price_currency: 'USD',
     price_source: 'justtcg',
   }];
@@ -211,7 +334,15 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CardSearchRequest = await req.json();
-    const { query, tcg_game, limit = 10 } = body;
+    const { query, tcg_game, set_code, limit = 10 } = body;
+
+    // Handle special request for One Piece sets list
+    if (query === "__GET_ONEPIECE_SETS__") {
+      return new Response(
+        JSON.stringify({ success: true, sets: ONE_PIECE_SETS }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!query || query.trim().length < 2) {
       return new Response(
@@ -236,11 +367,10 @@ Deno.serve(async (req) => {
     const { data: cachedCards } = await cacheQuery;
 
     if (cachedCards && cachedCards.length > 0) {
-      // Check if prices are stale (older than 24 hours)
       const freshCards = cachedCards.filter(card => {
         if (!card.price_updated_at) return false;
         const priceAge = Date.now() - new Date(card.price_updated_at).getTime();
-        return priceAge < 24 * 60 * 60 * 1000; // 24 hours
+        return priceAge < 24 * 60 * 60 * 1000;
       });
 
       if (freshCards.length > 0) {
@@ -266,10 +396,9 @@ Deno.serve(async (req) => {
           gameResults = await searchPokemonCards(searchQuery, limit);
           break;
         case 'onepiece':
-          gameResults = await searchOnePieceCards(searchQuery, limit);
+          gameResults = await searchOnePieceCards(searchQuery, set_code, limit);
           break;
         default:
-          // For other TCGs, use generic search with JustTCG pricing
           gameResults = await searchGenericCards(searchQuery, game, limit);
           break;
       }
@@ -277,14 +406,17 @@ Deno.serve(async (req) => {
       // Fetch prices from JustTCG if not already present
       for (const card of gameResults) {
         if (!card.price_market && !card.price_mid) {
-          const prices = await fetchJustTCGPrices(card.card_name, game);
-          Object.assign(card, prices, { price_source: 'justtcg' });
+          const pricesAndImage = await fetchJustTCGPrices(card.card_name, game);
+          Object.assign(card, pricesAndImage, { price_source: 'justtcg' });
+          // Also update image if missing
+          if (!card.image_url && pricesAndImage.image_url) {
+            card.image_url = pricesAndImage.image_url;
+          }
         }
       }
 
       results = results.concat(gameResults);
 
-      // Limit total results
       if (results.length >= limit) {
         results = results.slice(0, limit);
         break;

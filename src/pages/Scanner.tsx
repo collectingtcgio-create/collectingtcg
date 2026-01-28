@@ -8,7 +8,7 @@ import { useCardScanner } from "@/hooks/useCardScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
-import { ScanResultModal } from "@/components/scanner/ScanResultModal";
+import { ScanResultModal, CardResult } from "@/components/scanner/ScanResultModal";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
 import { CardSelectionModal } from "@/components/scanner/CardSelectionModal";
 import { ImageUpload } from "@/components/scanner/ImageUpload";
@@ -19,6 +19,7 @@ export default function Scanner() {
   const { toast } = useToast();
   const cameraRef = useRef<CameraViewHandle>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   const {
     isProcessing,
@@ -56,12 +57,16 @@ export default function Scanner() {
       return;
     }
 
+    // Save captured image for potential use in modal
+    setCapturedImage(imageData);
+
     // Send to identification function
     await identifyCard(imageData);
   }, [identifyCard, toast]);
 
   const handleTryAgain = useCallback(() => {
     resetScanner();
+    setCapturedImage(null);
     cameraRef.current?.startCamera();
   }, [resetScanner]);
 
@@ -256,11 +261,17 @@ export default function Scanner() {
           open={showResult}
           onOpenChange={(open) => {
             setShowResult(open);
-            if (!open) resetScanner();
+            if (!open) {
+              resetScanner();
+              setCapturedImage(null);
+            }
           }}
           card={selectedCard}
-          onAddToBinder={addToBinder}
+          onAddToBinder={async (updatedCard?: CardResult) => {
+            return addToBinder(updatedCard);
+          }}
           isAdding={isAddingToBinder}
+          capturedImage={capturedImage}
         />
 
         {/* No Card Detected Modal */}

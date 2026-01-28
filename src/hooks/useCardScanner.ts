@@ -85,8 +85,10 @@ export function useCardScanner() {
     setShowResult(true);
   }, []);
 
-  const addToBinder = useCallback(async (): Promise<boolean> => {
-    if (!profile || !selectedCard) {
+  const addToBinder = useCallback(async (updatedCard?: CardResult): Promise<boolean> => {
+    const cardToAdd = updatedCard || selectedCard;
+    
+    if (!profile || !cardToAdd) {
       toast({
         title: "Cannot add card",
         description: "No card data available or not logged in.",
@@ -101,10 +103,10 @@ export function useCardScanner() {
       // Insert the card into user_cards with tcg_game
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
-        card_name: selectedCard.card_name,
-        image_url: selectedCard.image_url || null,
-        price_estimate: selectedCard.price_estimate || 0,
-        tcg_game: selectedCard.tcg_game || null,
+        card_name: cardToAdd.card_name,
+        image_url: cardToAdd.image_url || null,
+        price_estimate: cardToAdd.price_estimate || cardToAdd.price_market || 0,
+        tcg_game: cardToAdd.tcg_game || null,
       });
 
       if (insertError) {
@@ -115,19 +117,19 @@ export function useCardScanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "scan",
-        description: `Scanned and added "${selectedCard.card_name}" to their collection`,
+        description: `Scanned and added "${cardToAdd.card_name}" to their collection`,
         metadata: {
-          card_name: selectedCard.card_name,
-          tcg_game: selectedCard.tcg_game,
-          set_name: selectedCard.set_name,
-          rarity: selectedCard.rarity,
-          price_estimate: selectedCard.price_estimate,
+          card_name: cardToAdd.card_name,
+          tcg_game: cardToAdd.tcg_game,
+          set_name: cardToAdd.set_name,
+          rarity: cardToAdd.rarity,
+          price_estimate: cardToAdd.price_estimate || cardToAdd.price_market,
         },
       });
 
       toast({
         title: "Card Added!",
-        description: `${selectedCard.card_name} has been added to your binder.`,
+        description: `${cardToAdd.card_name} has been added to your binder.`,
       });
 
       return true;
