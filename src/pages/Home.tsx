@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Activity, Radio, UserPlus, CreditCard, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
+import { MarketTicker } from "@/components/home/MarketTicker";
 interface ActivityItem {
   id: string;
   user_id: string;
@@ -103,6 +103,9 @@ export default function Home() {
 
   return (
     <Layout>
+      {/* Market Ticker - Holy Grails */}
+      <MarketTicker />
+
       <div className="container mx-auto px-4">
         {/* Welcome Banner */}
         {!user && (
