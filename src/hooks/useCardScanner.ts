@@ -2,11 +2,11 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import type { CardResult } from "@/components/scanner/ScanResultModal";
+import type { CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 
 interface ScanResult {
   success: boolean;
-  card?: CardResult;
+  cards?: CardResult[];
   error?: string;
   processing_time_ms?: number;
 }
@@ -16,14 +16,17 @@ export function useCardScanner() {
   const { profile } = useAuth();
   
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scanResult, setScanResult] = useState<CardResult | null>(null);
+  const [scanResults, setScanResults] = useState<CardResult[]>([]);
+  const [selectedCard, setSelectedCard] = useState<CardResult | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [showNoCardModal, setShowNoCardModal] = useState(false);
   const [isAddingToBinder, setIsAddingToBinder] = useState(false);
 
   const identifyCard = useCallback(async (imageData: string): Promise<ScanResult> => {
     setIsProcessing(true);
-    setScanResult(null);
+    setScanResults([]);
+    setSelectedCard(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -35,7 +38,6 @@ export function useCardScanner() {
       const response = await supabase.functions.invoke("identify-card", {
         body: {
           image_data: imageData,
-          mode: "simulate", // Change to "identify" when real API is connected
         },
       });
 
@@ -45,9 +47,17 @@ export function useCardScanner() {
 
       const result = response.data as ScanResult;
 
-      if (result.success && result.card) {
-        setScanResult(result.card);
-        setShowResult(true);
+      if (result.success && result.cards && result.cards.length > 0) {
+        setScanResults(result.cards);
+        
+        if (result.cards.length === 1) {
+          // Single match - show result directly
+          setSelectedCard(result.cards[0]);
+          setShowResult(true);
+        } else {
+          // Multiple matches - show selection modal
+          setShowSelectionModal(true);
+        }
         return result;
       } else {
         setShowNoCardModal(true);
@@ -69,8 +79,14 @@ export function useCardScanner() {
     }
   }, [toast]);
 
+  const selectCard = useCallback((card: CardResult) => {
+    setSelectedCard(card);
+    setShowSelectionModal(false);
+    setShowResult(true);
+  }, []);
+
   const addToBinder = useCallback(async (): Promise<boolean> => {
-    if (!profile || !scanResult) {
+    if (!profile || !selectedCard) {
       toast({
         title: "Cannot add card",
         description: "No card data available or not logged in.",
@@ -82,12 +98,13 @@ export function useCardScanner() {
     setIsAddingToBinder(true);
 
     try {
-      // Insert the card into user_cards
+      // Insert the card into user_cards with tcg_game
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
-        card_name: scanResult.card_name,
-        image_url: scanResult.image_url || null,
-        price_estimate: scanResult.price_estimate || 0,
+        card_name: selectedCard.card_name,
+        image_url: selectedCard.image_url || null,
+        price_estimate: selectedCard.price_estimate || 0,
+        tcg_game: selectedCard.tcg_game || null,
       });
 
       if (insertError) {
@@ -98,18 +115,19 @@ export function useCardScanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "scan",
-        description: `Scanned and added "${scanResult.card_name}" to their collection`,
+        description: `Scanned and added "${selectedCard.card_name}" to their collection`,
         metadata: {
-          card_name: scanResult.card_name,
-          set_name: scanResult.set_name,
-          rarity: scanResult.rarity,
-          price_estimate: scanResult.price_estimate,
+          card_name: selectedCard.card_name,
+          tcg_game: selectedCard.tcg_game,
+          set_name: selectedCard.set_name,
+          rarity: selectedCard.rarity,
+          price_estimate: selectedCard.price_estimate,
         },
       });
 
       toast({
         title: "Card Added!",
-        description: `${scanResult.card_name} has been added to your binder.`,
+        description: `${selectedCard.card_name} has been added to your binder.`,
       });
 
       return true;
@@ -126,23 +144,29 @@ export function useCardScanner() {
     } finally {
       setIsAddingToBinder(false);
     }
-  }, [profile, scanResult, toast]);
+  }, [profile, selectedCard, toast]);
 
   const resetScanner = useCallback(() => {
-    setScanResult(null);
+    setScanResults([]);
+    setSelectedCard(null);
     setShowResult(false);
+    setShowSelectionModal(false);
     setShowNoCardModal(false);
   }, []);
 
   return {
     isProcessing,
-    scanResult,
+    scanResults,
+    selectedCard,
     showResult,
     setShowResult,
+    showSelectionModal,
+    setShowSelectionModal,
     showNoCardModal,
     setShowNoCardModal,
     isAddingToBinder,
     identifyCard,
+    selectCard,
     addToBinder,
     resetScanner,
   };

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { ScanResultModal } from "@/components/scanner/ScanResultModal";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
+import { CardSelectionModal } from "@/components/scanner/CardSelectionModal";
 import { ImageUpload } from "@/components/scanner/ImageUpload";
 import { Sparkles, X, Search } from "lucide-react";
 
@@ -21,13 +22,17 @@ export default function Scanner() {
 
   const {
     isProcessing,
-    scanResult,
+    scanResults,
+    selectedCard,
     showResult,
     setShowResult,
+    showSelectionModal,
+    setShowSelectionModal,
     showNoCardModal,
     setShowNoCardModal,
     isAddingToBinder,
     identifyCard,
+    selectCard,
     addToBinder,
     resetScanner,
   } = useCardScanner();
@@ -238,14 +243,22 @@ export default function Scanner() {
           </div>
         )}
 
-        {/* Scan Result Modal */}
+        {/* Card Selection Modal (multiple matches) */}
+        <CardSelectionModal
+          open={showSelectionModal}
+          onOpenChange={setShowSelectionModal}
+          cards={scanResults}
+          onSelect={selectCard}
+        />
+
+        {/* Scan Result Modal (single match or after selection) */}
         <ScanResultModal
           open={showResult}
           onOpenChange={(open) => {
             setShowResult(open);
             if (!open) resetScanner();
           }}
-          card={scanResult}
+          card={selectedCard}
           onAddToBinder={addToBinder}
           isAdding={isAddingToBinder}
         />
