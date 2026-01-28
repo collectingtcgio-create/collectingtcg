@@ -13,8 +13,6 @@ import {
   MessageSquare, 
   Image as ImageIcon, 
   X, 
-  ChevronDown, 
-  ChevronUp,
   Trash2,
   Gift
 } from "lucide-react";
@@ -83,8 +81,8 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   const [postImage, setPostImage] = useState<File | null>(null);
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [replies, setReplies] = useState<Record<string, WallPostReply[]>>({});
+  const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
   const [replyContent, setReplyContent] = useState<Record<string, string>>({});
   const [submittingReply, setSubmittingReply] = useState<string | null>(null);
   const [activeGiftAnimation, setActiveGiftAnimation] = useState<GiftMascot | null>(null);
@@ -131,7 +129,13 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     if (error) {
       console.error("Failed to fetch posts:", error);
     } else {
-      setPosts(data as unknown as WallPost[]);
+      const postsData = data as unknown as WallPost[];
+      setPosts(postsData);
+      
+      // Fetch reply counts and replies for all posts
+      postsData.forEach((post) => {
+        fetchReplies(post.id);
+      });
     }
     setLoading(false);
   };
@@ -252,12 +256,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     }
   };
 
-  const toggleReplies = (postId: string) => {
-    if (!expandedReplies[postId]) {
-      fetchReplies(postId);
-    }
-    setExpandedReplies((prev) => ({ ...prev, [postId]: !prev[postId] }));
-  };
+  // Removed toggleReplies - replies now always shown
 
   const handleSubmitReply = async (postId: string) => {
     if (!currentProfile || !replyContent[postId]?.trim()) return;
@@ -541,169 +540,159 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                   </div>
                 )}
 
-                {/* Replies Toggle */}
+                {/* Replies Section - Always visible */}
                 <div className="pt-2 border-t border-border/50">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleReplies(post.id)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    {replies[post.id]?.length || 0} Replies
-                    {expandedReplies[post.id] ? (
-                      <ChevronUp className="w-4 h-4 ml-1" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    )}
-                  </Button>
+                  {/* Reply count header */}
+                  <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                    <MessageSquare className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      {replies[post.id]?.length || 0} {(replies[post.id]?.length || 0) === 1 ? 'Reply' : 'Replies'}
+                    </span>
+                  </div>
 
-                  {/* Replies Section */}
-                  {expandedReplies[post.id] && (
-                    <div className="mt-3 pl-4 border-l-2 border-border/50 space-y-3">
-                      {/* Reply Form */}
-                      {user && currentProfile && (
-                        <div className="flex gap-2">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {currentProfile.avatar_url ? (
-                              <img
-                                src={currentProfile.avatar_url}
-                                alt={currentProfile.username}
-                                className="w-full h-full object-cover"
-                              />
+                  <div className="pl-4 border-l-2 border-border/50 space-y-3">
+                    {/* Reply Form */}
+                    {user && currentProfile && (
+                      <div className="flex gap-2">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {currentProfile.avatar_url ? (
+                            <img
+                              src={currentProfile.avatar_url}
+                              alt={currentProfile.username}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs font-medium">
+                              {currentProfile.username?.[0]?.toUpperCase() || "?"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 flex gap-2">
+                          <Input
+                            value={replyContent[post.id] || ""}
+                            onChange={(e) =>
+                              setReplyContent((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Write a reply..."
+                            className="bg-input border-border h-8 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmitReply(post.id);
+                              }
+                            }}
+                          />
+                          <Button
+                            size="icon"
+                            onClick={() => handleSubmitReply(post.id)}
+                            disabled={submittingReply === post.id || !replyContent[post.id]?.trim()}
+                            className="h-8 w-8"
+                          >
+                            {submittingReply === post.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                              <span className="text-xs font-medium">
-                                {currentProfile.username?.[0]?.toUpperCase() || "?"}
+                              <Send className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Replies List */}
+                    {replies[post.id]?.map((reply) => {
+                      const giftGlowClass = getGiftGlowClass(reply.gift_type);
+                      const giftInfo = reply.gift_type ? getGiftByType(reply.gift_type as GiftType) : null;
+                      
+                      return (
+                        <div key={reply.id} className="flex gap-2 group">
+                          <Link to={`/profile/${reply.author?.id}`}>
+                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {reply.author?.avatar_url ? (
+                                <img
+                                  src={reply.author.avatar_url}
+                                  alt={reply.author.username}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium">
+                                  {reply.author?.username?.[0]?.toUpperCase() || "?"}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                          <div className={`flex-1 bg-muted/30 rounded-lg p-2 ${giftGlowClass}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Link
+                                to={`/profile/${reply.author?.id}`}
+                                className="font-medium text-xs text-primary hover:underline"
+                              >
+                                {reply.author?.username || "Unknown"}
+                              </Link>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
                               </span>
+                              {/* Gift badge if reply was gifted */}
+                              {giftInfo && (
+                                <span 
+                                  className="text-xs px-1.5 py-0.5 rounded-full uppercase font-bold"
+                                  style={{ 
+                                    backgroundColor: giftInfo.color,
+                                    color: 'black'
+                                  }}
+                                >
+                                  {giftInfo.emoji} {giftInfo.tier}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-foreground/80">{reply.content}</p>
+                          </div>
+                          
+                          {/* Actions for reply */}
+                          <div className="flex items-center gap-1">
+                            {/* Gift button - only show for other users' replies */}
+                            {currentProfile && currentProfile.id !== reply.author?.id && !reply.gift_type && (
+                              <GiftSelector
+                                recipientId={reply.author?.id}
+                                source="comment_reply"
+                                sourceId={reply.id}
+                                onGiftSent={(giftType) => 
+                                  handleGiftSent(giftType, reply.id, post.id, reply.author?.username || "Unknown")
+                                }
+                                size="sm"
+                                trigger={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-secondary hover:text-secondary hover:bg-secondary/10"
+                                  >
+                                    <Gift className="w-4 h-4" />
+                                  </Button>
+                                }
+                              />
+                            )}
+                            {/* Delete button for reply author */}
+                            {currentProfile?.id === reply.author?.id && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteReply(reply.id, post.id)}
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             )}
                           </div>
-                          <div className="flex-1 flex gap-2">
-                            <Input
-                              value={replyContent[post.id] || ""}
-                              onChange={(e) =>
-                                setReplyContent((prev) => ({
-                                  ...prev,
-                                  [post.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Write a reply..."
-                              className="bg-input border-border h-8 text-sm"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleSubmitReply(post.id);
-                                }
-                              }}
-                            />
-                            <Button
-                              size="icon"
-                              onClick={() => handleSubmitReply(post.id)}
-                              disabled={submittingReply === post.id || !replyContent[post.id]?.trim()}
-                              className="h-8 w-8"
-                            >
-                              {submittingReply === post.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Send className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </div>
                         </div>
-                      )}
+                      );
+                    })}
 
-                      {/* Replies List */}
-                      {replies[post.id]?.map((reply) => {
-                        const giftGlowClass = getGiftGlowClass(reply.gift_type);
-                        const giftInfo = reply.gift_type ? getGiftByType(reply.gift_type as GiftType) : null;
-                        
-                        return (
-                          <div key={reply.id} className="flex gap-2 group">
-                            <Link to={`/profile/${reply.author?.id}`}>
-                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                {reply.author?.avatar_url ? (
-                                  <img
-                                    src={reply.author.avatar_url}
-                                    alt={reply.author.username}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <span className="text-xs font-medium">
-                                    {reply.author?.username?.[0]?.toUpperCase() || "?"}
-                                  </span>
-                                )}
-                              </div>
-                            </Link>
-                            <div className={`flex-1 bg-muted/30 rounded-lg p-2 ${giftGlowClass}`}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Link
-                                  to={`/profile/${reply.author?.id}`}
-                                  className="font-medium text-xs text-primary hover:underline"
-                                >
-                                  {reply.author?.username || "Unknown"}
-                                </Link>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
-                                </span>
-                                {/* Gift badge if reply was gifted */}
-                                {giftInfo && (
-                                  <span 
-                                    className="text-xs px-1.5 py-0.5 rounded-full uppercase font-bold"
-                                    style={{ 
-                                      backgroundColor: giftInfo.color,
-                                      color: 'black'
-                                    }}
-                                  >
-                                    {giftInfo.emoji} {giftInfo.tier}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-foreground/80">{reply.content}</p>
-                            </div>
-                            
-                            {/* Actions for reply */}
-                            <div className="flex items-center gap-1">
-                              {/* Gift button - only show for other users' replies */}
-                              {currentProfile && currentProfile.id !== reply.author?.id && !reply.gift_type && (
-                                <GiftSelector
-                                  recipientId={reply.author?.id}
-                                  source="comment_reply"
-                                  sourceId={reply.id}
-                                  onGiftSent={(giftType) => 
-                                    handleGiftSent(giftType, reply.id, post.id, reply.author?.username || "Unknown")
-                                  }
-                                  size="sm"
-                                  trigger={
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 text-secondary hover:text-secondary hover:bg-secondary/10"
-                                    >
-                                      <Gift className="w-4 h-4" />
-                                    </Button>
-                                  }
-                                />
-                              )}
-                              {/* Delete button for reply author */}
-                              {currentProfile?.id === reply.author?.id && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteReply(reply.id, post.id)}
-                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {replies[post.id]?.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No replies yet</p>
-                      )}
-                    </div>
-                  )}
+                    {(!replies[post.id] || replies[post.id].length === 0) && (
+                      <p className="text-xs text-muted-foreground">No replies yet. Be the first to comment!</p>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

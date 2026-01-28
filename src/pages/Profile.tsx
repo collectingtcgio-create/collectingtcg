@@ -14,6 +14,7 @@ import { BioEditor } from "@/components/profile/BioEditor";
 import { StatusEditor, StatusDisplay } from "@/components/profile/StatusEditor";
 import { WallPosts } from "@/components/profile/WallPosts";
 import { CreatorBadge } from "@/components/profile/CreatorBadge";
+import { FollowersModal } from "@/components/profile/FollowersModal";
 import { 
   UserPlus, 
   UserMinus, 
@@ -83,6 +84,8 @@ export default function Profile() {
   const [topEightEditorOpen, setTopEightEditorOpen] = useState(false);
   const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
   const [socialLinksEditorOpen, setSocialLinksEditorOpen] = useState(false);
+  const [followersModalOpen, setFollowersModalOpen] = useState(false);
+  const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -293,16 +296,28 @@ export default function Profile() {
                 </p>
               </div>
 
-              {/* Stats Row */}
+              {/* Stats Row - Clickable */}
               <div className="flex gap-4 mt-4 pt-4 border-t border-border/50 text-center">
-                <div className="flex-1">
+                <button 
+                  onClick={() => {
+                    setFollowersModalTab("followers");
+                    setFollowersModalOpen(true);
+                  }}
+                  className="flex-1 hover:bg-muted/50 rounded-lg p-2 transition-colors cursor-pointer"
+                >
                   <p className="text-lg font-bold text-primary">{followerCount}</p>
                   <p className="text-xs text-muted-foreground">Followers</p>
-                </div>
-                <div className="flex-1">
+                </button>
+                <button 
+                  onClick={() => {
+                    setFollowersModalTab("following");
+                    setFollowersModalOpen(true);
+                  }}
+                  className="flex-1 hover:bg-muted/50 rounded-lg p-2 transition-colors cursor-pointer"
+                >
                   <p className="text-lg font-bold text-secondary">{followingCount}</p>
                   <p className="text-xs text-muted-foreground">Following</p>
-                </div>
+                </button>
               </div>
 
               {/* View Links (MySpace style) */}
@@ -647,6 +662,17 @@ export default function Profile() {
             website_url: profileData.website_url || "",
           }}
           onUpdate={fetchProfileData}
+        />
+      )}
+
+      {/* Followers Modal */}
+      {profileData && (
+        <FollowersModal
+          open={followersModalOpen}
+          onOpenChange={setFollowersModalOpen}
+          profileId={profileData.id}
+          profileUsername={profileData.username}
+          initialTab={followersModalTab}
         />
       )}
     </Layout>
