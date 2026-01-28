@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Crop, Loader2, Check } from "lucide-react";
+import { Upload, X, Crop, Loader2, Check, Move } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,6 +10,8 @@ interface CropBox {
   width: number;
   height: number;
 }
+
+type ResizeHandle = "nw" | "n" | "ne" | "w" | "e" | "sw" | "s" | "se" | "move" | null;
 
 interface ImageUploadProps {
   onUpload: (url: string) => void;
@@ -24,8 +26,12 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [cropBox, setCropBox] = useState<CropBox | null>(null);
   const [cardType, setCardType] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeHandle, setActiveHandle] = useState<ResizeHandle>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, box: { x: 0, y: 0, width: 0, height: 0 } });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const detectCardCrop = async (imageBase64: string) => {
@@ -38,11 +44,19 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
       if (error) throw error;
 
       if (data.detected && data.cropBox) {
-        setCropBox(data.cropBox);
+        // Ensure the crop box is properly sized for horizontal cards
+        const detectedBox = data.cropBox;
+        // If AI returned a narrow/square box, adjust to card aspect ratio (roughly 3.5:2.5 for horizontal)
+        const minWidth = 30; // Minimum 30% width
+        const adjustedBox = {
+          ...detectedBox,
+          width: Math.max(detectedBox.width, minWidth),
+        };
+        setCropBox(adjustedBox);
         setCardType(data.cardType || "Trading Card");
         toast({
           title: "Card detected!",
-          description: `Found a ${data.cardType || "trading card"} (${data.confidence}% confidence). Click 'Apply Crop' to use.`,
+          description: `Found a ${data.cardType || "trading card"} (${data.confidence}% confidence). Drag edges to adjust crop.`,
         });
       } else {
         toast({
@@ -61,6 +75,109 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
       setDetecting(false);
     }
   };
+
+  // Handle mouse/touch interactions for crop resizing
+  const getEventPosition = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!imageContainerRef.current) return { x: 0, y: 0 };
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * 100,
+      y: ((clientY - rect.top) / rect.height) * 100,
+    };
+  };
+
+  const handleDragStart = (handle: ResizeHandle) => (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!cropBox) return;
+    setIsDragging(true);
+    setActiveHandle(handle);
+    const pos = getEventPosition(e);
+    setDragStart({ x: pos.x, y: pos.y, box: { ...cropBox } });
+  };
+
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDragging || !cropBox || !imageContainerRef.current) return;
+    
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const currentX = ((clientX - rect.left) / rect.width) * 100;
+    const currentY = ((clientY - rect.top) / rect.height) * 100;
+    
+    const deltaX = currentX - dragStart.x;
+    const deltaY = currentY - dragStart.y;
+    const startBox = dragStart.box;
+    
+    let newBox = { ...cropBox };
+    const minSize = 10; // Minimum 10% for width/height
+    
+    switch (activeHandle) {
+      case "move":
+        newBox.x = Math.max(0, Math.min(100 - startBox.width, startBox.x + deltaX));
+        newBox.y = Math.max(0, Math.min(100 - startBox.height, startBox.y + deltaY));
+        break;
+      case "nw":
+        newBox.x = Math.max(0, Math.min(startBox.x + startBox.width - minSize, startBox.x + deltaX));
+        newBox.y = Math.max(0, Math.min(startBox.y + startBox.height - minSize, startBox.y + deltaY));
+        newBox.width = startBox.width - (newBox.x - startBox.x);
+        newBox.height = startBox.height - (newBox.y - startBox.y);
+        break;
+      case "n":
+        newBox.y = Math.max(0, Math.min(startBox.y + startBox.height - minSize, startBox.y + deltaY));
+        newBox.height = startBox.height - (newBox.y - startBox.y);
+        break;
+      case "ne":
+        newBox.y = Math.max(0, Math.min(startBox.y + startBox.height - minSize, startBox.y + deltaY));
+        newBox.width = Math.max(minSize, Math.min(100 - startBox.x, startBox.width + deltaX));
+        newBox.height = startBox.height - (newBox.y - startBox.y);
+        break;
+      case "w":
+        newBox.x = Math.max(0, Math.min(startBox.x + startBox.width - minSize, startBox.x + deltaX));
+        newBox.width = startBox.width - (newBox.x - startBox.x);
+        break;
+      case "e":
+        newBox.width = Math.max(minSize, Math.min(100 - startBox.x, startBox.width + deltaX));
+        break;
+      case "sw":
+        newBox.x = Math.max(0, Math.min(startBox.x + startBox.width - minSize, startBox.x + deltaX));
+        newBox.width = startBox.width - (newBox.x - startBox.x);
+        newBox.height = Math.max(minSize, Math.min(100 - startBox.y, startBox.height + deltaY));
+        break;
+      case "s":
+        newBox.height = Math.max(minSize, Math.min(100 - startBox.y, startBox.height + deltaY));
+        break;
+      case "se":
+        newBox.width = Math.max(minSize, Math.min(100 - startBox.x, startBox.width + deltaX));
+        newBox.height = Math.max(minSize, Math.min(100 - startBox.y, startBox.height + deltaY));
+        break;
+    }
+    
+    setCropBox(newBox);
+  }, [isDragging, cropBox, dragStart, activeHandle]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    setActiveHandle(null);
+  }, []);
+
+  // Set up global mouse/touch listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleDragMove);
+      window.addEventListener("mouseup", handleDragEnd);
+      window.addEventListener("touchmove", handleDragMove);
+      window.addEventListener("touchend", handleDragEnd);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleDragMove);
+      window.removeEventListener("mouseup", handleDragEnd);
+      window.removeEventListener("touchmove", handleDragMove);
+      window.removeEventListener("touchend", handleDragEnd);
+    };
+  }, [isDragging, handleDragMove, handleDragEnd]);
 
   const applyCrop = useCallback(async () => {
     if (!originalImage || !cropBox || !canvasRef.current) return;
@@ -200,35 +317,114 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
 
       {preview ? (
         <div className="space-y-3">
-          <div className="relative rounded-lg overflow-hidden border border-border bg-card/50">
+          <div 
+            ref={imageContainerRef}
+            className="relative rounded-lg overflow-hidden border border-border bg-card/50 select-none"
+          >
             <img
               src={preview}
               alt="Card preview"
-              className="w-full h-48 object-contain bg-background/50"
+              className="w-full h-64 object-contain bg-background/50"
+              draggable={false}
             />
             {cropBox && (
-              <div 
-                className="absolute border-2 border-primary bg-primary/20 pointer-events-none"
-                style={{
-                  left: `${cropBox.x}%`,
-                  top: `${cropBox.y}%`,
-                  width: `${cropBox.width}%`,
-                  height: `${cropBox.height}%`,
-                }}
-              />
+              <>
+                {/* Darkened overlay outside crop area */}
+                <div 
+                  className="absolute inset-0 bg-black/50 pointer-events-none"
+                  style={{
+                    clipPath: `polygon(
+                      0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                      ${cropBox.x}% ${cropBox.y}%, 
+                      ${cropBox.x}% ${cropBox.y + cropBox.height}%, 
+                      ${cropBox.x + cropBox.width}% ${cropBox.y + cropBox.height}%, 
+                      ${cropBox.x + cropBox.width}% ${cropBox.y}%, 
+                      ${cropBox.x}% ${cropBox.y}%
+                    )`,
+                  }}
+                />
+                {/* Crop box with border */}
+                <div 
+                  className="absolute border-2 border-primary cursor-move"
+                  style={{
+                    left: `${cropBox.x}%`,
+                    top: `${cropBox.y}%`,
+                    width: `${cropBox.width}%`,
+                    height: `${cropBox.height}%`,
+                  }}
+                  onMouseDown={handleDragStart("move")}
+                  onTouchStart={handleDragStart("move")}
+                >
+                  {/* Move indicator */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="bg-primary/80 rounded-full p-1.5">
+                      <Move className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                  </div>
+                  
+                  {/* Corner handles */}
+                  <div 
+                    className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-primary rounded-sm cursor-nw-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("nw")}
+                    onTouchStart={handleDragStart("nw")}
+                  />
+                  <div 
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-sm cursor-ne-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("ne")}
+                    onTouchStart={handleDragStart("ne")}
+                  />
+                  <div 
+                    className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-primary rounded-sm cursor-sw-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("sw")}
+                    onTouchStart={handleDragStart("sw")}
+                  />
+                  <div 
+                    className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary rounded-sm cursor-se-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("se")}
+                    onTouchStart={handleDragStart("se")}
+                  />
+                  
+                  {/* Edge handles */}
+                  <div 
+                    className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-3 bg-primary rounded-sm cursor-n-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("n")}
+                    onTouchStart={handleDragStart("n")}
+                  />
+                  <div 
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-3 bg-primary rounded-sm cursor-s-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("s")}
+                    onTouchStart={handleDragStart("s")}
+                  />
+                  <div 
+                    className="absolute top-1/2 -left-1 -translate-y-1/2 w-3 h-8 bg-primary rounded-sm cursor-w-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("w")}
+                    onTouchStart={handleDragStart("w")}
+                  />
+                  <div 
+                    className="absolute top-1/2 -right-1 -translate-y-1/2 w-3 h-8 bg-primary rounded-sm cursor-e-resize border-2 border-primary-foreground"
+                    onMouseDown={handleDragStart("e")}
+                    onTouchStart={handleDragStart("e")}
+                  />
+                </div>
+              </>
             )}
             <Button
               type="button"
               variant="destructive"
               size="icon"
-              className="absolute top-2 right-2 h-8 w-8 rounded-full"
+              className="absolute top-2 right-2 h-8 w-8 rounded-full z-10"
               onClick={handleRemove}
             >
               <X className="h-4 w-4" />
             </Button>
             {cardType && (
-              <div className="absolute bottom-2 left-2 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded-full">
+              <div className="absolute bottom-2 left-2 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded-full z-10">
                 {cardType} detected
+              </div>
+            )}
+            {cropBox && (
+              <div className="absolute bottom-2 right-2 bg-muted/90 text-muted-foreground text-xs px-2 py-1 rounded-full z-10">
+                Drag corners/edges to adjust
               </div>
             )}
           </div>
