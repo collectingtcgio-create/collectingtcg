@@ -83,11 +83,12 @@ async function searchPokemonCards(query: string, limit: number = 10): Promise<Ca
   }
 }
 
-// OPTCG API for One Piece cards
+// OPTCG API for One Piece cards (https://optcgapi.com)
 async function searchOnePieceCards(query: string, limit: number = 10): Promise<CardResult[]> {
   try {
+    // First, search for cards by name using the OPTCG API
     const response = await fetch(
-      `https://api.tcgcodex.com/api/cards?name=${encodeURIComponent(query)}&game=onepiece`
+      `https://optcgapi.com/api/cards/?name=${encodeURIComponent(query)}`
     );
     
     if (!response.ok) {
@@ -96,21 +97,24 @@ async function searchOnePieceCards(query: string, limit: number = 10): Promise<C
     }
 
     const data = await response.json();
-    const cards = data.data || data || [];
+    
+    // The API returns paginated results with a 'results' array
+    const cards = data.results || data || [];
     
     if (!Array.isArray(cards)) return [];
 
+    // Map the OPTCG API response to our CardResult format
     return cards.slice(0, limit).map((card: any) => ({
       id: crypto.randomUUID(),
-      external_id: card.id || card.code || `op-${card.name}`,
+      external_id: card.card_id || card.id || `op-${card.name}`,
       tcg_game: 'onepiece' as TcgGame,
       card_name: card.name,
-      set_name: card.set?.name || card.setName,
-      set_code: card.set?.code || card.setCode,
-      card_number: card.number || card.code,
+      set_name: card.card_set?.name || card.set_name,
+      set_code: card.card_set?.id || card.card_id?.split('-')[0],
+      card_number: card.card_id || card.number,
       rarity: card.rarity,
-      image_url: card.imageUrl || card.image,
-      image_url_small: card.thumbnailUrl || card.image,
+      image_url: card.image || card.card_image,
+      image_url_small: card.image || card.card_image,
       price_currency: 'USD',
     }));
   } catch (error) {
