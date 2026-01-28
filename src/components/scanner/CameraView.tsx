@@ -31,10 +31,9 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
       
       setIsInitializing(true);
       try {
-        console.log("Requesting camera access...");
-        
-        // Check if mediaDevices API is available
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        // Key fix: the <video> element must exist even before activation.
+        // We render it always, so videoRef.current should be available here.
+        if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error("Camera API not supported in this browser");
         }
 
@@ -46,43 +45,30 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
           },
         });
 
-        console.log("Camera stream obtained:", stream.getVideoTracks().length, "video tracks");
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-          
-          // Wait for video to be ready before setting active
-          videoRef.current.onloadedmetadata = () => {
-            console.log("Video metadata loaded, playing...");
-            videoRef.current?.play().then(() => {
-              console.log("Video playing successfully");
-              setIsCameraActive(true);
-              setHasPermission(true);
-              setIsInitializing(false);
-            }).catch((playError) => {
-              console.error("Video play error:", playError);
-              setIsInitializing(false);
-              toast({
-                title: "Camera playback failed",
-                description: "Could not start video playback.",
-                variant: "destructive",
-              });
-            });
-          };
-          
-          videoRef.current.onerror = (e) => {
-            console.error("Video element error:", e);
-            setIsInitializing(false);
-          };
-        } else {
-          console.error("Video ref not available");
-          setIsInitializing(false);
+        const videoEl = videoRef.current;
+        if (!videoEl) {
+          // Extremely rare now, but keep a clear error if it happens.
+          throw new Error("Video element not ready");
         }
+
+        videoEl.srcObject = stream;
+        streamRef.current = stream;
+
+        // Wait for metadata so play() reliably starts.
+        await new Promise<void>((resolve) => {
+          if (videoEl.readyState >= 1) return resolve();
+          const handler = () => {
+            videoEl.removeEventListener("loadedmetadata", handler);
+            resolve();
+          };
+          videoEl.addEventListener("loadedmetadata", handler);
+        });
+
+        await videoEl.play();
+        setIsCameraActive(true);
+        setHasPermission(true);
       } catch (error: any) {
-        console.error("Camera error:", error.name, error.message);
         setHasPermission(false);
-        setIsInitializing(false);
         
         let description = "Please allow camera access to scan cards.";
         if (error.name === "NotAllowedError") {
@@ -100,6 +86,8 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
           description,
           variant: "destructive",
         });
+      } finally {
+        setIsInitializing(false);
       }
     }, [toast]);
 
@@ -165,27 +153,35 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
       <div className="relative">
         {/* Camera View Container */}
         <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-muted">
-          {isCameraActive ? (
+          {/* Always-mounted video so the ref exists when Start Camera is clicked */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-cover transition-opacity duration-200 ${
+              isCameraActive ? "opacity-100" : "opacity-0"
+            }`}
+          />
+
+          {/* Active overlays */}
+          {isCameraActive && (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
               {/* Viewfinder Overlay */}
               <div className="absolute inset-6 viewfinder pointer-events-none">
                 {isProcessing && <div className="scan-line" />}
               </div>
-              
+
               {/* Corner decorations */}
               <div className="absolute top-4 right-4">
                 <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
               </div>
             </>
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center p-6">
+          )}
+
+          {/* Inactive placeholder overlay */}
+          {!isCameraActive && (
+            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-6">
               {isInitializing ? (
                 <>
                   <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
@@ -198,11 +194,7 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
                   <p className="text-muted-foreground text-sm text-center mb-4">
                     Please allow camera access in your browser settings to scan cards.
                   </p>
-                  <Button
-                    onClick={startCamera}
-                    variant="outline"
-                    className="rounded-full"
-                  >
+                  <Button onClick={startCamera} variant="outline" className="rounded-full">
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Try Again
                   </Button>
