@@ -521,6 +521,81 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_cache: {
+        Row: {
+          candidates: Json | null
+          card_name: string | null
+          card_number: string | null
+          confidence: number | null
+          created_at: string
+          expires_at: string
+          game: string
+          id: string
+          identifier: string
+          image_url: string | null
+          price_high: number | null
+          price_low: number | null
+          price_market: number | null
+          raw_ocr_text: string | null
+          set_name: string | null
+        }
+        Insert: {
+          candidates?: Json | null
+          card_name?: string | null
+          card_number?: string | null
+          confidence?: number | null
+          created_at?: string
+          expires_at?: string
+          game: string
+          id?: string
+          identifier: string
+          image_url?: string | null
+          price_high?: number | null
+          price_low?: number | null
+          price_market?: number | null
+          raw_ocr_text?: string | null
+          set_name?: string | null
+        }
+        Update: {
+          candidates?: Json | null
+          card_name?: string | null
+          card_number?: string | null
+          confidence?: number | null
+          created_at?: string
+          expires_at?: string
+          game?: string
+          id?: string
+          identifier?: string
+          image_url?: string | null
+          price_high?: number | null
+          price_low?: number | null
+          price_market?: number | null
+          raw_ocr_text?: string | null
+          set_name?: string | null
+        }
+        Relationships: []
+      }
+      scan_rate_limits: {
+        Row: {
+          id: string
+          scan_count: number
+          user_identifier: string
+          window_start: string
+        }
+        Insert: {
+          id?: string
+          scan_count?: number
+          user_identifier: string
+          window_start?: string
+        }
+        Update: {
+          id?: string
+          scan_count?: number
+          user_identifier?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       stream_chat: {
         Row: {
           content: string
