@@ -474,11 +474,12 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
 
                 {/* Video Preview */}
                 {postVideoPreview && (
-                  <div className="relative inline-block">
+                  <div className="relative inline-block max-w-full">
                     <video
                       src={postVideoPreview}
-                      className="max-h-40 rounded-lg"
+                      className="max-h-64 max-w-full rounded-lg"
                       controls
+                      playsInline
                     />
                     <Button
                       variant="destructive"
@@ -645,7 +646,8 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                     <video
                       src={post.video_url}
                       controls
-                      className="max-h-80 rounded-lg w-full"
+                      playsInline
+                      className="max-h-[500px] max-w-full rounded-lg"
                     />
                   </div>
                 )}
