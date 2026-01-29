@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Globe, Instagram, Facebook } from "lucide-react";
+import { Loader2, Mail, Globe, Instagram, Facebook, Youtube } from "lucide-react";
 import rumbleLogo from "@/assets/rumble-logo.png";
 
 // Custom icons for TikTok and Twitter/X
@@ -34,6 +34,7 @@ interface SocialLinks {
   facebook_url: string;
   website_url: string;
   rumble_url: string;
+  youtube_url: string;
 }
 
 interface SocialLinksEditorProps {
@@ -69,6 +70,7 @@ export function SocialLinksEditor({
         facebook_url: links.facebook_url.trim(),
         website_url: links.website_url.trim(),
         rumble_url: links.rumble_url.trim(),
+        youtube_url: links.youtube_url.trim(),
       })
       .eq("id", profile.id);
 
@@ -176,6 +178,21 @@ export function SocialLinksEditor({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="youtube" className="flex items-center gap-2 text-sm">
+              <Youtube className="w-4 h-4 text-red-600" />
+              YouTube
+            </Label>
+            <Input
+              id="youtube"
+              type="url"
+              placeholder="https://youtube.com/@username"
+              value={links.youtube_url}
+              onChange={(e) => setLinks({ ...links, youtube_url: e.target.value })}
+              className="bg-input border-border"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="rumble" className="flex items-center gap-2 text-sm">
               <RumbleIcon />
               Rumble
@@ -241,7 +258,8 @@ export function SocialLinksDisplay({
     links.instagram_url ||
     links.facebook_url ||
     links.website_url ||
-    links.rumble_url;
+    links.rumble_url ||
+    links.youtube_url;
 
   return (
     <div className="space-y-2">
@@ -298,6 +316,17 @@ export function SocialLinksDisplay({
             title="Facebook"
           >
             <Facebook className="w-4 h-4" />
+          </a>
+        )}
+        {links.youtube_url && (
+          <a
+            href={links.youtube_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg bg-muted/50 hover:bg-red-600/20 hover:text-red-600 transition-colors"
+            title="YouTube"
+          >
+            <Youtube className="w-4 h-4" />
           </a>
         )}
         {links.rumble_url && (
