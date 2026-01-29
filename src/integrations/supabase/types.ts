@@ -461,6 +461,7 @@ export type Database = {
           is_live: boolean | null
           last_username_change_at: string | null
           music_autoplay: boolean | null
+          rumble_url: string | null
           spotify_playlist_url: string | null
           status: string | null
           tiktok_url: string | null
@@ -482,6 +483,7 @@ export type Database = {
           is_live?: boolean | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
+          rumble_url?: string | null
           spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
@@ -503,6 +505,7 @@ export type Database = {
           is_live?: boolean | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
+          rumble_url?: string | null
           spotify_playlist_url?: string | null
           status?: string | null
           tiktok_url?: string | null
