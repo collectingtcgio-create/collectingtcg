@@ -21,6 +21,12 @@ const XIcon = () => (
   </svg>
 );
 
+const RumbleIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16.5 12c0 2.485-2.015 4.5-4.5 4.5S7.5 14.485 7.5 12 9.515 7.5 12 7.5s4.5 2.015 4.5 4.5zm3.75 0c0 4.556-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12 7.444 3.75 12 3.75s8.25 3.694 8.25 8.25zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
+  </svg>
+);
+
 interface SocialLinks {
   email_contact: string;
   tiktok_url: string;
@@ -28,6 +34,7 @@ interface SocialLinks {
   instagram_url: string;
   facebook_url: string;
   website_url: string;
+  rumble_url: string;
 }
 
 interface SocialLinksEditorProps {
@@ -62,6 +69,7 @@ export function SocialLinksEditor({
         instagram_url: links.instagram_url.trim(),
         facebook_url: links.facebook_url.trim(),
         website_url: links.website_url.trim(),
+        rumble_url: links.rumble_url.trim(),
       })
       .eq("id", profile.id);
 
@@ -169,6 +177,21 @@ export function SocialLinksEditor({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="rumble" className="flex items-center gap-2 text-sm">
+              <RumbleIcon />
+              Rumble
+            </Label>
+            <Input
+              id="rumble"
+              type="url"
+              placeholder="https://rumble.com/c/username"
+              value={links.rumble_url}
+              onChange={(e) => setLinks({ ...links, rumble_url: e.target.value })}
+              className="bg-input border-border"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="website" className="flex items-center gap-2 text-sm">
               <Globe className="w-4 h-4 text-primary" />
               Business Website
@@ -218,7 +241,8 @@ export function SocialLinksDisplay({
     links.twitter_url ||
     links.instagram_url ||
     links.facebook_url ||
-    links.website_url;
+    links.website_url ||
+    links.rumble_url;
 
   return (
     <div className="space-y-2">
@@ -275,6 +299,17 @@ export function SocialLinksDisplay({
             title="Facebook"
           >
             <Facebook className="w-4 h-4" />
+          </a>
+        )}
+        {links.rumble_url && (
+          <a
+            href={links.rumble_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg bg-muted/50 hover:bg-green-600/20 hover:text-green-500 transition-colors"
+            title="Rumble"
+          >
+            <RumbleIcon />
           </a>
         )}
         {links.website_url && (

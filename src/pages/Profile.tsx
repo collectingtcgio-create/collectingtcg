@@ -53,6 +53,7 @@ interface ProfileData {
   instagram_url?: string;
   facebook_url?: string;
   website_url?: string;
+  rumble_url?: string;
   spotify_playlist_url?: string;
   youtube_playlist_url?: string;
   music_autoplay?: boolean;
@@ -471,6 +472,7 @@ export default function Profile() {
                           instagram_url: profileData.instagram_url || "",
                           facebook_url: profileData.facebook_url || "",
                           website_url: profileData.website_url || "",
+                          rumble_url: profileData.rumble_url || "",
                         }}
                         isOwnProfile={false}
                         onEditClick={() => {}}
@@ -491,6 +493,7 @@ export default function Profile() {
                         instagram_url: profileData.instagram_url || "",
                         facebook_url: profileData.facebook_url || "",
                         website_url: profileData.website_url || "",
+                        rumble_url: profileData.rumble_url || "",
                       }}
                       isOwnProfile={true}
                       onEditClick={() => setSocialLinksEditorOpen(true)}
@@ -748,6 +751,7 @@ export default function Profile() {
             instagram_url: profileData.instagram_url || "",
             facebook_url: profileData.facebook_url || "",
             website_url: profileData.website_url || "",
+            rumble_url: profileData.rumble_url || "",
           }}
           onUpdate={fetchProfileData}
         />
