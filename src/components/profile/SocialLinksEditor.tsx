@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Globe, Instagram, Facebook } from "lucide-react";
+import rumbleLogo from "@/assets/rumble-logo.png";
 
 // Custom icons for TikTok and Twitter/X
 const TikTokIcon = () => (
@@ -22,9 +23,7 @@ const XIcon = () => (
 );
 
 const RumbleIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M16.5 12c0 2.485-2.015 4.5-4.5 4.5S7.5 14.485 7.5 12 9.515 7.5 12 7.5s4.5 2.015 4.5 4.5zm3.75 0c0 4.556-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12 7.444 3.75 12 3.75s8.25 3.694 8.25 8.25zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
-  </svg>
+  <img src={rumbleLogo} alt="Rumble" className="w-4 h-4" />
 );
 
 interface SocialLinks {
