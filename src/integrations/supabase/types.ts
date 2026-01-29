@@ -471,6 +471,7 @@ export type Database = {
           username: string
           website_url: string | null
           youtube_playlist_url: string | null
+          youtube_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -493,6 +494,7 @@ export type Database = {
           username: string
           website_url?: string | null
           youtube_playlist_url?: string | null
+          youtube_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -515,6 +517,7 @@ export type Database = {
           username?: string
           website_url?: string | null
           youtube_playlist_url?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
