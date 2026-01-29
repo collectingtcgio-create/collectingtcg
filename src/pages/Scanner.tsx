@@ -5,16 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useCardScanner } from "@/hooks/useCardScanner";
+import { useTcgScan, type TcgScanResult } from "@/hooks/useTcgScan";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { ScanResultModal, CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
+import { TcgScanResultModal } from "@/components/scanner/TcgScanResultModal";
+import { TcgCandidateGrid } from "@/components/scanner/TcgCandidateGrid";
 import { NoCardDetectedModal } from "@/components/scanner/NoCardDetectedModal";
 import { CardSelectionGrid } from "@/components/scanner/CardSelectionGrid";
 import { CardNameSearch } from "@/components/scanner/CardNameSearch";
 import { ImageUpload } from "@/components/scanner/ImageUpload";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Sparkles, X, Search, Type } from "lucide-react";
+import { Sparkles, X, Search, Type, Zap } from "lucide-react";
 
 export default function Scanner() {
   const { user, profile } = useAuth();
@@ -23,7 +26,23 @@ export default function Scanner() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<TcgGame | 'auto'>('auto');
+  const [useLivePricing, setUseLivePricing] = useState(true); // Use production pipeline by default
+  const [showTcgResult, setShowTcgResult] = useState(false);
+  const [showTcgCandidates, setShowTcgCandidates] = useState(false);
+  const [isAddingFromTcg, setIsAddingFromTcg] = useState(false);
 
+  // New production-safe TCG scan hook
+  const {
+    isScanning: isTcgScanning,
+    scanResult: tcgScanResult,
+    candidates: tcgCandidates,
+    remainingScans,
+    scanCard: tcgScanCard,
+    selectCandidate: tcgSelectCandidate,
+    resetScan: tcgResetScan,
+  } = useTcgScan();
+
+  // Legacy scanner hook (for games other than One Piece / Pokémon)
   const {
     isProcessing,
     scanResults,
@@ -64,26 +83,108 @@ export default function Scanner() {
     // Save captured image for potential use in modal
     setCapturedImage(imageData);
 
-    // Send to identification function with game hint
-    const gameHint = selectedGame !== 'auto' ? selectedGame : undefined;
-    await identifyCard(imageData, gameHint);
-  }, [identifyCard, toast, selectedGame]);
+    // Use production TCG scan pipeline for One Piece/Pokémon when live pricing is enabled
+    if (useLivePricing && (selectedGame === 'onepiece' || selectedGame === 'pokemon' || selectedGame === 'auto')) {
+      const result = await tcgScanCard(imageData);
+      if (result) {
+        if (result.candidates && result.candidates.length > 1) {
+          setShowTcgCandidates(true);
+        } else if (result.cardName && !result.error) {
+          setShowTcgResult(true);
+        } else if (result.error) {
+          // Fall back to legacy scanner if production pipeline fails
+          const gameHint = selectedGame !== 'auto' ? selectedGame : undefined;
+          await identifyCard(imageData, gameHint);
+        }
+      }
+    } else {
+      // Use legacy scanner for other games
+      const gameHint = selectedGame !== 'auto' ? selectedGame : undefined;
+      await identifyCard(imageData, gameHint);
+    }
+  }, [identifyCard, toast, selectedGame, useLivePricing, tcgScanCard]);
 
   const handleTryAgain = useCallback(() => {
     resetScanner();
+    tcgResetScan();
     setCapturedImage(null);
+    setShowTcgResult(false);
+    setShowTcgCandidates(false);
     cameraRef.current?.startCamera();
-  }, [resetScanner]);
+  }, [resetScanner, tcgResetScan]);
 
   const handleSearchManually = useCallback(() => {
     resetScanner();
+    tcgResetScan();
     setShowManualAdd(true);
-  }, [resetScanner]);
+  }, [resetScanner, tcgResetScan]);
 
   const handleCardSearchSelect = useCallback((card: CardResult) => {
     // Show the result modal with the selected card from search
     selectCard(card);
   }, [selectCard]);
+
+  const handleTcgCandidateSelect = useCallback((candidate: any) => {
+    tcgSelectCandidate(candidate);
+    setShowTcgCandidates(false);
+    setShowTcgResult(true);
+  }, [tcgSelectCandidate]);
+
+  const handleAddFromTcgScan = useCallback(async (result: TcgScanResult): Promise<boolean> => {
+    if (!profile || !result.cardName) return false;
+
+    setIsAddingFromTcg(true);
+
+    try {
+      // Map game to tcg_game enum
+      const tcgGameMap: Record<string, TcgGame | null> = {
+        one_piece: 'onepiece',
+        pokemon: 'pokemon',
+      };
+      const tcgGame = result.game ? tcgGameMap[result.game] : null;
+
+      const { error: insertError } = await supabase.from("user_cards").insert({
+        user_id: profile.id,
+        card_name: result.cardName,
+        image_url: result.imageUrl || null,
+        price_estimate: result.prices.market || 0,
+        tcg_game: tcgGame || null,
+      });
+
+      if (insertError) throw insertError;
+
+      // Add to activity feed
+      await supabase.from("activity_feed").insert({
+        user_id: profile.id,
+        activity_type: "scan",
+        description: `Scanned and added "${result.cardName}" to their collection`,
+        metadata: {
+          card_name: result.cardName,
+          tcg_game: result.game,
+          set_name: result.set,
+          card_number: result.number,
+          price_market: result.prices.market,
+        },
+      });
+
+      toast({
+        title: "Card Added!",
+        description: `${result.cardName} has been added to your binder.`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Error adding card:", error);
+      toast({
+        title: "Failed to add card",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsAddingFromTcg(false);
+    }
+  }, [profile, toast]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,22 +244,49 @@ export default function Scanner() {
         {/* Scanner Area */}
         {!showManualAdd ? (
           <div className="glass-card p-6 neon-border-cyan">
+            {/* Live Pricing Toggle */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-secondary/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-secondary" />
+                <span className="text-sm font-medium">Live Pricing (One Piece/Pokémon)</span>
+              </div>
+              <button
+                onClick={() => setUseLivePricing(!useLivePricing)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  useLivePricing ? 'bg-secondary' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    useLivePricing ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Rate limit indicator */}
+            {remainingScans !== null && useLivePricing && (
+              <div className="mb-4 text-xs text-muted-foreground text-center">
+                {remainingScans} scans remaining this minute
+              </div>
+            )}
+
             {/* Game Selector */}
             <GameSelector 
               value={selectedGame}
               onChange={setSelectedGame}
-              disabled={isProcessing}
+              disabled={isProcessing || isTcgScanning}
             />
 
             {/* Camera View Component */}
             <CameraView 
               ref={cameraRef} 
-              isProcessing={isProcessing} 
+              isProcessing={isProcessing || isTcgScanning} 
               onCameraStateChange={setIsCameraActive}
             />
 
             {/* Capture Button */}
-            {isCameraActive && !isProcessing && (
+            {isCameraActive && !isProcessing && !isTcgScanning && (
               <div className="mt-6">
                 <Button
                   onClick={handleCapture}
@@ -171,7 +299,7 @@ export default function Scanner() {
             )}
 
             {/* Start Camera Button (when camera not active) */}
-            {!isCameraActive && !isProcessing && (
+            {!isCameraActive && !isProcessing && !isTcgScanning && (
               <div className="mt-6">
                 <Button
                   onClick={() => cameraRef.current?.startCamera()}
@@ -313,6 +441,31 @@ export default function Scanner() {
           open={showCardSearch}
           onOpenChange={setShowCardSearch}
           onCardSelect={handleCardSearchSelect}
+        />
+
+        {/* TCG Scan Result Modal (production pipeline) */}
+        <TcgScanResultModal
+          open={showTcgResult}
+          onOpenChange={(open) => {
+            setShowTcgResult(open);
+            if (!open) {
+              tcgResetScan();
+              setCapturedImage(null);
+            }
+          }}
+          result={tcgScanResult}
+          onAddToBinder={handleAddFromTcgScan}
+          isAdding={isAddingFromTcg}
+          capturedImage={capturedImage}
+        />
+
+        {/* TCG Candidate Selection Grid */}
+        <TcgCandidateGrid
+          open={showTcgCandidates}
+          onOpenChange={setShowTcgCandidates}
+          candidates={tcgCandidates}
+          onSelect={handleTcgCandidateSelect}
+          onManualSearch={handleSearchManually}
         />
       </div>
     </Layout>
