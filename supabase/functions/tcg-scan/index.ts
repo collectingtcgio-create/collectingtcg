@@ -554,10 +554,65 @@ function extractImageUrl(card: any): string | null {
   return null;
 }
 
+// Helper to filter variants for Near Mint condition and extract best price
+function extractNearMintPrice(variants: any[], printing?: string | null): {
+  low: number | null;
+  market: number | null;
+  high: number | null;
+} {
+  if (!variants || !Array.isArray(variants) || variants.length === 0) {
+    return { low: null, market: null, high: null };
+  }
+
+  // Filter for Near Mint condition first
+  let filteredVariants = variants.filter((v: any) => {
+    const condition = (v.condition || v.variant_condition || '').toLowerCase();
+    return condition.includes('near mint') || condition.includes('nm') || condition === 'mint';
+  });
+
+  // If no Near Mint variants found, use all variants
+  if (filteredVariants.length === 0) {
+    filteredVariants = variants;
+  }
+
+  // If printing specified (e.g., 'Normal', 'Holo', 'Foil'), try to match it
+  if (printing) {
+    const printingLower = printing.toLowerCase();
+    const printingMatches = filteredVariants.filter((v: any) => {
+      const variantPrinting = (v.printing || v.variant_printing || v.foil || '').toLowerCase();
+      return variantPrinting.includes(printingLower) || 
+             (printingLower === 'holo' && (variantPrinting.includes('holo') || variantPrinting.includes('foil'))) ||
+             (printingLower === 'normal' && !variantPrinting.includes('holo') && !variantPrinting.includes('foil'));
+    });
+    if (printingMatches.length > 0) {
+      filteredVariants = printingMatches;
+    }
+  }
+
+  // Extract prices from filtered variants
+  const prices = filteredVariants
+    .map((v: any) => {
+      const price = v.market_price ?? v.marketPrice ?? v.price ?? v.low_price ?? v.lowPrice;
+      return typeof price === "number" ? price : parseFloat(price);
+    })
+    .filter((p: number) => !isNaN(p) && p > 0);
+
+  if (prices.length === 0) {
+    return { low: null, market: null, high: null };
+  }
+
+  return {
+    low: Math.min(...prices),
+    market: Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100,
+    high: Math.max(...prices),
+  };
+}
+
 async function lookupJustTCG(
   game: GameType,
   cardName: string,
-  cardNumber?: string | null
+  cardNumber?: string | null,
+  setName?: string | null
 ): Promise<{
   cards: CandidateCard[];
   bestMatch: CandidateCard | null;
@@ -569,7 +624,6 @@ async function lookupJustTCG(
   }
 
   // Map game types to JustTCG API slugs
-  // IMPORTANT: Use correct slugs per JustTCG API docs
   const gameSlugMap: Record<string, string> = {
     one_piece: "one-piece",      // One Piece keeps the dash
     pokemon: "pokemon",          // Standard
@@ -587,14 +641,11 @@ async function lookupJustTCG(
     return { cards: [], bestMatch: null };
   }
   
-  // For One Piece, keep the dash in card numbers (e.g., OP01-001)
-  // For Yu-Gi-Oh, use 8-digit passcode or name
-  // For Magic, use 3-letter set code when available
+  // Build search query - prioritize card number for accurate matching
   let searchQuery = cardName;
   
-  // If we have a card number, prioritize it for One Piece cards
+  // For One Piece, keep the dash in card numbers (e.g., OP01-001)
   if (game === "one_piece" && cardNumber) {
-    // Keep the dash format for One Piece (OP01-001)
     searchQuery = cardNumber;
   } else if (game === "yugioh" && cardNumber) {
     // Yu-Gi-Oh uses set-number format (e.g., PHNI-EN001)
@@ -604,7 +655,13 @@ async function lookupJustTCG(
     searchQuery = cardName.replace(/[^\w\s\-]/g, ' ').trim();
   }
   
-  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=15`;
+  // Build URL with query parameters
+  let url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=15`;
+  
+  // Add set parameter if we have set name/number for more precise matching
+  if (setName) {
+    url += `&set=${encodeURIComponent(setName)}`;
+  }
 
   console.log("JustTCG API call:", url);
 
@@ -632,36 +689,31 @@ async function lookupJustTCG(
   }
 
   const cards: CandidateCard[] = await Promise.all(rawCards.map(async (card: any) => {
-    let priceLow: number | null = null;
-    let priceMarket: number | null = null;
-    let priceHigh: number | null = null;
-
-    // Extract prices from variants
-    if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
-      const prices = card.variants
-        .map((v: any) => {
-          const price = v.price ?? v.market_price ?? v.marketPrice ?? v.low_price ?? v.lowPrice;
-          return typeof price === "number" ? price : parseFloat(price);
-        })
-        .filter((p: number) => !isNaN(p) && p > 0);
-      
-      if (prices.length > 0) {
-        priceLow = Math.min(...prices);
-        priceHigh = Math.max(...prices);
-        priceMarket = prices.reduce((a: number, b: number) => a + b, 0) / prices.length;
-      }
+    // Detect printing type from card data (for variant filtering)
+    const rarity = (card.rarity || '').toLowerCase();
+    let printing: string | null = null;
+    if (rarity.includes('holo') || rarity.includes('foil') || rarity.includes('secret')) {
+      printing = 'holo';
+    } else {
+      printing = 'normal';
     }
+
+    // Extract Near Mint prices using improved filtering
+    const prices = card.variants && Array.isArray(card.variants) && card.variants.length > 0
+      ? extractNearMintPrice(card.variants, printing)
+      : { low: null, market: null, high: null };
 
     // Try to get price directly from card object if not in variants
-    if (priceMarket === null) {
+    if (prices.market === null) {
       const directPrice = card.price ?? card.market_price ?? card.marketPrice;
       if (directPrice) {
-        priceMarket = typeof directPrice === "number" ? directPrice : parseFloat(directPrice);
+        prices.market = typeof directPrice === "number" ? directPrice : parseFloat(directPrice);
+        prices.market = Math.round(prices.market * 100) / 100;
       }
     }
 
-    // FIXED: Extract image URL - check both card object AND variants array
-    const imageUrl = extractImageUrl(card);
+    // Extract image URL - check card.image property specifically as per API docs
+    const imageUrl = card.image || extractImageUrl(card);
     const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
 
     return {
@@ -669,11 +721,7 @@ async function lookupJustTCG(
       set: card.set_name || card.set?.name || card.setName || null,
       number: cardNum,
       imageUrl,
-      prices: {
-        low: priceLow,
-        market: priceMarket ? Math.round(priceMarket * 100) / 100 : null,
-        high: priceHigh,
-      },
+      prices,
     };
   }));
 
@@ -924,7 +972,8 @@ Deno.serve(async (req) => {
     let { cards, bestMatch } = await lookupJustTCG(
       game,
       searchTerm,
-      parsedInfo.cardNumber
+      parsedInfo.cardNumber,
+      parsedInfo.setName // Pass set name for more precise matching
     );
 
     // Step 5: If we have price but no image, retry by card number
