@@ -17,7 +17,7 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
   // Pokemon
   {
     id: "psa10-charizard-1st",
-    name: "Charizard 1st Edition (PSA 10)",
+    name: "Charizard (Base Set 4/102)",
     type: "card",
     game: "pokemon",
     image_url: "https://images.pokemontcg.io/base1/4_hires.png",
@@ -25,7 +25,7 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
   // One Piece
   {
     id: "luffy-op01-alt",
-    name: "Monkey D. Luffy (Alt Art)",
+    name: "Monkey D. Luffy (OP01-003 Alt Art)",
     type: "card",
     game: "onepiece",
     image_url: "https://limitlesstcg.nyc3.digitaloceanspaces.com/one-piece/OP01/OP01-003_ALT.webp",
@@ -57,7 +57,7 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
   // Pokemon
   {
     id: "pikachu-illustrator",
-    name: "Pikachu Illustrator",
+    name: "Pikachu (Promo)",
     type: "card",
     game: "pokemon",
     image_url: "https://images.pokemontcg.io/basep/4_hires.png",
@@ -109,6 +109,14 @@ const HOLY_GRAIL_ITEMS: Omit<HolyGrailItem, "price" | "priceChange">[] = [
     type: "card",
     game: "lorcana",
     image_url: "https://product-images.tcgplayer.com/fit-in/437x437/527867.jpg",
+  },
+  // Magic
+  {
+    id: "ancestral-recall",
+    name: "Ancestral Recall (Alpha)",
+    type: "card",
+    game: "magic",
+    image_url: "https://cards.scryfall.io/large/front/2/3/2398892d-28e9-4009-81ec-0d544af79d2b.jpg",
   },
 ];
 
