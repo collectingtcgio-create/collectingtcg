@@ -531,6 +531,29 @@ async function getLorcanaImageFallback(cardName: string): Promise<string | null>
 
 // ==================== JUSTTCG API ====================
 
+// Helper to extract image URL from card or variants array
+function extractImageUrl(card: any): string | null {
+  // Priority 1: Direct image URL on card object
+  const directUrl = card.image_url || card.image || card.imageUrl || card.high_res_url;
+  if (directUrl) return directUrl;
+  
+  // Priority 2: Images object (large/small)
+  if (card.images) {
+    const imagesUrl = card.images.large || card.images.small || card.images.normal;
+    if (imagesUrl) return imagesUrl;
+  }
+  
+  // Priority 3: Check variants array for image URLs
+  if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
+    for (const variant of card.variants) {
+      const variantUrl = variant.image_url || variant.image || variant.imageUrl || variant.high_res_url;
+      if (variantUrl) return variantUrl;
+    }
+  }
+  
+  return null;
+}
+
 async function lookupJustTCG(
   game: GameType,
   cardName: string,
@@ -546,25 +569,41 @@ async function lookupJustTCG(
   }
 
   // Map game types to JustTCG API slugs
+  // IMPORTANT: Use correct slugs per JustTCG API docs
   const gameSlugMap: Record<string, string> = {
-    one_piece: "one-piece-card-game",
-    pokemon: "pokemon",
-    dragonball: "dragon-ball-super-fusion-world",
-    yugioh: "yugioh",
-    magic: "magic-the-gathering",
-    lorcana: "lorcana",
+    one_piece: "one-piece",      // One Piece keeps the dash
+    pokemon: "pokemon",          // Standard
+    dragonball: "dbs",           // Dragon Ball Super
+    yugioh: "yugioh",            // Standard
+    magic: "mtg",                // Magic uses 3-letter code
+    lorcana: "lorcana",          // Standard
   };
   
   const gameSlug = game ? gameSlugMap[game] : null;
   
-  // For non-game cards or unknown games, return early with placeholder
+  // For non-game cards or unknown games, return early
   if (!gameSlug || game === "non_game") {
     console.log("Unsupported game for JustTCG or non-game card:", game);
     return { cards: [], bestMatch: null };
   }
   
-  // Search by card name for better results
-  const searchQuery = cardName.replace(/[^\w\s]/g, ' ').trim();
+  // For One Piece, keep the dash in card numbers (e.g., OP01-001)
+  // For Yu-Gi-Oh, use 8-digit passcode or name
+  // For Magic, use 3-letter set code when available
+  let searchQuery = cardName;
+  
+  // If we have a card number, prioritize it for One Piece cards
+  if (game === "one_piece" && cardNumber) {
+    // Keep the dash format for One Piece (OP01-001)
+    searchQuery = cardNumber;
+  } else if (game === "yugioh" && cardNumber) {
+    // Yu-Gi-Oh uses set-number format (e.g., PHNI-EN001)
+    searchQuery = cardNumber;
+  } else {
+    // Clean up the search query for other games
+    searchQuery = cardName.replace(/[^\w\s\-]/g, ' ').trim();
+  }
+  
   const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=15`;
 
   console.log("JustTCG API call:", url);
@@ -621,8 +660,8 @@ async function lookupJustTCG(
       }
     }
 
-    // Extract image URL from JustTCG
-    let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
+    // FIXED: Extract image URL - check both card object AND variants array
+    const imageUrl = extractImageUrl(card);
     const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
 
     return {
@@ -816,17 +855,18 @@ Deno.serve(async (req) => {
     console.log("Parsed card info:", parsedInfo);
 
     // Handle non-game cards (sports, etc.)
+    // IMPORTANT: For non-game cards, we return null imageUrl so the frontend uses the captured preview
     if (parsedInfo.game === "non_game") {
       const result: ScanResult = {
         game: "non_game",
         cardName: parsedInfo.cardName || "Non-TCG Card",
         set: null,
         number: parsedInfo.cardNumber,
-        imageUrl: null,
+        imageUrl: null, // Frontend will use captured preview image
         prices: { low: null, market: null, high: null },
         confidence: 0.5,
         source: "live",
-        error: "This appears to be a sports/collectible card. Market Data Only - pricing not available through TCG APIs.",
+        error: "N/A - Non-TCG", // Clear message for non-game cards
         ocrText: ocrResult.text,
       };
 
