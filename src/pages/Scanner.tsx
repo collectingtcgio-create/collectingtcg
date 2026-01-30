@@ -84,12 +84,14 @@ export default function Scanner() {
     setCapturedImage(imageData);
 
     // Use production TCG scan pipeline for One Piece/Pokémon when live pricing is enabled
-    if (useLivePricing && (selectedGame === 'onepiece' || selectedGame === 'pokemon' || selectedGame === 'auto')) {
+    if (useLivePricing && (selectedGame === 'onepiece' || selectedGame === 'pokemon' || selectedGame === 'auto' || selectedGame === 'dragonball')) {
       const result = await tcgScanCard(imageData);
       if (result) {
-        if (result.candidates && result.candidates.length > 1) {
+        // Always show candidate grid if we have candidates (even if just 1) so user can confirm
+        if (result.candidates && result.candidates.length > 0) {
           setShowTcgCandidates(true);
         } else if (result.cardName && !result.error) {
+          // Single result with no candidates array - show directly
           setShowTcgResult(true);
         } else if (result.error) {
           // Fall back to legacy scanner if production pipeline fails
@@ -130,7 +132,7 @@ export default function Scanner() {
     setShowTcgResult(true);
   }, [tcgSelectCandidate]);
 
-  const handleAddFromTcgScan = useCallback(async (result: TcgScanResult): Promise<boolean> => {
+  const handleAddFromTcgScan = useCallback(async (result: TcgScanResult, useCapturedImage?: boolean): Promise<boolean> => {
     if (!profile || !result.cardName) return false;
 
     setIsAddingFromTcg(true);
@@ -140,13 +142,17 @@ export default function Scanner() {
       const tcgGameMap: Record<string, TcgGame | null> = {
         one_piece: 'onepiece',
         pokemon: 'pokemon',
+        dragonball: 'dragonball',
       };
       const tcgGame = result.game ? tcgGameMap[result.game] : null;
+
+      // Determine which image to use - prefer API image, fallback to captured
+      const imageToSave = result.imageUrl || (useCapturedImage && capturedImage ? capturedImage : null);
 
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: result.cardName,
-        image_url: result.imageUrl || null,
+        image_url: imageToSave,
         price_estimate: result.prices.market || 0,
         tcg_game: tcgGame || null,
       });
@@ -184,7 +190,7 @@ export default function Scanner() {
     } finally {
       setIsAddingFromTcg(false);
     }
-  }, [profile, toast]);
+  }, [profile, toast, capturedImage]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,6 +472,7 @@ export default function Scanner() {
           candidates={tcgCandidates}
           onSelect={handleTcgCandidateSelect}
           onManualSearch={handleSearchManually}
+          capturedImage={capturedImage}
         />
       </div>
     </Layout>
