@@ -283,7 +283,16 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
     const cleanNumber = cardNumber.replace('#', '').trim().toUpperCase();
     console.log("Trying One Piece image fallback for:", cleanNumber);
     
-    // Format: https://images.ygoprodeck.com/images/cards_cropped/xxxx.jpg won't work
+    // Try Limitlesstcg API first - most reliable source
+    const limitlesstResponse = await fetch(
+      `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`
+    );
+    if (limitlesstResponse.ok) {
+      const url = `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`;
+      console.log("Found One Piece image from limitlesstcg:", url);
+      return url;
+    }
+    
     // Try onepiece-cardgame.dev API
     const response = await fetch(`https://onepiece-cardgame.dev/api/card?number=${encodeURIComponent(cleanNumber)}`);
     
@@ -302,9 +311,9 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
   }
   
   // Try constructing URL directly based on known patterns
-  // One Piece cards often have images at predictable URLs
   const patterns = [
     `https://static.dotgg.gg/onepiece/card/${cardNumber.toLowerCase()}.webp`,
+    `https://images.digimoncard.io/optcg/${cardNumber.replace('-', '_').toUpperCase()}.png`,
     `https://en.onepiece-cardgame.com/images/cardlist/card/${cardNumber.replace('-', '_')}.png`,
   ];
   

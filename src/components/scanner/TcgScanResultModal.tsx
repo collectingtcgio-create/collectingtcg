@@ -21,7 +21,7 @@ interface TcgScanResultModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   result: TcgScanResult | null;
-  onAddToBinder: (result: TcgScanResult) => Promise<boolean>;
+  onAddToBinder: (result: TcgScanResult, useCapturedImage?: boolean) => Promise<boolean>;
   isAdding?: boolean;
   capturedImage?: string | null;
 }
@@ -45,7 +45,8 @@ export function TcgScanResultModal({
     : (imageError ? null : result.imageUrl);
 
   const handleAddToBinder = async () => {
-    const success = await onAddToBinder(result);
+    // Pass whether we're using the captured image
+    const success = await onAddToBinder(result, useCustomImage || (!result.imageUrl && !!capturedImage));
     if (success) {
       setAdded(true);
     }

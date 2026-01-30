@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { ImageOff, Search } from "lucide-react";
+import { ImageOff, Search, Check } from "lucide-react";
 import type { TcgScanCandidate } from "@/hooks/useTcgScan";
 
 interface TcgCandidateGridProps {
@@ -17,6 +17,7 @@ interface TcgCandidateGridProps {
   candidates: TcgScanCandidate[];
   onSelect: (candidate: TcgScanCandidate) => void;
   onManualSearch?: () => void;
+  capturedImage?: string | null;
 }
 
 export function TcgCandidateGrid({
@@ -25,6 +26,7 @@ export function TcgCandidateGrid({
   candidates,
   onSelect,
   onManualSearch,
+  capturedImage,
 }: TcgCandidateGridProps) {
   const formatPrice = (price: number | null) => {
     if (price === null) return "N/A";
@@ -39,21 +41,44 @@ export function TcgCandidateGrid({
       <DialogContent className="glass-card border-border/50 max-w-2xl mx-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Multiple Matches Found
+            Select Your Card
           </DialogTitle>
           <DialogDescription>
-            Select the correct card from the options below
+            {candidates.length > 0 
+              ? `Found ${candidates.length} possible matches. Tap to select the correct one.`
+              : "No matches found. Try searching manually."}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
+        {/* Show captured image preview */}
+        {capturedImage && (
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+            <p className="text-xs text-muted-foreground mb-2">Your scanned card:</p>
+            <div className="w-24 h-auto mx-auto">
+              <AspectRatio ratio={2.5 / 3.5}>
+                <img
+                  src={capturedImage}
+                  alt="Scanned card"
+                  className="w-full h-full object-cover rounded-lg border border-primary/30"
+                />
+              </AspectRatio>
+            </div>
+          </div>
+        )}
+
+        <ScrollArea className="max-h-[50vh] pr-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {candidates.map((candidate, index) => (
               <button
                 key={`${candidate.cardName}-${candidate.number}-${index}`}
                 onClick={() => onSelect(candidate)}
-                className="glass-card p-3 rounded-lg hover:neon-border-cyan transition-all duration-300 text-left group"
+                className="glass-card p-3 rounded-lg hover:neon-border-cyan transition-all duration-300 text-left group relative"
               >
+                {/* Selection indicator */}
+                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Check className="w-4 h-4 text-primary" />
+                </div>
+
                 {/* Card Image */}
                 <div className="relative overflow-hidden rounded-lg mb-2">
                   <AspectRatio ratio={2.5 / 3.5}>
@@ -62,12 +87,16 @@ export function TcgCandidateGrid({
                         src={candidate.imageUrl}
                         alt={candidate.cardName}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          // If image fails to load, show placeholder
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                        }}
                       />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <ImageOff className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                    )}
+                    ) : null}
+                    <div className={`w-full h-full bg-muted flex items-center justify-center ${candidate.imageUrl ? 'hidden' : ''}`}>
+                      <ImageOff className="w-8 h-8 text-muted-foreground" />
+                    </div>
                   </AspectRatio>
                 </div>
 
@@ -82,7 +111,7 @@ export function TcgCandidateGrid({
                     </p>
                   )}
                   {candidate.number && (
-                    <p className="text-xs text-primary">
+                    <p className="text-xs text-primary font-medium">
                       #{candidate.number}
                     </p>
                   )}

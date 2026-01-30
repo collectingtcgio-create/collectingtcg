@@ -72,8 +72,8 @@ export function useTcgScan(): UseTcgScanReturn {
 
       const result = response.data as TcgScanResult;
 
-      // Store candidates if multiple matches
-      if (result.candidates && result.candidates.length > 1) {
+      // Store candidates if any matches found - always show selection grid
+      if (result.candidates && result.candidates.length > 0) {
         setCandidates(result.candidates);
       }
 
