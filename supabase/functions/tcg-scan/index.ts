@@ -7,8 +7,10 @@ const corsHeaders = {
 };
 
 // Types
+type GameType = "one_piece" | "pokemon" | "dragonball" | null;
+
 interface ScanResult {
-  game: "one_piece" | "pokemon" | null;
+  game: GameType;
   cardName: string | null;
   set: string | null;
   number: string | null;
@@ -30,7 +32,7 @@ interface CandidateCard {
 
 interface OCRResult {
   fullText: string;
-  game: "one_piece" | "pokemon" | null;
+  game: GameType;
   identifier: string | null;
   cardName: string | null;
   collectorNumber: string | null;
@@ -247,6 +249,8 @@ function parseOCRText(fullText: string): OCRResult {
     confidence: 0,
   };
 
+  const textLower = fullText.toLowerCase();
+
   // Step 1: Try to detect One Piece card code
   // Patterns: OP05-119, EB01-001, ST01-001
   const onePieceRegex = /\b(OP|EB|ST)\d{2}-\d{3}\b/i;
@@ -261,9 +265,43 @@ function parseOCRText(fullText: string): OCRResult {
     return result;
   }
 
-  // Step 2: Try to detect Pokémon signals
+  // Step 2: Try to detect Dragon Ball Super Card Game
+  // Patterns: FB01-001, BT1-001, P-001, etc.
+  const dragonballSignals = ["dragon ball", "dragonball", "saiyan", "frieza", "goku", "vegeta", "broly", "piccolo", "gohan", "trunks", "goten", "beerus", "whis", "awakened", "super saiyan"];
+  const dragonballCodeRegex = /\b(FB|BT|SD|TB|DB|EX|P|FS|B)\d{1,2}-\d{3,4}\b/i;
+  const dragonballMatch = fullText.match(dragonballCodeRegex);
+  const hasDragonballSignal = dragonballSignals.some(signal => textLower.includes(signal));
+  
+  if (dragonballMatch || hasDragonballSignal) {
+    result.game = "dragonball";
+    
+    if (dragonballMatch) {
+      result.collectorNumber = dragonballMatch[0].toUpperCase();
+      result.identifier = result.collectorNumber;
+      result.confidence = 0.9;
+    } else {
+      // Extract card name from the first prominent line
+      const lines = fullText.split(/\n/).filter(line => line.trim().length > 2);
+      for (const line of lines.slice(0, 5)) {
+        const trimmedLine = line.trim();
+        // Skip lines that are just numbers or very short
+        if (!/^\d+$/.test(trimmedLine) && trimmedLine.length > 3) {
+          result.cardName = trimmedLine;
+          break;
+        }
+      }
+      if (result.cardName) {
+        result.identifier = result.cardName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        result.confidence = 0.75;
+      }
+    }
+    
+    console.log("Detected Dragon Ball card:", result.cardName || result.collectorNumber);
+    return result;
+  }
+
+  // Step 3: Try to detect Pokémon signals
   const pokemonSignals = ["pokémon", "pokemon", "basic", "trainer", "stage 1", "stage 2", "vmax", "vstar", "ex", "gx", "v-union"];
-  const textLower = fullText.toLowerCase();
   const hasPokemonSignal = pokemonSignals.some(signal => textLower.includes(signal));
 
   // Also check for HP pattern which is common in Pokémon cards
@@ -289,13 +327,10 @@ function parseOCRText(fullText: string): OCRResult {
     }
 
     // Extract card name (usually the most prominent text near the top)
-    // Look for name patterns - typically before "HP" or at the start
     const lines = fullText.split(/\n/).filter(line => line.trim().length > 0);
     
-    // The card name is usually on the first few lines
     for (const line of lines.slice(0, 5)) {
       const trimmedLine = line.trim();
-      // Skip lines that are just numbers, HP values, or very short
       if (trimmedLine.length > 2 && 
           !/^\d+$/.test(trimmedLine) && 
           !/^\d+\s*hp$/i.test(trimmedLine) &&
@@ -331,7 +366,7 @@ function parseOCRText(fullText: string): OCRResult {
 // ==================== JUSTTCG API ====================
 
 async function lookupJustTCG(
-  game: "one_piece" | "pokemon",
+  game: GameType,
   identifier: string,
   cardName?: string | null
 ): Promise<{
@@ -343,15 +378,22 @@ async function lookupJustTCG(
     throw new Error("JUSTTCG_API_KEY not configured");
   }
 
-  const gameSlug = game === "one_piece" ? "one-piece-card-game" : "pokemon";
+  // Map game to JustTCG slug
+  const gameSlugMap: Record<string, string> = {
+    one_piece: "one-piece-card-game",
+    pokemon: "pokemon",
+    dragonball: "dragonball-super",
+  };
+  
+  const gameSlug = game ? gameSlugMap[game] : null;
+  if (!gameSlug) {
+    console.log("Unsupported game for JustTCG:", game);
+    return { cards: [], bestMatch: null };
+  }
   
   // Build search query
-  let searchQuery = identifier;
-  if (game === "pokemon" && cardName) {
-    // For Pokémon, search by name primarily
-    searchQuery = cardName;
-  }
-
+  let searchQuery = cardName || identifier;
+  
   const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=5`;
 
   console.log("JustTCG API call:", url);
@@ -370,6 +412,8 @@ async function lookupJustTCG(
   }
 
   const data = await response.json();
+  console.log("JustTCG raw response:", JSON.stringify(data).substring(0, 1000));
+  
   const rawCards = data.data || data || [];
 
   if (!Array.isArray(rawCards) || rawCards.length === 0) {
@@ -378,31 +422,41 @@ async function lookupJustTCG(
   }
 
   const cards: CandidateCard[] = rawCards.map((card: any) => {
-    // Extract prices from variants
+    // Extract prices from variants array
     let priceLow: number | null = null;
     let priceMarket: number | null = null;
     let priceHigh: number | null = null;
 
-    if (card.variants && Array.isArray(card.variants)) {
+    if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
+      // Each variant has a price field directly
       const prices = card.variants
-        .map((v: any) => v.price)
-        .filter((p: any) => typeof p === "number" && p > 0);
+        .map((v: any) => {
+          // Try different price field names
+          const price = v.price ?? v.market_price ?? v.marketPrice ?? v.low_price ?? v.lowPrice;
+          return typeof price === "number" ? price : parseFloat(price);
+        })
+        .filter((p: number) => !isNaN(p) && p > 0);
       
       if (prices.length > 0) {
         priceLow = Math.min(...prices);
         priceHigh = Math.max(...prices);
         priceMarket = prices.reduce((a: number, b: number) => a + b, 0) / prices.length;
       }
+      
+      console.log(`Card ${card.name} - extracted prices:`, { priceLow, priceMarket, priceHigh, variantCount: card.variants.length });
     }
+
+    // Try to get image from different possible fields
+    const imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
 
     return {
       cardName: card.name,
-      set: card.set?.name || card.setName || null,
-      number: card.card_id || card.number || card.collector_number || null,
-      imageUrl: card.image_url || card.image || card.images?.large || card.images?.small || null,
+      set: card.set_name || card.set?.name || card.setName || null,
+      number: card.number || card.card_id || card.collector_number || card.cardNumber || null,
+      imageUrl,
       prices: {
         low: priceLow,
-        market: priceMarket,
+        market: priceMarket ? Math.round(priceMarket * 100) / 100 : null,
         high: priceHigh,
       },
     };
@@ -410,15 +464,16 @@ async function lookupJustTCG(
 
   console.log(`Found ${cards.length} cards from JustTCG`);
 
-  // For One Piece, try exact code match
+  // Find best match
   let bestMatch: CandidateCard | null = null;
   
   if (game === "one_piece") {
+    // For One Piece, try exact code match first
     bestMatch = cards.find(c => 
       c.number?.toUpperCase() === identifier.toUpperCase()
     ) || cards[0] || null;
   } else {
-    // For Pokémon, best match is first result (most relevant by API)
+    // For other games, best match is first result (most relevant by API)
     bestMatch = cards[0] || null;
   }
 
