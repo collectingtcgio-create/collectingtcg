@@ -175,21 +175,18 @@ async function recognizeCardWithXimilar(imageData: string): Promise<XimilarRecog
   // Extract base64 content - Ximilar expects base64 without the data URL prefix
   const base64Content = imageData.split(",")[1] || imageData;
 
-  console.log("Calling Ximilar API for card recognition...");
+  console.log("Calling Ximilar TCG ID API for card recognition...");
 
   try {
-    const response = await fetch("https://api.ximilar.com/recognition/v2/classify", {
+    // Use the correct Ximilar TCG identification endpoint
+    const response = await fetch("https://api.ximilar.com/tagging/collectibles/v2/tcg_id", {
       method: "POST",
       headers: {
         "Authorization": `Token ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        records: [
-          {
-            _base64: base64Content,
-          },
-        ],
+        records: [{ _base64: base64Content }],
       }),
     });
 
@@ -200,68 +197,74 @@ async function recognizeCardWithXimilar(imageData: string): Promise<XimilarRecog
     }
 
     const data = await response.json();
-    console.log("Ximilar response:", JSON.stringify(data).substring(0, 500));
+    console.log("Ximilar response:", JSON.stringify(data).substring(0, 1000));
 
-    // Parse Ximilar response - structure depends on the specific task/model
+    // Parse Ximilar collectibles/tcg_id response
     const record = data.records?.[0];
     if (!record) {
       console.log("No records in Ximilar response");
       return { cardName: null, set: null, confidence: 0, game: null };
     }
 
-    // Extract best prediction
-    const bestLabel = record.best_label || record._objects?.[0]?.best_label;
-    const confidence = bestLabel?.prob || bestLabel?.confidence || 0;
-    const labelName = bestLabel?.name || bestLabel?.label || "";
-
-    // Try to extract card name and set from the label
+    // Look for card objects in the response
+    const cardObject = record._objects?.find((obj: any) => 
+      obj.name === "Card" || obj.Top_Category?.some((cat: any) => cat.name === "Card")
+    );
+    
+    // Get identification data from the card object
+    const identification = cardObject?._identification;
+    const bestMatch = identification?.best_match;
+    
     let cardName: string | null = null;
     let setName: string | null = null;
+    let cardNumber: string | null = null;
     let game: GameType = null;
+    let confidence = 0;
 
-    // Ximilar might return structured data or just a label
-    if (record.card_name) {
-      cardName = record.card_name;
-    } else if (record._objects?.[0]?.card_name) {
-      cardName = record._objects[0].card_name;
-    } else if (labelName) {
-      // Parse the label name - might be in format "CardName - SetName" or just "CardName"
-      const parts = labelName.split(" - ");
-      cardName = parts[0]?.trim() || labelName;
-      if (parts.length > 1) {
-        setName = parts[1]?.trim() || null;
+    if (bestMatch) {
+      cardName = bestMatch.name || bestMatch.full_name || null;
+      setName = bestMatch.set || bestMatch.set_name || null;
+      cardNumber = bestMatch.card_number || null;
+      
+      // Calculate confidence from distances (lower distance = higher confidence)
+      const distances = identification?.distances;
+      if (distances && distances.length > 0) {
+        confidence = Math.max(0, 1 - (distances[0] || 0.5));
+      } else {
+        confidence = 0.8;
       }
+      
+      // Extract game type from subcategory
+      const subcategory = (bestMatch.subcategory || cardObject?._tags?.Subcategory?.[0]?.name || "").toLowerCase();
+      if (subcategory.includes("pokemon")) game = "pokemon";
+      else if (subcategory.includes("magic") || subcategory.includes("mtg")) game = "magic";
+      else if (subcategory.includes("yugioh") || subcategory.includes("yu-gi-oh")) game = "yugioh";
+      else if (subcategory.includes("one piece") || subcategory.includes("onepiece")) game = "one_piece";
+      else if (subcategory.includes("dragon ball") || subcategory.includes("dragonball")) game = "dragonball";
+      else if (subcategory.includes("lorcana")) game = "lorcana";
+    } else {
+      // Fallback: try to extract from tags
+      const tags = cardObject?._tags_simple || [];
+      for (const tag of tags) {
+        const tagLower = tag.toLowerCase();
+        if (tagLower === "pokemon") game = "pokemon";
+        else if (tagLower === "magic" || tagLower === "mtg") game = "magic";
+        else if (tagLower === "yugioh" || tagLower === "yu-gi-oh") game = "yugioh";
+        else if (tagLower === "one piece") game = "one_piece";
+        else if (tagLower === "dragon ball") game = "dragonball";
+        else if (tagLower === "lorcana") game = "lorcana";
+      }
+      confidence = cardObject?.prob || 0;
     }
 
-    // Try to detect game from labels or categories
-    if (record.game || record.category) {
-      const gameStr = (record.game || record.category || "").toLowerCase();
-      if (gameStr.includes("pokemon")) game = "pokemon";
-      else if (gameStr.includes("magic") || gameStr.includes("mtg")) game = "magic";
-      else if (gameStr.includes("yugioh") || gameStr.includes("yu-gi-oh")) game = "yugioh";
-      else if (gameStr.includes("one piece") || gameStr.includes("onepiece")) game = "one_piece";
-      else if (gameStr.includes("dragon ball") || gameStr.includes("dragonball")) game = "dragonball";
-      else if (gameStr.includes("lorcana")) game = "lorcana";
-    }
-
-    // Extract set if available
-    if (record.set_name) {
-      setName = record.set_name;
-    } else if (record._objects?.[0]?.set_name) {
-      setName = record._objects[0].set_name;
-    }
-
-    // Get OCR text if Ximilar provides it
-    const ocrText = record.ocr_text || record._objects?.[0]?.ocr_text || "";
-
-    console.log("Ximilar recognition result:", { cardName, setName, confidence, game });
+    console.log("Ximilar recognition result:", { cardName, setName, cardNumber, confidence, game });
 
     return {
       cardName,
       set: setName,
       confidence,
       game,
-      ocrText,
+      cardNumber,
     };
   } catch (error) {
     console.error("Ximilar recognition error:", error);
