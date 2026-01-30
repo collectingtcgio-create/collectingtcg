@@ -162,13 +162,13 @@ interface XimilarRecognitionResult {
   confidence: number;
   game: GameType;
   ocrText?: string;
+  cardNumber?: string | null;
 }
 
 async function recognizeCardWithXimilar(imageData: string): Promise<XimilarRecognitionResult> {
   const apiKey = Deno.env.get("XIMILAR_API_KEY");
   if (!apiKey) {
-    console.log("XIMILAR_API_KEY not configured, falling back to Google Vision OCR");
-    // Fallback to Google Vision if Ximilar not configured
+    console.log("XIMILAR_API_KEY not configured");
     return { cardName: null, set: null, confidence: 0, game: null };
   }
 
@@ -269,74 +269,8 @@ async function recognizeCardWithXimilar(imageData: string): Promise<XimilarRecog
   }
 }
 
-// ==================== GOOGLE VISION OCR (Fallback) ====================
-
-interface VisionTextAnnotation {
-  description: string;
-  locale?: string;
-}
-
-async function extractTextWithGoogleVision(imageData: string): Promise<{ text: string; error?: string }> {
-  const apiKey = Deno.env.get("GOOGLE_VISION_KEY");
-  if (!apiKey) {
-    console.log("GOOGLE_VISION_KEY not configured");
-    return { text: "", error: "GOOGLE_VISION_KEY not configured" };
-  }
-
-  // Extract base64 content
-  const base64Content = imageData.split(",")[1] || imageData;
-
-  console.log("Calling Google Vision API for OCR...");
-
-  try {
-    const response = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requests: [
-            {
-              image: {
-                content: base64Content,
-              },
-              features: [
-                {
-                  type: "TEXT_DETECTION",
-                  maxResults: 50,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Google Vision API error:", response.status, errorText);
-      return { text: "", error: `Google Vision API failed: ${response.status}` };
-    }
-
-    const data = await response.json();
-    const annotations = data.responses?.[0]?.textAnnotations as VisionTextAnnotation[] | undefined;
-
-    if (!annotations || annotations.length === 0) {
-      return { text: "", error: "No text detected in image" };
-    }
-
-    // The first annotation contains the full extracted text
-    const fullText = annotations[0].description || "";
-    console.log("Google Vision extracted text:", fullText.substring(0, 300));
-
-    return { text: fullText };
-  } catch (error) {
-    console.error("Google Vision error:", error);
-    return { text: "", error: "Google Vision request failed" };
-  }
-}
+// ==================== OCR TEXT EXTRACTION (from Ximilar) ====================
+// Google Vision has been removed - using Ximilar for all card recognition
 
 // ==================== PARSE OCR TEXT ====================
 
@@ -1004,34 +938,26 @@ Deno.serve(async (req) => {
       console.log("Using Ximilar recognition result:", ximilarResult);
       parsedInfo = {
         cardName: ximilarResult.cardName,
-        cardNumber: null, // Ximilar may not provide card number
+        cardNumber: ximilarResult.cardNumber || null,
         game: ximilarResult.game,
         setName: ximilarResult.set,
       };
       
-      // Still try to get OCR text for card number extraction if Ximilar didn't provide it
-      if (!ocrText) {
-        const visionResult = await extractTextWithGoogleVision(image_data);
-        ocrText = visionResult.text || "";
-        
-        // Try to extract card number from OCR
-        if (ocrText) {
-          const ocrParsed = parseOcrText(ocrText);
-          if (ocrParsed.cardNumber) {
-            parsedInfo.cardNumber = ocrParsed.cardNumber;
-          }
-          // If Ximilar didn't detect the game, use OCR detection
-          if (!parsedInfo.game && ocrParsed.game) {
-            parsedInfo.game = ocrParsed.game;
-          }
+      // Try to extract card number from OCR text if Ximilar provided it
+      if (ocrText && !parsedInfo.cardNumber) {
+        const ocrParsed = parseOcrText(ocrText);
+        if (ocrParsed.cardNumber) {
+          parsedInfo.cardNumber = ocrParsed.cardNumber;
+        }
+        // If Ximilar didn't detect the game, use OCR detection
+        if (!parsedInfo.game && ocrParsed.game) {
+          parsedInfo.game = ocrParsed.game;
         }
       }
     } else {
-      // Fallback: Use Google Vision OCR for text extraction
-      console.log("Ximilar confidence too low or no result, using Google Vision OCR...");
-      const ocrResult = await extractTextWithGoogleVision(image_data);
-      ocrText = ocrResult.text || "";
-
+      // Ximilar confidence too low - try to parse any OCR text from Ximilar
+      console.log("Ximilar confidence too low or no result, attempting to parse OCR text...");
+      
       if (!ocrText || ocrText.trim().length < 3) {
         const result: ScanResult = {
           game: null,
@@ -1042,7 +968,7 @@ Deno.serve(async (req) => {
           prices: { low: null, market: null, high: null },
           confidence: 0,
           source: "live",
-          error: ocrResult.error || "No text detected on card. Please ensure the card is clearly visible.",
+          error: "Could not recognize card. Please ensure the card is clearly visible and well-lit.",
           ocrText: ocrText,
         };
 
@@ -1055,10 +981,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Step 2: Parse OCR text to extract card info
+      // Parse whatever OCR text we have from Ximilar
       parsedInfo = parseOcrText(ocrText);
     }
-    
+
     console.log("Parsed card info:", parsedInfo);
 
     // Handle non-game cards (sports, etc.)

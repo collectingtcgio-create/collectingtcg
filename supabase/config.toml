@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.tcg-scan]
 verify_jwt = false
+
+[functions.recognize]
+verify_jwt = false
