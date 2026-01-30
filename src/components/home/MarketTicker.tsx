@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, RefreshCw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface HolyGrailItem {
   id: string;
@@ -118,6 +119,7 @@ const FALLBACK_PRICES: Record<string, number> = {
   "base-set-booster-box": 45000,
   "black-lotus": 540000,
   "mox-sapphire": 35000,
+  "ancestral-recall": 48000,
   "blue-eyes-lob": 12500,
   "dark-magician-lob": 8500,
   "luffy-op01-alt": 1250,
@@ -126,6 +128,45 @@ const FALLBACK_PRICES: Record<string, number> = {
   "elsa-enchanted": 285,
   "mickey-mouse-enchanted": 195,
 };
+
+// Cache key for localStorage
+const CACHE_KEY = "holy_grails_prices";
+const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 1 week in ms
+
+interface CachedPrices {
+  timestamp: number;
+  prices: Record<string, { price: number | null; priceChange?: number; image_url?: string }>;
+}
+
+function getCachedPrices(): CachedPrices | null {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    
+    const parsed: CachedPrices = JSON.parse(cached);
+    const now = Date.now();
+    
+    // Check if cache is still valid (1 week)
+    if (now - parsed.timestamp < CACHE_DURATION) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPrices(prices: CachedPrices["prices"]) {
+  try {
+    const cache: CachedPrices = {
+      timestamp: Date.now(),
+      prices,
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 function formatPrice(price: number): string {
   if (price >= 1000000) {
@@ -161,15 +202,80 @@ function getGameEmoji(game: string): string {
 
 export function MarketTicker() {
   const [items, setItems] = useState<HolyGrailItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const fetchPrices = async (forceRefresh = false) => {
+    // Check cache first (unless forcing refresh)
+    if (!forceRefresh) {
+      const cached = getCachedPrices();
+      if (cached) {
+        const cachedItems = HOLY_GRAIL_ITEMS.map((item) => ({
+          ...item,
+          price: cached.prices[item.id]?.price ?? FALLBACK_PRICES[item.id] ?? null,
+          priceChange: cached.prices[item.id]?.priceChange,
+        }));
+        setItems(cachedItems);
+        setLastUpdated(new Date(cached.timestamp));
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-market-prices");
+      
+      if (error) throw error;
+      
+      if (data?.success && data?.prices) {
+        const priceMap: Record<string, { price: number | null; priceChange?: number; image_url?: string }> = {};
+        
+        for (const priceData of data.prices) {
+          priceMap[priceData.id] = {
+            price: priceData.price,
+            priceChange: priceData.priceChange,
+            image_url: priceData.image_url,
+          };
+        }
+        
+        // Cache the prices
+        setCachedPrices(priceMap);
+        
+        const updatedItems = HOLY_GRAIL_ITEMS.map((item) => ({
+          ...item,
+          price: priceMap[item.id]?.price ?? FALLBACK_PRICES[item.id] ?? null,
+          priceChange: priceMap[item.id]?.priceChange,
+          // Use API image if available, otherwise keep the static one
+          image_url: priceMap[item.id]?.image_url || item.image_url,
+        }));
+        
+        setItems(updatedItems);
+        setLastUpdated(new Date());
+      } else {
+        // Fallback to static prices
+        const fallbackItems = HOLY_GRAIL_ITEMS.map((item) => ({
+          ...item,
+          price: FALLBACK_PRICES[item.id] || null,
+          priceChange: undefined,
+        }));
+        setItems(fallbackItems);
+      }
+    } catch (error) {
+      console.error("Failed to fetch market prices:", error);
+      // Use fallback prices
+      const fallbackItems = HOLY_GRAIL_ITEMS.map((item) => ({
+        ...item,
+        price: FALLBACK_PRICES[item.id] || null,
+        priceChange: undefined,
+      }));
+      setItems(fallbackItems);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Use cached/static prices only - no API calls
-    const cachedItems = HOLY_GRAIL_ITEMS.map((item) => ({
-      ...item,
-      price: FALLBACK_PRICES[item.id] || null,
-      priceChange: undefined, // Remove fake price changes
-    }));
-    setItems(cachedItems);
+    fetchPrices();
   }, []);
 
   if (items.length === 0) return null;
@@ -183,8 +289,16 @@ export function MarketTicker() {
         <TrendingUp className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-semibold text-foreground">Holy Grails Market</h2>
         <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
-          Estimated
+          {loading ? "Updating..." : lastUpdated ? `Updated ${lastUpdated.toLocaleDateString()}` : "Weekly"}
         </span>
+        <button
+          onClick={() => fetchPrices(true)}
+          disabled={loading}
+          className="ml-auto p-1.5 rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-50"
+          title="Refresh prices"
+        >
+          <RefreshCw className={`w-4 h-4 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       <div className="relative">
