@@ -154,7 +154,122 @@ async function setCacheResult(
   console.log(`Cached result for ${game}:${identifier}`);
 }
 
-// ==================== GOOGLE VISION OCR ====================
+// ==================== XIMILAR API - Card Recognition ====================
+
+interface XimilarRecognitionResult {
+  cardName: string | null;
+  set: string | null;
+  confidence: number;
+  game: GameType;
+  ocrText?: string;
+}
+
+async function recognizeCardWithXimilar(imageData: string): Promise<XimilarRecognitionResult> {
+  const apiKey = Deno.env.get("XIMILAR_API_KEY");
+  if (!apiKey) {
+    console.log("XIMILAR_API_KEY not configured, falling back to Google Vision OCR");
+    // Fallback to Google Vision if Ximilar not configured
+    return { cardName: null, set: null, confidence: 0, game: null };
+  }
+
+  // Extract base64 content - Ximilar expects base64 without the data URL prefix
+  const base64Content = imageData.split(",")[1] || imageData;
+
+  console.log("Calling Ximilar API for card recognition...");
+
+  try {
+    const response = await fetch("https://api.ximilar.com/recognition/v2/classify", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        records: [
+          {
+            _base64: base64Content,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Ximilar API error:", response.status, errorText);
+      return { cardName: null, set: null, confidence: 0, game: null };
+    }
+
+    const data = await response.json();
+    console.log("Ximilar response:", JSON.stringify(data).substring(0, 500));
+
+    // Parse Ximilar response - structure depends on the specific task/model
+    const record = data.records?.[0];
+    if (!record) {
+      console.log("No records in Ximilar response");
+      return { cardName: null, set: null, confidence: 0, game: null };
+    }
+
+    // Extract best prediction
+    const bestLabel = record.best_label || record._objects?.[0]?.best_label;
+    const confidence = bestLabel?.prob || bestLabel?.confidence || 0;
+    const labelName = bestLabel?.name || bestLabel?.label || "";
+
+    // Try to extract card name and set from the label
+    let cardName: string | null = null;
+    let setName: string | null = null;
+    let game: GameType = null;
+
+    // Ximilar might return structured data or just a label
+    if (record.card_name) {
+      cardName = record.card_name;
+    } else if (record._objects?.[0]?.card_name) {
+      cardName = record._objects[0].card_name;
+    } else if (labelName) {
+      // Parse the label name - might be in format "CardName - SetName" or just "CardName"
+      const parts = labelName.split(" - ");
+      cardName = parts[0]?.trim() || labelName;
+      if (parts.length > 1) {
+        setName = parts[1]?.trim() || null;
+      }
+    }
+
+    // Try to detect game from labels or categories
+    if (record.game || record.category) {
+      const gameStr = (record.game || record.category || "").toLowerCase();
+      if (gameStr.includes("pokemon")) game = "pokemon";
+      else if (gameStr.includes("magic") || gameStr.includes("mtg")) game = "magic";
+      else if (gameStr.includes("yugioh") || gameStr.includes("yu-gi-oh")) game = "yugioh";
+      else if (gameStr.includes("one piece") || gameStr.includes("onepiece")) game = "one_piece";
+      else if (gameStr.includes("dragon ball") || gameStr.includes("dragonball")) game = "dragonball";
+      else if (gameStr.includes("lorcana")) game = "lorcana";
+    }
+
+    // Extract set if available
+    if (record.set_name) {
+      setName = record.set_name;
+    } else if (record._objects?.[0]?.set_name) {
+      setName = record._objects[0].set_name;
+    }
+
+    // Get OCR text if Ximilar provides it
+    const ocrText = record.ocr_text || record._objects?.[0]?.ocr_text || "";
+
+    console.log("Ximilar recognition result:", { cardName, setName, confidence, game });
+
+    return {
+      cardName,
+      set: setName,
+      confidence,
+      game,
+      ocrText,
+    };
+  } catch (error) {
+    console.error("Ximilar recognition error:", error);
+    return { cardName: null, set: null, confidence: 0, game: null };
+  }
+}
+
+// ==================== GOOGLE VISION OCR (Fallback) ====================
 
 interface VisionTextAnnotation {
   description: string;
@@ -164,7 +279,8 @@ interface VisionTextAnnotation {
 async function extractTextWithGoogleVision(imageData: string): Promise<{ text: string; error?: string }> {
   const apiKey = Deno.env.get("GOOGLE_VISION_KEY");
   if (!apiKey) {
-    throw new Error("GOOGLE_VISION_KEY not configured");
+    console.log("GOOGLE_VISION_KEY not configured");
+    return { text: "", error: "GOOGLE_VISION_KEY not configured" };
   }
 
   // Extract base64 content
@@ -172,49 +288,54 @@ async function extractTextWithGoogleVision(imageData: string): Promise<{ text: s
 
   console.log("Calling Google Vision API for OCR...");
 
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64Content,
-            },
-            features: [
-              {
-                type: "TEXT_DETECTION",
-                maxResults: 50,
+  try {
+    const response = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: {
+                content: base64Content,
               },
-            ],
-          },
-        ],
-      }),
+              features: [
+                {
+                  type: "TEXT_DETECTION",
+                  maxResults: 50,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Google Vision API error:", response.status, errorText);
+      return { text: "", error: `Google Vision API failed: ${response.status}` };
     }
-  );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Google Vision API error:", response.status, errorText);
-    throw new Error(`Google Vision API failed: ${response.status}`);
+    const data = await response.json();
+    const annotations = data.responses?.[0]?.textAnnotations as VisionTextAnnotation[] | undefined;
+
+    if (!annotations || annotations.length === 0) {
+      return { text: "", error: "No text detected in image" };
+    }
+
+    // The first annotation contains the full extracted text
+    const fullText = annotations[0].description || "";
+    console.log("Google Vision extracted text:", fullText.substring(0, 300));
+
+    return { text: fullText };
+  } catch (error) {
+    console.error("Google Vision error:", error);
+    return { text: "", error: "Google Vision request failed" };
   }
-
-  const data = await response.json();
-  const annotations = data.responses?.[0]?.textAnnotations as VisionTextAnnotation[] | undefined;
-
-  if (!annotations || annotations.length === 0) {
-    return { text: "", error: "No text detected in image" };
-  }
-
-  // The first annotation contains the full extracted text
-  const fullText = annotations[0].description || "";
-  console.log("Google Vision extracted text:", fullText.substring(0, 300));
-
-  return { text: fullText };
 }
 
 // ==================== PARSE OCR TEXT ====================
@@ -872,34 +993,72 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Extract text using Google Vision OCR
-    const ocrResult = await extractTextWithGoogleVision(image_data);
-
-    if (!ocrResult.text || ocrResult.text.trim().length < 3) {
-      const result: ScanResult = {
-        game: null,
-        cardName: null,
-        set: null,
-        number: null,
-        imageUrl: null,
-        prices: { low: null, market: null, high: null },
-        confidence: 0,
-        source: "live",
-        error: ocrResult.error || "No text detected on card. Please ensure the card is clearly visible.",
-        ocrText: ocrResult.text,
+    // Step 1: Try Ximilar API for card recognition first
+    const ximilarResult = await recognizeCardWithXimilar(image_data);
+    
+    let ocrText = ximilarResult.ocrText || "";
+    let parsedInfo: ParsedCardInfo;
+    
+    // Use Ximilar result if we got a confident match
+    if (ximilarResult.cardName && ximilarResult.confidence > 0.5) {
+      console.log("Using Ximilar recognition result:", ximilarResult);
+      parsedInfo = {
+        cardName: ximilarResult.cardName,
+        cardNumber: null, // Ximilar may not provide card number
+        game: ximilarResult.game,
+        setName: ximilarResult.set,
       };
+      
+      // Still try to get OCR text for card number extraction if Ximilar didn't provide it
+      if (!ocrText) {
+        const visionResult = await extractTextWithGoogleVision(image_data);
+        ocrText = visionResult.text || "";
+        
+        // Try to extract card number from OCR
+        if (ocrText) {
+          const ocrParsed = parseOcrText(ocrText);
+          if (ocrParsed.cardNumber) {
+            parsedInfo.cardNumber = ocrParsed.cardNumber;
+          }
+          // If Ximilar didn't detect the game, use OCR detection
+          if (!parsedInfo.game && ocrParsed.game) {
+            parsedInfo.game = ocrParsed.game;
+          }
+        }
+      }
+    } else {
+      // Fallback: Use Google Vision OCR for text extraction
+      console.log("Ximilar confidence too low or no result, using Google Vision OCR...");
+      const ocrResult = await extractTextWithGoogleVision(image_data);
+      ocrText = ocrResult.text || "";
 
-      return new Response(JSON.stringify(result), {
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "application/json",
-          "X-RateLimit-Remaining": remainingScans.toString(),
-        },
-      });
+      if (!ocrText || ocrText.trim().length < 3) {
+        const result: ScanResult = {
+          game: null,
+          cardName: null,
+          set: null,
+          number: null,
+          imageUrl: null,
+          prices: { low: null, market: null, high: null },
+          confidence: 0,
+          source: "live",
+          error: ocrResult.error || "No text detected on card. Please ensure the card is clearly visible.",
+          ocrText: ocrText,
+        };
+
+        return new Response(JSON.stringify(result), {
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-RateLimit-Remaining": remainingScans.toString(),
+          },
+        });
+      }
+
+      // Step 2: Parse OCR text to extract card info
+      parsedInfo = parseOcrText(ocrText);
     }
-
-    // Step 2: Parse OCR text to extract card info
-    const parsedInfo = parseOcrText(ocrResult.text);
+    
     console.log("Parsed card info:", parsedInfo);
 
     // Handle non-game cards (sports, etc.)
@@ -912,10 +1071,10 @@ Deno.serve(async (req) => {
         number: parsedInfo.cardNumber,
         imageUrl: null, // Frontend will use captured preview image
         prices: { low: null, market: null, high: null },
-        confidence: 0.5,
+        confidence: ximilarResult.confidence || 0.5,
         source: "live",
         error: "N/A - Non-TCG", // Clear message for non-game cards
-        ocrText: ocrResult.text,
+        ocrText: ocrText,
       };
 
       return new Response(JSON.stringify(result), {
@@ -938,7 +1097,7 @@ Deno.serve(async (req) => {
         confidence: 0,
         source: "live",
         error: "Could not identify card from scanned text. Try repositioning the card.",
-        ocrText: ocrResult.text,
+        ocrText: ocrText,
       };
 
       return new Response(JSON.stringify(result), {
@@ -1045,7 +1204,7 @@ Deno.serve(async (req) => {
       source: "live",
       error: null,
       candidates: cards.length > 0 ? cards : undefined,
-      ocrText: ocrResult.text,
+      ocrText: ocrText,
     };
 
     // Cache the result
