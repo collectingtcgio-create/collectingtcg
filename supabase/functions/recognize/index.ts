@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
 
     console.log("Calling Ximilar API for card recognition...");
 
-    // Call Ximilar recognition API
-    const ximilarResponse = await fetch("https://api.ximilar.com/recognition/v2/classify", {
+    // Call Ximilar TCG Identification API
+    const ximilarResponse = await fetch("https://api.ximilar.com/tagging/collectibles/v2/tcg_id", {
       method: "POST",
       headers: {
         "Authorization": `Token ${apiKey}`,
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract card information from Ximilar response
+    // Extract card information from Ximilar's collectibles identification response
     let cardName: string | null = null;
     let setCode: string | null = null;
     let collectorNumber: string | null = null;
@@ -146,52 +146,54 @@ Deno.serve(async (req) => {
     let game: string | null = null;
     let ximilarId: string | null = null;
 
-    // Try multiple paths to extract data from Ximilar's response structure
-    const bestLabel = record.best_label || record._objects?.[0]?.best_label;
-    confidence = bestLabel?.prob || bestLabel?.confidence || record.confidence || 0;
-
-    // Extract card name
-    cardName = record.card_name 
-      || record._objects?.[0]?.card_name 
-      || bestLabel?.name 
-      || bestLabel?.label 
-      || null;
-
-    // If cardName contains " - ", split it to get card name and set
-    if (cardName && cardName.includes(" - ")) {
-      const parts = cardName.split(" - ");
-      cardName = parts[0]?.trim() || cardName;
-      if (!setCode && parts[1]) {
-        setCode = parts[1]?.trim() || null;
+    // Look for card objects in the response
+    const cardObject = record._objects?.find((obj: any) => 
+      obj.name === "Card" || obj.Top_Category?.some((cat: any) => cat.name === "Card")
+    );
+    
+    // Get identification data from the card object
+    const identification = cardObject?._identification;
+    const bestMatch = identification?.best_match;
+    
+    if (bestMatch) {
+      cardName = bestMatch.name || bestMatch.full_name || null;
+      setCode = bestMatch.set_code || bestMatch.set || null;
+      collectorNumber = bestMatch.card_number || null;
+      
+      // Calculate confidence from distances (lower distance = higher confidence)
+      const distances = identification?.distances;
+      if (distances && distances.length > 0) {
+        // Convert distance to confidence (distance of 0 = 100%, distance of 1 = 0%)
+        confidence = Math.max(0, 1 - (distances[0] || 0.5));
+      } else {
+        confidence = 0.8; // Default high confidence if we have a best_match
       }
+      
+      // Extract game type from subcategory
+      const subcategory = (bestMatch.subcategory || cardObject?._tags?.Subcategory?.[0]?.name || "").toLowerCase();
+      if (subcategory.includes("pokemon")) game = "pokemon";
+      else if (subcategory.includes("magic") || subcategory.includes("mtg")) game = "magic";
+      else if (subcategory.includes("yugioh") || subcategory.includes("yu-gi-oh")) game = "yugioh";
+      else if (subcategory.includes("one piece") || subcategory.includes("onepiece")) game = "one_piece";
+      else if (subcategory.includes("dragon ball") || subcategory.includes("dragonball")) game = "dragonball";
+      else if (subcategory.includes("lorcana")) game = "lorcana";
+    } else {
+      // Fallback: try to extract from tags
+      const tags = cardObject?._tags_simple || [];
+      for (const tag of tags) {
+        const tagLower = tag.toLowerCase();
+        if (tagLower === "pokemon") game = "pokemon";
+        else if (tagLower === "magic" || tagLower === "mtg") game = "magic";
+        else if (tagLower === "yugioh" || tagLower === "yu-gi-oh") game = "yugioh";
+        else if (tagLower === "one piece") game = "one_piece";
+        else if (tagLower === "dragon ball") game = "dragonball";
+        else if (tagLower === "lorcana") game = "lorcana";
+      }
+      confidence = cardObject?.prob || 0;
     }
 
-    // Extract set code
-    setCode = setCode 
-      || record.set_code 
-      || record.set_name 
-      || record._objects?.[0]?.set_code 
-      || record._objects?.[0]?.set_name 
-      || null;
-
-    // Extract collector number
-    collectorNumber = record.collector_number 
-      || record.card_number 
-      || record._objects?.[0]?.collector_number 
-      || record._objects?.[0]?.card_number 
-      || null;
-
-    // Extract game type
-    const gameStr = (record.game || record.category || record._objects?.[0]?.game || "").toLowerCase();
-    if (gameStr.includes("pokemon")) game = "pokemon";
-    else if (gameStr.includes("magic") || gameStr.includes("mtg")) game = "magic";
-    else if (gameStr.includes("yugioh") || gameStr.includes("yu-gi-oh")) game = "yugioh";
-    else if (gameStr.includes("one piece") || gameStr.includes("onepiece")) game = "one_piece";
-    else if (gameStr.includes("dragon ball") || gameStr.includes("dragonball")) game = "dragonball";
-    else if (gameStr.includes("lorcana")) game = "lorcana";
-
     // Extract Ximilar ID for pricing lookup
-    ximilarId = record._id || record.id || record._objects?.[0]?._id || null;
+    ximilarId = record._id || cardObject?.id || null;
 
     const response: RecognizeResponse = {
       cardName,
