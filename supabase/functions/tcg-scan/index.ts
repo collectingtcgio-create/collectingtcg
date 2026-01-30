@@ -163,29 +163,34 @@ async function setCacheResult(
 // ==================== LOVABLE AI CARD IDENTIFICATION ====================
 
 function getCardDetectionPrompt(): string {
-  return `You are an expert trading card game identifier. Analyze this image and identify the trading card shown.
+  return `You are an expert trading card game identifier. Analyze this image carefully and identify the trading card shown.
 
 Supported TCGs (use exactly these values for tcg_game):
 - pokemon (Pokémon TCG)
 - one_piece (One Piece Card Game)
 - dragonball (Dragon Ball Super Card Game)
 
-For the card visible in the image, provide:
-1. card_name: The exact card name as printed
+IMPORTANT - Card Number Locations:
+- One Piece cards: Look for codes like "OP01-001", "OP05-119", "ST01-001", "EB01-001" usually at bottom or corners
+- Pokémon cards: Look for "123/456" format usually at bottom left
+- Dragon Ball cards: Look for codes like "FB01-001", "BT1-001" at bottom
+
+For the card visible in the image, you MUST provide:
+1. card_name: The exact card name as printed on the card
 2. tcg_game: One of: pokemon, one_piece, dragonball
 3. set_name: The set/expansion name if visible
-4. card_number: The card number/code if visible (e.g., OP05-119, 123/198)
-5. rarity: The rarity if detectable
+4. card_number: THE CARD CODE/NUMBER - THIS IS CRITICAL! Look carefully at ALL corners and edges of the card
+5. rarity: The rarity if detectable (C, UC, R, SR, SEC, L, etc.)
 
 Respond ONLY with valid JSON in this exact format:
 {
   "cards": [
     {
       "card_name": "Card Name Here",
-      "tcg_game": "pokemon",
+      "tcg_game": "one_piece",
       "set_name": "Set Name",
-      "card_number": "123/456",
-      "rarity": "Rare"
+      "card_number": "OP05-119",
+      "rarity": "SR"
     }
   ]
 }
@@ -266,6 +271,82 @@ async function identifyCardWithAI(imageData: string): Promise<{ card: AICardResu
     console.error("JSON parse error:", e, "Content:", content);
     return { card: null, error: "Failed to parse card data" };
   }
+}
+
+// ==================== IMAGE FALLBACKS ====================
+
+async function getOnePieceImageFallback(cardNumber: string): Promise<string | null> {
+  if (!cardNumber) return null;
+  
+  try {
+    // Try the official One Piece card game API
+    const cleanNumber = cardNumber.replace('#', '').trim().toUpperCase();
+    console.log("Trying One Piece image fallback for:", cleanNumber);
+    
+    // Format: https://images.ygoprodeck.com/images/cards_cropped/xxxx.jpg won't work
+    // Try onepiece-cardgame.dev API
+    const response = await fetch(`https://onepiece-cardgame.dev/api/card?number=${encodeURIComponent(cleanNumber)}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.image) {
+        console.log("Found One Piece image from fallback API:", data.image);
+        return data.image;
+      }
+      if (data?.imageUrl) {
+        return data.imageUrl;
+      }
+    }
+  } catch (e) {
+    console.log("One Piece image fallback failed:", e);
+  }
+  
+  // Try constructing URL directly based on known patterns
+  // One Piece cards often have images at predictable URLs
+  const patterns = [
+    `https://static.dotgg.gg/onepiece/card/${cardNumber.toLowerCase()}.webp`,
+    `https://en.onepiece-cardgame.com/images/cardlist/card/${cardNumber.replace('-', '_')}.png`,
+  ];
+  
+  for (const url of patterns) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        console.log("Found One Piece image at:", url);
+        return url;
+      }
+    } catch {
+      // Continue to next pattern
+    }
+  }
+  
+  return null;
+}
+
+async function getPokemonImageFallback(cardName: string, cardNumber?: string): Promise<string | null> {
+  try {
+    // Use Pokemon TCG API
+    let query = `name:"${cardName}"`;
+    if (cardNumber && cardNumber.includes('/')) {
+      const [num] = cardNumber.split('/');
+      query += ` number:${num}`;
+    }
+    
+    const response = await fetch(
+      `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=1`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.data?.[0]?.images?.large) {
+        console.log("Found Pokemon image from TCG API");
+        return data.data[0].images.large;
+      }
+    }
+  } catch (e) {
+    console.log("Pokemon image fallback failed:", e);
+  }
+  return null;
 }
 
 // ==================== JUSTTCG API ====================
@@ -369,6 +450,20 @@ async function lookupJustTCG(
     ) || cards[0] || null;
   } else {
     bestMatch = cards[0] || null;
+  }
+
+  // If best match has no image, try fallbacks
+  if (bestMatch && !bestMatch.imageUrl) {
+    console.log("Best match has no image, trying fallbacks...");
+    
+    if (game === "one_piece") {
+      const cardNum = bestMatch.number || cardNumber;
+      if (cardNum) {
+        bestMatch.imageUrl = await getOnePieceImageFallback(cardNum);
+      }
+    } else if (game === "pokemon") {
+      bestMatch.imageUrl = await getPokemonImageFallback(bestMatch.cardName, bestMatch.number || undefined);
+    }
   }
 
   return { cards, bestMatch };
