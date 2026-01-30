@@ -387,6 +387,29 @@ async function fetchDragonBallCard(cardName: string): Promise<CardResult[]> {
   }
 }
 
+// One Piece card image fallback using official API
+async function getOnePieceCardImage(cardNumber: string): Promise<string | null> {
+  try {
+    // Try the One Piece card API for official images
+    const cleanNumber = cardNumber.replace('#', '').trim();
+    const response = await fetch(`https://onepiece-cardgame.dev/api/card?number=${encodeURIComponent(cleanNumber)}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.image) {
+        return data.image;
+      }
+      // Try alternate image field names
+      if (data && data.imageUrl) {
+        return data.imageUrl;
+      }
+    }
+  } catch (e) {
+    console.log("One Piece image fallback failed:", e);
+  }
+  return null;
+}
+
 // JustTCG for One Piece cards
 async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<CardResult[]> {
   const apiKey = Deno.env.get("JUSTTCG_API_KEY");
@@ -417,11 +440,15 @@ async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<Ca
     }
 
     const data = await response.json();
+    console.log("JustTCG response structure:", JSON.stringify(data).slice(0, 500));
+    
     const cards = data.data || data || [];
 
     if (!Array.isArray(cards)) return [];
 
-    return cards.map((card: any) => {
+    const results: CardResult[] = [];
+    
+    for (const card of cards) {
       let marketPrice = null;
       if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
         const highestPriceVariant = card.variants.reduce((max: any, v: any) => 
@@ -429,21 +456,35 @@ async function fetchOnePieceCard(cardName: string, setCode?: string): Promise<Ca
         marketPrice = highestPriceVariant?.price || null;
       }
 
-      return {
+      // Try multiple image source fields from JustTCG
+      let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || 
+                     card.imageUrl || card.img || card.picture || card.thumbnail || null;
+      
+      // Log card structure to debug image fields
+      if (!imageUrl) {
+        console.log("Card missing image, structure:", JSON.stringify(card).slice(0, 300));
+      }
+      
+      // Get card number for potential fallback lookup
+      const cardNumber = card.card_id || card.number || card.collector_number || card.productId;
+
+      results.push({
         id: crypto.randomUUID(),
         card_name: card.name,
         tcg_game: 'onepiece' as TcgGame,
-        set_name: card.set?.name || card.setName,
+        set_name: card.set?.name || card.setName || card.expansion,
         set_code: card.set?.id || card.setCode,
-        card_number: card.card_id || card.number || card.collector_number,
+        card_number: cardNumber,
         rarity: card.rarity,
-        image_url: card.image_url || card.image || card.images?.large || card.images?.small,
+        image_url: imageUrl,
         price_estimate: marketPrice,
         price_market: marketPrice,
         variant: 'standard',
         confidence: 0.95,
-      };
-    });
+      });
+    }
+    
+    return results;
   } catch (error) {
     console.error("JustTCG One Piece error:", error);
     return [];
