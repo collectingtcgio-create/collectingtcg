@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Crop, Loader2, Check, Move } from "lucide-react";
+import { Upload, X, Crop, Loader2, Check, Move, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,15 +17,17 @@ interface ImageUploadProps {
   onUpload: (url: string) => void;
   currentUrl?: string;
   userId: string;
+  onScanImage?: (imageBase64: string) => Promise<void>;
 }
 
-export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) {
+export function ImageUpload({ onUpload, currentUrl, userId, onScanImage }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [cropBox, setCropBox] = useState<CropBox | null>(null);
   const [cardType, setCardType] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [activeHandle, setActiveHandle] = useState<ResizeHandle>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, box: { x: 0, y: 0, width: 0, height: 0 } });
@@ -464,19 +466,68 @@ export function ImageUpload({ onUpload, currentUrl, userId }: ImageUploadProps) 
                 Re-detect Card
               </Button>
             ) : null}
+            {/* Scan & Identify button - primary action when onScanImage is provided */}
+            {onScanImage && preview && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={async () => {
+                  if (!preview) return;
+                  setIsScanning(true);
+                  try {
+                    // If there's a crop, apply it first then scan
+                    if (cropBox && originalImage) {
+                      // Apply crop silently and get the result
+                      const img = new Image();
+                      await new Promise<void>((resolve) => {
+                        img.onload = async () => {
+                          const canvas = canvasRef.current!;
+                          const ctx = canvas.getContext("2d")!;
+                          const cropX = (cropBox.x / 100) * img.width;
+                          const cropY = (cropBox.y / 100) * img.height;
+                          const cropWidth = (cropBox.width / 100) * img.width;
+                          const cropHeight = (cropBox.height / 100) * img.height;
+                          canvas.width = cropWidth;
+                          canvas.height = cropHeight;
+                          ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                          const croppedBase64 = canvas.toDataURL("image/jpeg", 0.9);
+                          await onScanImage(croppedBase64);
+                          resolve();
+                        };
+                        img.src = originalImage;
+                      });
+                    } else {
+                      await onScanImage(preview);
+                    }
+                  } finally {
+                    setIsScanning(false);
+                  }
+                }}
+                disabled={isScanning || uploading}
+                className="flex-1 bg-secondary hover:bg-secondary/80"
+              >
+                {isScanning ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {isScanning ? "Identifying..." : "Scan & Identify"}
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"
               onClick={handleSkipCropAndUpload}
-              disabled={uploading}
-              className="flex-1 bg-primary hover:bg-primary/80"
+              disabled={uploading || isScanning}
+              className={onScanImage ? "flex-1" : "flex-1 bg-primary hover:bg-primary/80"}
+              variant={onScanImage ? "outline" : "default"}
             >
               {uploading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {uploading ? "Uploading..." : "Upload Image"}
+              {uploading ? "Uploading..." : "Just Upload"}
             </Button>
           </div>
         </div>
