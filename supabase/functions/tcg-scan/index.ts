@@ -6,8 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Types
-type GameType = "one_piece" | "pokemon" | "dragonball" | null;
+// Types - Extended to support more games
+type GameType = "one_piece" | "pokemon" | "dragonball" | "yugioh" | "magic" | "lorcana" | "non_game" | null;
 
 interface ScanResult {
   game: GameType;
@@ -212,7 +212,7 @@ async function extractTextWithGoogleVision(imageData: string): Promise<{ text: s
 
   // The first annotation contains the full extracted text
   const fullText = annotations[0].description || "";
-  console.log("Google Vision extracted text:", fullText.substring(0, 200));
+  console.log("Google Vision extracted text:", fullText.substring(0, 300));
 
   return { text: fullText };
 }
@@ -228,6 +228,7 @@ interface ParsedCardInfo {
 
 function parseOcrText(ocrText: string): ParsedCardInfo {
   const lines = ocrText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  const fullText = ocrText.toUpperCase();
   
   let cardNumber: string | null = null;
   let game: GameType = null;
@@ -238,7 +239,7 @@ function parseOcrText(ocrText: string): ParsedCardInfo {
   for (const line of lines) {
     const upperLine = line.toUpperCase();
     
-    // One Piece patterns: OP01-001, ST01-001, EB01-001, etc.
+    // One Piece patterns: OP01-001, ST01-001, EB01-001, PRB-001
     const opMatch = upperLine.match(/\b(OP|ST|EB|PRB)\d{1,2}-\d{3,4}\b/);
     if (opMatch) {
       cardNumber = opMatch[0];
@@ -246,20 +247,77 @@ function parseOcrText(ocrText: string): ParsedCardInfo {
       continue;
     }
 
+    // Yu-Gi-Oh patterns: Various set codes like PHNI-EN001, LOB-001, SDCS-EN043
+    const yugiohMatch = upperLine.match(/\b([A-Z]{2,4})-([A-Z]{2})?(\d{3,4})\b/);
+    if (yugiohMatch && !game) {
+      const prefix = yugiohMatch[1];
+      // Common Yu-Gi-Oh set prefixes
+      const yugiohPrefixes = ['LOB', 'MRD', 'MRL', 'PSV', 'LON', 'MFC', 'DCR', 'IOC', 'AST', 'SOD', 
+        'RDS', 'FET', 'TLM', 'CRV', 'EEN', 'SOI', 'EOJ', 'POTD', 'CDIP', 'STON', 'FOTB', 'TAEV',
+        'PHNI', 'LEDE', 'BLMR', 'PHHY', 'CYAC', 'DUNE', 'AGOV', 'LART', 'RA01', 'MAMA', 'GFP2',
+        'MZMI', 'SDCS', 'BROL', 'KICO', 'DAMA', 'DIFO', 'POTE', 'DABL', 'PHSW', 'ORCS', 'GAOV',
+        'REDU', 'ABYR', 'CBLZ', 'LTGY', 'JOTL', 'SHSP', 'LVAL', 'PRIO', 'DUEA', 'NECH', 'SECE',
+        'CROS', 'CORE', 'DOCS', 'BOSH', 'SHVI', 'TDIL', 'INOV', 'RATE', 'MACR', 'COTD', 'CIBR',
+        'EXFO', 'FLOD', 'CYHO', 'SOFU', 'SAST', 'DANE', 'RIRA', 'CHIM', 'IGAS', 'ETCO', 'ROTD',
+        'PHRA', 'BLVO', 'LIOV', 'DAMA', 'BODE', 'BACH', 'GRCR', 'POTE', 'DIFO'];
+      if (yugiohPrefixes.includes(prefix)) {
+        cardNumber = yugiohMatch[0];
+        game = "yugioh";
+        continue;
+      }
+    }
+
+    // Magic: The Gathering - Set codes are typically 3 letters
+    // Look for patterns like "001/287" with set context
+    if (!game && (fullText.includes('MAGIC') || fullText.includes('WIZARDS') || 
+        fullText.includes('MANA') || fullText.includes('CREATURE') || 
+        fullText.includes('INSTANT') || fullText.includes('SORCERY') ||
+        fullText.includes('ENCHANTMENT') || fullText.includes('ARTIFACT') ||
+        fullText.includes('PLANESWALKER') || fullText.includes('LAND'))) {
+      game = "magic";
+      // MTG collector number pattern
+      const mtgMatch = upperLine.match(/\b(\d{1,3})\/(\d{2,3})\b/);
+      if (mtgMatch) {
+        cardNumber = mtgMatch[0];
+      }
+    }
+
     // Pokemon patterns: 123/456, or set codes like SV5-001
     const pokemonMatch = upperLine.match(/\b(\d{1,3}\/\d{1,3})\b/);
-    if (pokemonMatch) {
+    if (pokemonMatch && !game) {
       cardNumber = pokemonMatch[0];
       game = "pokemon";
       continue;
     }
 
     // Dragon Ball patterns: FB01-001, BT1-001, etc.
-    const dbMatch = upperLine.match(/\b(FB|BT|EX|SD|TB)\d{1,2}-\d{3,4}\b/);
+    const dbMatch = upperLine.match(/\b(FB|BT|EX|SD|TB|P|FS)\d{1,2}-\d{3,4}\b/);
     if (dbMatch) {
       cardNumber = dbMatch[0];
       game = "dragonball";
       continue;
+    }
+
+    // Lorcana patterns: Look for set numbers like 1/204
+    if (!game && (fullText.includes('LORCANA') || fullText.includes('DISNEY') || 
+        fullText.includes('INKWELL') || fullText.includes('STORYBORN'))) {
+      game = "lorcana";
+      const lorcanaMatch = upperLine.match(/\b(\d{1,3}\/\d{2,3})\b/);
+      if (lorcanaMatch) {
+        cardNumber = lorcanaMatch[0];
+      }
+    }
+  }
+
+  // If still no game detected, try broader heuristics
+  if (!game) {
+    // Check for sports/non-game cards
+    if (fullText.includes('TOPPS') || fullText.includes('PANINI') || 
+        fullText.includes('UPPER DECK') || fullText.includes('BASEBALL') ||
+        fullText.includes('BASKETBALL') || fullText.includes('FOOTBALL') ||
+        fullText.includes('HOCKEY') || fullText.includes('NASCAR') ||
+        fullText.includes('MARVEL') || fullText.includes('STAR WARS')) {
+      game = "non_game";
     }
   }
 
@@ -270,7 +328,9 @@ function parseOcrText(ocrText: string): ParsedCardInfo {
     if (
       /^\d+\/\d+$/.test(line) ||
       /^(OP|ST|EB|PRB|FB|BT|EX|SD|TB)\d+-\d+$/i.test(line) ||
+      /^[A-Z]{2,4}-[A-Z]{0,2}\d{3,4}$/i.test(line) ||
       /^(COST|POWER|COUNTER|ATK|DEF|HP|ATTACK|RETREAT|WEAKNESS)/i.test(line) ||
+      /^(CREATURE|INSTANT|SORCERY|ENCHANTMENT|ARTIFACT)/i.test(line) ||
       line.length > 50 ||
       /^\d+$/.test(line)
     ) {
@@ -286,7 +346,7 @@ function parseOcrText(ocrText: string): ParsedCardInfo {
   if (nameLines.length > 0) {
     cardName = nameLines.join(" ").trim();
     // Clean up common OCR artifacts
-    cardName = cardName.replace(/[^\w\s\-'.,:]/g, "").trim();
+    cardName = cardName.replace(/[^\w\s\-'.,:&]/g, "").trim();
   }
 
   return { cardName, cardNumber, game, setName };
@@ -301,48 +361,92 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
     const cleanNumber = cardNumber.replace('#', '').trim().toUpperCase();
     console.log("Trying One Piece image fallback for:", cleanNumber);
     
-    // Try Limitlesstcg CDN first - most reliable source
-    const limitlesstUrl = `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`;
-    const limitlesstResponse = await fetch(limitlesstUrl, { method: 'HEAD' });
-    if (limitlesstResponse.ok) {
-      console.log("Found One Piece image from limitlesstcg:", limitlesstUrl);
-      return limitlesstUrl;
+    // Try multiple sources for One Piece images
+    const sources = [
+      // LimitlessTCG CDN - most reliable
+      `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`,
+      // Alternative formats
+      `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toUpperCase()}.png`,
+      // dotgg format
+      `https://static.dotgg.gg/onepiece/card/${cleanNumber.toLowerCase()}.webp`,
+    ];
+    
+    for (const url of sources) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (response.ok) {
+          console.log("Found One Piece image at:", url);
+          return url;
+        }
+      } catch {
+        // Continue to next source
+      }
     }
     
-    // Try onepiece-cardgame.dev API
+    // Try onepiece-cardgame.dev API as last resort
     const response = await fetch(`https://onepiece-cardgame.dev/api/card?number=${encodeURIComponent(cleanNumber)}`);
     if (response.ok) {
       const data = await response.json();
-      if (data?.image) {
-        console.log("Found One Piece image from fallback API:", data.image);
-        return data.image;
-      }
-      if (data?.imageUrl) {
-        return data.imageUrl;
+      if (data?.image || data?.imageUrl) {
+        console.log("Found One Piece image from API");
+        return data.image || data.imageUrl;
       }
     }
   } catch (e) {
     console.log("One Piece image fallback failed:", e);
   }
   
-  // Try constructing URL directly based on known patterns
-  const patterns = [
-    `https://static.dotgg.gg/onepiece/card/${cardNumber.toLowerCase()}.webp`,
-    `https://images.digimoncard.io/optcg/${cardNumber.replace('-', '_').toUpperCase()}.png`,
-  ];
-  
-  for (const url of patterns) {
-    try {
-      const response = await fetch(url, { method: 'HEAD' });
-      if (response.ok) {
-        console.log("Found One Piece image at:", url);
-        return url;
+  return null;
+}
+
+async function getYuGiOhImageFallback(cardName: string, cardNumber?: string | null): Promise<string | null> {
+  try {
+    console.log("Trying Yu-Gi-Oh image fallback for:", cardName);
+    
+    // Use YGOProDeck API for images
+    const query = cardName.replace(/[^\w\s]/g, ' ').trim();
+    const response = await fetch(
+      `https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=${encodeURIComponent(query)}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.data?.[0]?.card_images?.[0]?.image_url) {
+        console.log("Found Yu-Gi-Oh image from YGOProDeck");
+        return data.data[0].card_images[0].image_url;
       }
-    } catch {
-      // Continue to next pattern
     }
+  } catch (e) {
+    console.log("Yu-Gi-Oh image fallback failed:", e);
   }
-  
+  return null;
+}
+
+async function getMagicImageFallback(cardName: string): Promise<string | null> {
+  try {
+    console.log("Trying MTG image fallback for:", cardName);
+    
+    // Use Scryfall API for Magic images
+    const query = cardName.replace(/[^\w\s]/g, ' ').trim();
+    const response = await fetch(
+      `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(query)}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      const imageUrl = data.image_uris?.large || data.image_uris?.normal || data.image_uris?.small;
+      if (imageUrl) {
+        console.log("Found MTG image from Scryfall");
+        return imageUrl;
+      }
+      // Check card_faces for double-faced cards
+      if (data.card_faces?.[0]?.image_uris?.large) {
+        return data.card_faces[0].image_uris.large;
+      }
+    }
+  } catch (e) {
+    console.log("MTG image fallback failed:", e);
+  }
   return null;
 }
 
@@ -402,6 +506,29 @@ async function getDragonBallImageFallback(cardNumber: string): Promise<string | 
   return null;
 }
 
+async function getLorcanaImageFallback(cardName: string): Promise<string | null> {
+  try {
+    console.log("Trying Lorcana image fallback for:", cardName);
+    
+    // Use Lorcast API for Lorcana images
+    const query = cardName.replace(/[^\w\s]/g, ' ').trim();
+    const response = await fetch(
+      `https://api.lorcast.com/v0/cards/search?q=${encodeURIComponent(query)}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.results?.[0]?.image_urls?.digital?.large) {
+        console.log("Found Lorcana image from Lorcast");
+        return data.results[0].image_urls.digital.large;
+      }
+    }
+  } catch (e) {
+    console.log("Lorcana image fallback failed:", e);
+  }
+  return null;
+}
+
 // ==================== JUSTTCG API ====================
 
 async function lookupJustTCG(
@@ -418,15 +545,21 @@ async function lookupJustTCG(
     return { cards: [], bestMatch: null };
   }
 
+  // Map game types to JustTCG API slugs
   const gameSlugMap: Record<string, string> = {
     one_piece: "one-piece-card-game",
     pokemon: "pokemon",
     dragonball: "dragon-ball-super-fusion-world",
+    yugioh: "yugioh",
+    magic: "magic-the-gathering",
+    lorcana: "lorcana",
   };
   
   const gameSlug = game ? gameSlugMap[game] : null;
-  if (!gameSlug) {
-    console.log("Unsupported game for JustTCG:", game);
+  
+  // For non-game cards or unknown games, return early with placeholder
+  if (!gameSlug || game === "non_game") {
+    console.log("Unsupported game for JustTCG or non-game card:", game);
     return { cards: [], bestMatch: null };
   }
   
@@ -480,22 +613,17 @@ async function lookupJustTCG(
       }
     }
 
-    // Extract image URL
-    let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
-    const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
-
-    // Try image fallbacks if no image from JustTCG
-    if (!imageUrl && cardNum) {
-      if (game === "one_piece") {
-        imageUrl = await getOnePieceImageFallback(cardNum);
-      } else if (game === "dragonball") {
-        imageUrl = await getDragonBallImageFallback(cardNum);
+    // Try to get price directly from card object if not in variants
+    if (priceMarket === null) {
+      const directPrice = card.price ?? card.market_price ?? card.marketPrice;
+      if (directPrice) {
+        priceMarket = typeof directPrice === "number" ? directPrice : parseFloat(directPrice);
       }
     }
-    
-    if (!imageUrl && game === "pokemon") {
-      imageUrl = await getPokemonImageFallback(card.name, cardNum);
-    }
+
+    // Extract image URL from JustTCG
+    let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
+    const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
 
     return {
       cardName: card.name,
@@ -528,6 +656,72 @@ async function lookupJustTCG(
   }
 
   return { cards, bestMatch };
+}
+
+// Retry search by card number only if initial search found price but no image
+async function retrySearchByCardNumber(
+  game: GameType,
+  cardNumber: string
+): Promise<CandidateCard | null> {
+  const apiKey = Deno.env.get("JUSTTCG_API_KEY");
+  if (!apiKey || !cardNumber) return null;
+
+  const gameSlugMap: Record<string, string> = {
+    one_piece: "one-piece-card-game",
+    pokemon: "pokemon",
+    dragonball: "dragon-ball-super-fusion-world",
+    yugioh: "yugioh",
+    magic: "magic-the-gathering",
+    lorcana: "lorcana",
+  };
+  
+  const gameSlug = game ? gameSlugMap[game] : null;
+  if (!gameSlug) return null;
+
+  console.log("Retrying JustTCG search by card number:", cardNumber);
+
+  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(cardNumber)}&limit=5`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const rawCards = data.data || data || [];
+
+    if (!Array.isArray(rawCards) || rawCards.length === 0) return null;
+
+    // Find card with matching number that has an image
+    for (const card of rawCards) {
+      const cardNum = card.number || card.card_id || card.collector_number;
+      const imageUrl = card.image_url || card.image || card.images?.large;
+      
+      if (cardNum?.toUpperCase() === cardNumber.toUpperCase() && imageUrl) {
+        console.log("Found card with image on retry:", cardNum);
+        return {
+          cardName: card.name,
+          set: card.set_name || card.set?.name || null,
+          number: cardNum,
+          imageUrl,
+          prices: {
+            low: null,
+            market: card.price || card.market_price || null,
+            high: null,
+          },
+        };
+      }
+    }
+  } catch (e) {
+    console.log("Retry search failed:", e);
+  }
+
+  return null;
 }
 
 // ==================== MAIN HANDLER ====================
@@ -621,6 +815,30 @@ Deno.serve(async (req) => {
     const parsedInfo = parseOcrText(ocrResult.text);
     console.log("Parsed card info:", parsedInfo);
 
+    // Handle non-game cards (sports, etc.)
+    if (parsedInfo.game === "non_game") {
+      const result: ScanResult = {
+        game: "non_game",
+        cardName: parsedInfo.cardName || "Non-TCG Card",
+        set: null,
+        number: parsedInfo.cardNumber,
+        imageUrl: null,
+        prices: { low: null, market: null, high: null },
+        confidence: 0.5,
+        source: "live",
+        error: "This appears to be a sports/collectible card. Market Data Only - pricing not available through TCG APIs.",
+        ocrText: ocrResult.text,
+      };
+
+      return new Response(JSON.stringify(result), {
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": remainingScans.toString(),
+        },
+      });
+    }
+
     if (!parsedInfo.cardName && !parsedInfo.cardNumber) {
       const result: ScanResult = {
         game: parsedInfo.game,
@@ -663,23 +881,67 @@ Deno.serve(async (req) => {
 
     // Step 4: Lookup prices and images via JustTCG
     const searchTerm = parsedInfo.cardName || parsedInfo.cardNumber || "";
-    const { cards, bestMatch } = await lookupJustTCG(
+    let { cards, bestMatch } = await lookupJustTCG(
       game,
       searchTerm,
       parsedInfo.cardNumber
     );
 
-    // If no results from JustTCG, try image fallbacks
-    let fallbackImageUrl: string | null = null;
-    if (!bestMatch && parsedInfo.cardNumber) {
-      console.log("No JustTCG results, trying image fallback for:", parsedInfo.cardNumber);
-      if (game === "one_piece") {
-        fallbackImageUrl = await getOnePieceImageFallback(parsedInfo.cardNumber);
-      } else if (game === "pokemon" && parsedInfo.cardName) {
-        fallbackImageUrl = await getPokemonImageFallback(parsedInfo.cardName, parsedInfo.cardNumber);
-      } else if (game === "dragonball") {
-        fallbackImageUrl = await getDragonBallImageFallback(parsedInfo.cardNumber);
+    // Step 5: If we have price but no image, retry by card number
+    if (bestMatch && !bestMatch.imageUrl && parsedInfo.cardNumber) {
+      console.log("Best match has price but no image, retrying by card number...");
+      const retryResult = await retrySearchByCardNumber(game, parsedInfo.cardNumber);
+      if (retryResult?.imageUrl) {
+        bestMatch.imageUrl = retryResult.imageUrl;
       }
+    }
+
+    // Step 6: Apply game-specific image fallbacks
+    let fallbackImageUrl: string | null = null;
+    
+    // Try fallbacks if no image from JustTCG
+    if (!bestMatch?.imageUrl) {
+      console.log("No image from JustTCG, trying game-specific fallback...");
+      
+      if (game === "one_piece" && parsedInfo.cardNumber) {
+        fallbackImageUrl = await getOnePieceImageFallback(parsedInfo.cardNumber);
+      } else if (game === "yugioh" && parsedInfo.cardName) {
+        fallbackImageUrl = await getYuGiOhImageFallback(parsedInfo.cardName, parsedInfo.cardNumber);
+      } else if (game === "magic" && parsedInfo.cardName) {
+        fallbackImageUrl = await getMagicImageFallback(parsedInfo.cardName);
+      } else if (game === "pokemon" && parsedInfo.cardName) {
+        fallbackImageUrl = await getPokemonImageFallback(parsedInfo.cardName, parsedInfo.cardNumber || undefined);
+      } else if (game === "dragonball" && parsedInfo.cardNumber) {
+        fallbackImageUrl = await getDragonBallImageFallback(parsedInfo.cardNumber);
+      } else if (game === "lorcana" && parsedInfo.cardName) {
+        fallbackImageUrl = await getLorcanaImageFallback(parsedInfo.cardName);
+      }
+    }
+
+    // Also apply fallbacks to candidates that are missing images
+    if (cards.length > 0) {
+      cards = await Promise.all(cards.map(async (card) => {
+        if (!card.imageUrl && card.number) {
+          let imgUrl: string | null = null;
+          if (game === "one_piece") {
+            imgUrl = await getOnePieceImageFallback(card.number);
+          } else if (game === "yugioh") {
+            imgUrl = await getYuGiOhImageFallback(card.cardName, card.number);
+          } else if (game === "magic") {
+            imgUrl = await getMagicImageFallback(card.cardName);
+          } else if (game === "pokemon") {
+            imgUrl = await getPokemonImageFallback(card.cardName, card.number);
+          } else if (game === "dragonball") {
+            imgUrl = await getDragonBallImageFallback(card.number);
+          } else if (game === "lorcana") {
+            imgUrl = await getLorcanaImageFallback(card.cardName);
+          }
+          if (imgUrl) {
+            return { ...card, imageUrl: imgUrl };
+          }
+        }
+        return card;
+      }));
     }
 
     // Build result

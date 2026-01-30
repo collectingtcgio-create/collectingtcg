@@ -17,7 +17,7 @@ export interface TcgScanCandidate {
 }
 
 export interface TcgScanResult {
-  game: "one_piece" | "pokemon" | "dragonball" | null;
+  game: "one_piece" | "pokemon" | "dragonball" | "yugioh" | "magic" | "lorcana" | "non_game" | null;
   cardName: string | null;
   set: string | null;
   number: string | null;
