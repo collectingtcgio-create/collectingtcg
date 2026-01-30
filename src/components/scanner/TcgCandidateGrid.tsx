@@ -104,8 +104,12 @@ export function TcgCandidateGrid({
                         }}
                       />
                     ) : null}
-                    <div className={`w-full h-full bg-muted flex items-center justify-center ${getDisplayImage(candidate) ? 'hidden' : ''}`}>
-                      <ImageOff className="w-8 h-8 text-muted-foreground" />
+                    <div className={`w-full h-full bg-gradient-to-br from-primary/20 via-secondary/10 to-primary/20 flex items-center justify-center ${getDisplayImage(candidate) ? 'hidden' : ''}`}>
+                      {/* TCG Card Back Placeholder */}
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <ImageOff className="w-6 h-6 text-primary/60" />
+                        <span className="text-xs text-muted-foreground">Card Back</span>
+                      </div>
                     </div>
                   </AspectRatio>
                 </div>

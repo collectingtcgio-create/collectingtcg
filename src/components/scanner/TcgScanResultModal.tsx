@@ -101,9 +101,15 @@ export function TcgScanResultModal({
                   onError={() => setImageError(true)}
                 />
               ) : (
-                <div className="w-full h-full bg-muted flex flex-col items-center justify-center gap-2">
-                  <ImageOff className="w-12 h-12 text-muted-foreground" />
-                  <span className="text-muted-foreground text-sm">No image available</span>
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-secondary/10 to-primary/20 flex flex-col items-center justify-center gap-2 relative">
+                  {/* TCG Card Back Placeholder */}
+                  <div className="absolute inset-4 rounded-lg border-2 border-dashed border-primary/30 flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                      <ImageOff className="w-8 h-8 text-primary/60" />
+                    </div>
+                    <span className="text-muted-foreground text-sm font-medium">Card Back</span>
+                    <span className="text-muted-foreground/60 text-xs">Image unavailable</span>
+                  </div>
                 </div>
               )}
             </AspectRatio>
