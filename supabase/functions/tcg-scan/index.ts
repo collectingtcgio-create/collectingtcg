@@ -20,6 +20,7 @@ interface ScanResult {
   source: "cache" | "live";
   error: string | null;
   candidates?: CandidateCard[];
+  ocrText?: string;
 }
 
 interface CandidateCard {
@@ -28,14 +29,6 @@ interface CandidateCard {
   number: string | null;
   imageUrl: string | null;
   prices: { low: number | null; market: number | null; high: number | null };
-}
-
-interface AICardResult {
-  card_name: string;
-  tcg_game: string;
-  set_name?: string;
-  card_number?: string;
-  rarity?: string;
 }
 
 // Rate limiting constants
@@ -152,6 +145,7 @@ async function setCacheResult(
     price_high: result.prices.high,
     confidence: result.confidence,
     candidates: result.candidates || null,
+    raw_ocr_text: result.ocrText || null,
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   }, {
     onConflict: "game,identifier",
@@ -160,117 +154,142 @@ async function setCacheResult(
   console.log(`Cached result for ${game}:${identifier}`);
 }
 
-// ==================== LOVABLE AI CARD IDENTIFICATION ====================
+// ==================== GOOGLE VISION OCR ====================
 
-function getCardDetectionPrompt(): string {
-  return `You are an expert trading card game identifier. Analyze this image carefully and identify the trading card shown.
-
-Supported TCGs (use exactly these values for tcg_game):
-- pokemon (Pokémon TCG)
-- one_piece (One Piece Card Game)
-- dragonball (Dragon Ball Super Card Game)
-
-IMPORTANT - Card Number Locations:
-- One Piece cards: Look for codes like "OP01-001", "OP05-119", "ST01-001", "EB01-001" usually at bottom or corners
-- Pokémon cards: Look for "123/456" format usually at bottom left
-- Dragon Ball cards: Look for codes like "FB01-001", "BT1-001" at bottom
-
-For the card visible in the image, you MUST provide:
-1. card_name: The exact card name as printed on the card
-2. tcg_game: One of: pokemon, one_piece, dragonball
-3. set_name: The set/expansion name if visible
-4. card_number: THE CARD CODE/NUMBER - THIS IS CRITICAL! Look carefully at ALL corners and edges of the card
-5. rarity: The rarity if detectable (C, UC, R, SR, SEC, L, etc.)
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "cards": [
-    {
-      "card_name": "Card Name Here",
-      "tcg_game": "one_piece",
-      "set_name": "Set Name",
-      "card_number": "OP05-119",
-      "rarity": "SR"
-    }
-  ]
+interface VisionTextAnnotation {
+  description: string;
+  locale?: string;
 }
 
-If no trading card is detected, respond with:
-{"cards": [], "error": "No trading card detected in image"}`;
-}
-
-async function identifyCardWithAI(imageData: string): Promise<{ card: AICardResult | null; error?: string }> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+async function extractTextWithGoogleVision(imageData: string): Promise<{ text: string; error?: string }> {
+  const apiKey = Deno.env.get("GOOGLE_VISION_KEY");
   if (!apiKey) {
-    throw new Error("LOVABLE_API_KEY not configured");
+    throw new Error("GOOGLE_VISION_KEY not configured");
   }
 
+  // Extract base64 content
   const base64Content = imageData.split(",")[1] || imageData;
-  const mimeMatch = imageData.match(/data:([^;]+);/);
-  const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
 
-  console.log("Calling Lovable AI Gateway for card identification...");
+  console.log("Calling Google Vision API for OCR...");
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: getCardDetectionPrompt() },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${base64Content}`,
-              },
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: base64Content,
             },
-          ],
-        },
-      ],
-      max_tokens: 1000,
-    }),
-  });
+            features: [
+              {
+                type: "TEXT_DETECTION",
+                maxResults: 50,
+              },
+            ],
+          },
+        ],
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("AI Gateway error:", response.status, errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit exceeded. Please try again in a moment.");
-    }
-    if (response.status === 402) {
-      throw new Error("AI credits exhausted. Please add credits to continue.");
-    }
-    throw new Error(`AI identification failed: ${response.status}`);
+    console.error("Google Vision API error:", response.status, errorText);
+    throw new Error(`Google Vision API failed: ${response.status}`);
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  const annotations = data.responses?.[0]?.textAnnotations as VisionTextAnnotation[] | undefined;
 
-  if (!content) {
-    return { card: null, error: "No response from AI" };
+  if (!annotations || annotations.length === 0) {
+    return { text: "", error: "No text detected in image" };
   }
 
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.cards && parsed.cards.length > 0) {
-        return { card: parsed.cards[0] };
-      }
-      return { card: null, error: parsed.error || "No card detected" };
+  // The first annotation contains the full extracted text
+  const fullText = annotations[0].description || "";
+  console.log("Google Vision extracted text:", fullText.substring(0, 200));
+
+  return { text: fullText };
+}
+
+// ==================== PARSE OCR TEXT ====================
+
+interface ParsedCardInfo {
+  cardName: string | null;
+  cardNumber: string | null;
+  game: GameType;
+  setName: string | null;
+}
+
+function parseOcrText(ocrText: string): ParsedCardInfo {
+  const lines = ocrText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  
+  let cardNumber: string | null = null;
+  let game: GameType = null;
+  let cardName: string | null = null;
+  let setName: string | null = null;
+
+  // Detect game and card number patterns
+  for (const line of lines) {
+    const upperLine = line.toUpperCase();
+    
+    // One Piece patterns: OP01-001, ST01-001, EB01-001, etc.
+    const opMatch = upperLine.match(/\b(OP|ST|EB|PRB)\d{1,2}-\d{3,4}\b/);
+    if (opMatch) {
+      cardNumber = opMatch[0];
+      game = "one_piece";
+      continue;
     }
-    return { card: null, error: "Could not parse AI response" };
-  } catch (e) {
-    console.error("JSON parse error:", e, "Content:", content);
-    return { card: null, error: "Failed to parse card data" };
+
+    // Pokemon patterns: 123/456, or set codes like SV5-001
+    const pokemonMatch = upperLine.match(/\b(\d{1,3}\/\d{1,3})\b/);
+    if (pokemonMatch) {
+      cardNumber = pokemonMatch[0];
+      game = "pokemon";
+      continue;
+    }
+
+    // Dragon Ball patterns: FB01-001, BT1-001, etc.
+    const dbMatch = upperLine.match(/\b(FB|BT|EX|SD|TB)\d{1,2}-\d{3,4}\b/);
+    if (dbMatch) {
+      cardNumber = dbMatch[0];
+      game = "dragonball";
+      continue;
+    }
   }
+
+  // Extract card name - typically the first 1-3 lines that look like a name
+  const nameLines: string[] = [];
+  for (const line of lines) {
+    // Skip lines that look like set info, numbers, or game text
+    if (
+      /^\d+\/\d+$/.test(line) ||
+      /^(OP|ST|EB|PRB|FB|BT|EX|SD|TB)\d+-\d+$/i.test(line) ||
+      /^(COST|POWER|COUNTER|ATK|DEF|HP|ATTACK|RETREAT|WEAKNESS)/i.test(line) ||
+      line.length > 50 ||
+      /^\d+$/.test(line)
+    ) {
+      continue;
+    }
+    
+    // Take first 2 lines that look like names
+    if (nameLines.length < 2 && line.length >= 2) {
+      nameLines.push(line);
+    }
+  }
+
+  if (nameLines.length > 0) {
+    cardName = nameLines.join(" ").trim();
+    // Clean up common OCR artifacts
+    cardName = cardName.replace(/[^\w\s\-'.,:]/g, "").trim();
+  }
+
+  return { cardName, cardNumber, game, setName };
 }
 
 // ==================== IMAGE FALLBACKS ====================
@@ -279,23 +298,19 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
   if (!cardNumber) return null;
   
   try {
-    // Try the official One Piece card game API
     const cleanNumber = cardNumber.replace('#', '').trim().toUpperCase();
     console.log("Trying One Piece image fallback for:", cleanNumber);
     
-    // Try Limitlesstcg API first - most reliable source
-    const limitlesstResponse = await fetch(
-      `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`
-    );
+    // Try Limitlesstcg CDN first - most reliable source
+    const limitlesstUrl = `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`;
+    const limitlesstResponse = await fetch(limitlesstUrl, { method: 'HEAD' });
     if (limitlesstResponse.ok) {
-      const url = `https://limitlesstcg.nyc3.digitaloceanspaces.com/onepiece/${cleanNumber.toLowerCase()}_en.png`;
-      console.log("Found One Piece image from limitlesstcg:", url);
-      return url;
+      console.log("Found One Piece image from limitlesstcg:", limitlesstUrl);
+      return limitlesstUrl;
     }
     
     // Try onepiece-cardgame.dev API
     const response = await fetch(`https://onepiece-cardgame.dev/api/card?number=${encodeURIComponent(cleanNumber)}`);
-    
     if (response.ok) {
       const data = await response.json();
       if (data?.image) {
@@ -314,7 +329,6 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
   const patterns = [
     `https://static.dotgg.gg/onepiece/card/${cardNumber.toLowerCase()}.webp`,
     `https://images.digimoncard.io/optcg/${cardNumber.replace('-', '_').toUpperCase()}.png`,
-    `https://en.onepiece-cardgame.com/images/cardlist/card/${cardNumber.replace('-', '_')}.png`,
   ];
   
   for (const url of patterns) {
@@ -334,7 +348,6 @@ async function getOnePieceImageFallback(cardNumber: string): Promise<string | nu
 
 async function getPokemonImageFallback(cardName: string, cardNumber?: string): Promise<string | null> {
   try {
-    // Use Pokemon TCG API
     let query = `name:"${cardName}"`;
     if (cardNumber && cardNumber.includes('/')) {
       const [num] = cardNumber.split('/');
@@ -342,7 +355,7 @@ async function getPokemonImageFallback(cardName: string, cardNumber?: string): P
     }
     
     const response = await fetch(
-      `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=1`
+      `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=5`
     );
     
     if (response.ok) {
@@ -355,6 +368,37 @@ async function getPokemonImageFallback(cardName: string, cardNumber?: string): P
   } catch (e) {
     console.log("Pokemon image fallback failed:", e);
   }
+  return null;
+}
+
+async function getDragonBallImageFallback(cardNumber: string): Promise<string | null> {
+  if (!cardNumber) return null;
+  
+  try {
+    const cleanNumber = cardNumber.replace('#', '').trim().toUpperCase();
+    console.log("Trying Dragon Ball image fallback for:", cleanNumber);
+    
+    // Try DBS Card Game patterns
+    const patterns = [
+      `https://www.dbs-cardgame.com/images/cards/${cleanNumber}.png`,
+      `https://static.dotgg.gg/dragonball/card/${cleanNumber.toLowerCase()}.webp`,
+    ];
+    
+    for (const url of patterns) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (response.ok) {
+          console.log("Found Dragon Ball image at:", url);
+          return url;
+        }
+      } catch {
+        // Continue to next pattern
+      }
+    }
+  } catch (e) {
+    console.log("Dragon Ball image fallback failed:", e);
+  }
+  
   return null;
 }
 
@@ -386,8 +430,9 @@ async function lookupJustTCG(
     return { cards: [], bestMatch: null };
   }
   
-  // Always search by card name first for better results
-  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(cardName)}&limit=10`;
+  // Search by card name for better results
+  const searchQuery = cardName.replace(/[^\w\s]/g, ' ').trim();
+  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=15`;
 
   console.log("JustTCG API call:", url);
 
@@ -419,6 +464,7 @@ async function lookupJustTCG(
     let priceMarket: number | null = null;
     let priceHigh: number | null = null;
 
+    // Extract prices from variants
     if (card.variants && Array.isArray(card.variants) && card.variants.length > 0) {
       const prices = card.variants
         .map((v: any) => {
@@ -434,12 +480,21 @@ async function lookupJustTCG(
       }
     }
 
+    // Extract image URL
     let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
     const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
 
-    // If no image and it's One Piece, try fallback
-    if (!imageUrl && game === "one_piece" && cardNum) {
-      imageUrl = await getOnePieceImageFallback(cardNum);
+    // Try image fallbacks if no image from JustTCG
+    if (!imageUrl && cardNum) {
+      if (game === "one_piece") {
+        imageUrl = await getOnePieceImageFallback(cardNum);
+      } else if (game === "dragonball") {
+        imageUrl = await getDragonBallImageFallback(cardNum);
+      }
+    }
+    
+    if (!imageUrl && game === "pokemon") {
+      imageUrl = await getPokemonImageFallback(card.name, cardNum);
     }
 
     return {
@@ -465,7 +520,11 @@ async function lookupJustTCG(
       c.number?.toUpperCase() === cardNumber.toUpperCase()
     ) || cards[0] || null;
   } else {
-    bestMatch = cards[0] || null;
+    // Find best name match
+    const normalizedSearch = cardName.toLowerCase().replace(/[^\w]/g, '');
+    bestMatch = cards.find(c => 
+      c.cardName.toLowerCase().replace(/[^\w]/g, '').includes(normalizedSearch)
+    ) || cards[0] || null;
   }
 
   return { cards, bestMatch };
@@ -497,10 +556,9 @@ Deno.serve(async (req) => {
         { global: { headers: { Authorization: authHeader } } }
       );
       
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData } = await supabase.auth.getClaims(token);
-      if (claimsData?.claims?.sub) {
-        userIdentifier = claimsData.claims.sub;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        userIdentifier = user.id;
       }
     }
 
@@ -533,10 +591,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Identify card using Lovable AI
-    const aiResult = await identifyCardWithAI(image_data);
+    // Step 1: Extract text using Google Vision OCR
+    const ocrResult = await extractTextWithGoogleVision(image_data);
 
-    if (!aiResult.card) {
+    if (!ocrResult.text || ocrResult.text.trim().length < 3) {
       const result: ScanResult = {
         game: null,
         cardName: null,
@@ -546,7 +604,8 @@ Deno.serve(async (req) => {
         prices: { low: null, market: null, high: null },
         confidence: 0,
         source: "live",
-        error: aiResult.error || "No trading card detected in image. Please ensure the card is clearly visible.",
+        error: ocrResult.error || "No text detected on card. Please ensure the card is clearly visible.",
+        ocrText: ocrResult.text,
       };
 
       return new Response(JSON.stringify(result), {
@@ -558,13 +617,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    const identifiedCard = aiResult.card;
-    const game = identifiedCard.tcg_game as GameType;
-    const identifier = identifiedCard.card_number || identifiedCard.card_name.toLowerCase().replace(/\s+/g, '_');
+    // Step 2: Parse OCR text to extract card info
+    const parsedInfo = parseOcrText(ocrResult.text);
+    console.log("Parsed card info:", parsedInfo);
 
-    console.log("AI identified card:", identifiedCard);
+    if (!parsedInfo.cardName && !parsedInfo.cardNumber) {
+      const result: ScanResult = {
+        game: parsedInfo.game,
+        cardName: null,
+        set: null,
+        number: null,
+        imageUrl: null,
+        prices: { low: null, market: null, high: null },
+        confidence: 0,
+        source: "live",
+        error: "Could not identify card from scanned text. Try repositioning the card.",
+        ocrText: ocrResult.text,
+      };
 
-    // Step 2: Check cache
+      return new Response(JSON.stringify(result), {
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": remainingScans.toString(),
+        },
+      });
+    }
+
+    const game = parsedInfo.game;
+    const identifier = parsedInfo.cardNumber || parsedInfo.cardName?.toLowerCase().replace(/\s+/g, '_') || 'unknown';
+
+    // Step 3: Check cache
     if (game && identifier) {
       const cachedResult = await getCachedResult(game, identifier);
       if (cachedResult) {
@@ -578,36 +661,40 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: Lookup prices and images via JustTCG
+    // Step 4: Lookup prices and images via JustTCG
+    const searchTerm = parsedInfo.cardName || parsedInfo.cardNumber || "";
     const { cards, bestMatch } = await lookupJustTCG(
       game,
-      identifiedCard.card_name,
-      identifiedCard.card_number
+      searchTerm,
+      parsedInfo.cardNumber
     );
 
-    // If no results from JustTCG, still try to get image from fallback
+    // If no results from JustTCG, try image fallbacks
     let fallbackImageUrl: string | null = null;
-    if (!bestMatch && identifiedCard.card_number) {
-      console.log("No JustTCG results, trying image fallback for:", identifiedCard.card_number);
+    if (!bestMatch && parsedInfo.cardNumber) {
+      console.log("No JustTCG results, trying image fallback for:", parsedInfo.cardNumber);
       if (game === "one_piece") {
-        fallbackImageUrl = await getOnePieceImageFallback(identifiedCard.card_number);
-      } else if (game === "pokemon") {
-        fallbackImageUrl = await getPokemonImageFallback(identifiedCard.card_name, identifiedCard.card_number);
+        fallbackImageUrl = await getOnePieceImageFallback(parsedInfo.cardNumber);
+      } else if (game === "pokemon" && parsedInfo.cardName) {
+        fallbackImageUrl = await getPokemonImageFallback(parsedInfo.cardName, parsedInfo.cardNumber);
+      } else if (game === "dragonball") {
+        fallbackImageUrl = await getDragonBallImageFallback(parsedInfo.cardNumber);
       }
     }
 
     // Build result
     const result: ScanResult = {
       game,
-      cardName: bestMatch?.cardName || identifiedCard.card_name,
-      set: bestMatch?.set || identifiedCard.set_name || null,
-      number: bestMatch?.number || identifiedCard.card_number || null,
+      cardName: bestMatch?.cardName || parsedInfo.cardName,
+      set: bestMatch?.set || parsedInfo.setName || null,
+      number: bestMatch?.number || parsedInfo.cardNumber || null,
       imageUrl: bestMatch?.imageUrl || fallbackImageUrl || null,
       prices: bestMatch?.prices || { low: null, market: null, high: null },
-      confidence: 0.9,
+      confidence: bestMatch ? 0.9 : 0.6,
       source: "live",
       error: null,
       candidates: cards.length > 0 ? cards : undefined,
+      ocrText: ocrResult.text,
     };
 
     // Cache the result
@@ -619,6 +706,7 @@ Deno.serve(async (req) => {
       game: result.game,
       cardName: result.cardName,
       candidatesCount: cards.length,
+      hasImage: !!result.imageUrl,
     });
 
     return new Response(JSON.stringify(result), {
