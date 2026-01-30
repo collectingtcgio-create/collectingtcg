@@ -377,9 +377,8 @@ async function lookupJustTCG(
     return { cards: [], bestMatch: null };
   }
   
-  // Use card number for One Piece cards, otherwise use card name
-  const searchQuery = game === "one_piece" && cardNumber ? cardNumber : cardName;
-  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(searchQuery)}&limit=5`;
+  // Always search by card name first for better results
+  const url = `https://api.justtcg.com/v1/cards?game=${gameSlug}&q=${encodeURIComponent(cardName)}&limit=10`;
 
   console.log("JustTCG API call:", url);
 
@@ -397,6 +396,8 @@ async function lookupJustTCG(
   }
 
   const data = await response.json();
+  console.log("JustTCG raw response:", JSON.stringify(data).substring(0, 500));
+  
   const rawCards = data.data || data || [];
 
   if (!Array.isArray(rawCards) || rawCards.length === 0) {
@@ -404,7 +405,7 @@ async function lookupJustTCG(
     return { cards: [], bestMatch: null };
   }
 
-  const cards: CandidateCard[] = rawCards.map((card: any) => {
+  const cards: CandidateCard[] = await Promise.all(rawCards.map(async (card: any) => {
     let priceLow: number | null = null;
     let priceMarket: number | null = null;
     let priceHigh: number | null = null;
@@ -424,12 +425,18 @@ async function lookupJustTCG(
       }
     }
 
-    const imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
+    let imageUrl = card.image_url || card.image || card.images?.large || card.images?.small || card.imageUrl || null;
+    const cardNum = card.number || card.card_id || card.collector_number || card.cardNumber || null;
+
+    // If no image and it's One Piece, try fallback
+    if (!imageUrl && game === "one_piece" && cardNum) {
+      imageUrl = await getOnePieceImageFallback(cardNum);
+    }
 
     return {
       cardName: card.name,
       set: card.set_name || card.set?.name || card.setName || null,
-      number: card.number || card.card_id || card.collector_number || card.cardNumber || null,
+      number: cardNum,
       imageUrl,
       prices: {
         low: priceLow,
@@ -437,33 +444,19 @@ async function lookupJustTCG(
         high: priceHigh,
       },
     };
-  });
+  }));
 
   console.log(`Found ${cards.length} cards from JustTCG`);
 
-  // Find best match
+  // Find best match - prioritize exact card number match
   let bestMatch: CandidateCard | null = null;
   
-  if (game === "one_piece" && cardNumber) {
+  if (cardNumber) {
     bestMatch = cards.find(c => 
       c.number?.toUpperCase() === cardNumber.toUpperCase()
     ) || cards[0] || null;
   } else {
     bestMatch = cards[0] || null;
-  }
-
-  // If best match has no image, try fallbacks
-  if (bestMatch && !bestMatch.imageUrl) {
-    console.log("Best match has no image, trying fallbacks...");
-    
-    if (game === "one_piece") {
-      const cardNum = bestMatch.number || cardNumber;
-      if (cardNum) {
-        bestMatch.imageUrl = await getOnePieceImageFallback(cardNum);
-      }
-    } else if (game === "pokemon") {
-      bestMatch.imageUrl = await getPokemonImageFallback(bestMatch.cardName, bestMatch.number || undefined);
-    }
   }
 
   return { cards, bestMatch };
@@ -583,18 +576,29 @@ Deno.serve(async (req) => {
       identifiedCard.card_number
     );
 
+    // If no results from JustTCG, still try to get image from fallback
+    let fallbackImageUrl: string | null = null;
+    if (!bestMatch && identifiedCard.card_number) {
+      console.log("No JustTCG results, trying image fallback for:", identifiedCard.card_number);
+      if (game === "one_piece") {
+        fallbackImageUrl = await getOnePieceImageFallback(identifiedCard.card_number);
+      } else if (game === "pokemon") {
+        fallbackImageUrl = await getPokemonImageFallback(identifiedCard.card_name, identifiedCard.card_number);
+      }
+    }
+
     // Build result
     const result: ScanResult = {
       game,
       cardName: bestMatch?.cardName || identifiedCard.card_name,
       set: bestMatch?.set || identifiedCard.set_name || null,
       number: bestMatch?.number || identifiedCard.card_number || null,
-      imageUrl: bestMatch?.imageUrl || null,
+      imageUrl: bestMatch?.imageUrl || fallbackImageUrl || null,
       prices: bestMatch?.prices || { low: null, market: null, high: null },
       confidence: 0.9,
       source: "live",
       error: null,
-      candidates: cards.length > 1 ? cards.slice(0, 5) : undefined,
+      candidates: cards.length > 0 ? cards : undefined,
     };
 
     // Cache the result
