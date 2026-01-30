@@ -220,14 +220,14 @@ export const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(
             </div>
           )}
 
-          {/* Processing Overlay */}
+          {/* Processing/Scanning Overlay */}
           {isProcessing && (
             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-                <p className="text-primary font-semibold">Identifying Card...</p>
-                <p className="text-sm text-muted-foreground">
-                  Analyzing image with AI
+                <p className="text-primary font-semibold text-lg">Scanning...</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Reading card with AI
                 </p>
               </div>
             </div>

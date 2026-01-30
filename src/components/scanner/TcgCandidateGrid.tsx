@@ -36,6 +36,11 @@ export function TcgCandidateGrid({
     }).format(price);
   };
 
+  // Helper to get display image - fallback to captured image if no API image
+  const getDisplayImage = (candidate: TcgScanCandidate): string | null => {
+    return candidate.imageUrl || capturedImage || null;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card border-border/50 max-w-2xl mx-auto max-h-[90vh]">
@@ -82,19 +87,24 @@ export function TcgCandidateGrid({
                 {/* Card Image */}
                 <div className="relative overflow-hidden rounded-lg mb-2">
                   <AspectRatio ratio={2.5 / 3.5}>
-                    {candidate.imageUrl ? (
+                    {getDisplayImage(candidate) ? (
                       <img
-                        src={candidate.imageUrl}
+                        src={getDisplayImage(candidate)!}
                         alt={candidate.cardName}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
-                          // If image fails to load, show placeholder
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          // If image fails to load, show placeholder or captured image
+                          const imgEl = e.target as HTMLImageElement;
+                          if (capturedImage && imgEl.src !== capturedImage) {
+                            imgEl.src = capturedImage;
+                          } else {
+                            imgEl.style.display = 'none';
+                            imgEl.nextElementSibling?.classList.remove('hidden');
+                          }
                         }}
                       />
                     ) : null}
-                    <div className={`w-full h-full bg-muted flex items-center justify-center ${candidate.imageUrl ? 'hidden' : ''}`}>
+                    <div className={`w-full h-full bg-muted flex items-center justify-center ${getDisplayImage(candidate) ? 'hidden' : ''}`}>
                       <ImageOff className="w-8 h-8 text-muted-foreground" />
                     </div>
                   </AspectRatio>

@@ -12,9 +12,14 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { BookPlus, Check, ExternalLink, Loader2, ImageOff, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import type { TcgScanResult } from "@/hooks/useTcgScan";
 
-const GAME_LABELS = {
+const GAME_LABELS: Record<string, string> = {
   one_piece: "One Piece",
   pokemon: "Pokémon",
+  dragonball: "Dragon Ball",
+  yugioh: "Yu-Gi-Oh!",
+  magic: "Magic: The Gathering",
+  lorcana: "Lorcana",
+  non_game: "Non-TCG Card",
 } as const;
 
 interface TcgScanResultModalProps {
@@ -37,12 +42,15 @@ export function TcgScanResultModal({
   const [added, setAdded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [useCustomImage, setUseCustomImage] = useState(false);
+  const isNonGameCard = result?.game === "non_game";
 
   if (!result || !result.cardName) return null;
 
-  const displayImage = useCustomImage && capturedImage 
+  // For non-game cards or when no API image, use the captured image by default
+  const shouldUseCapturedImage = useCustomImage || isNonGameCard || (!result.imageUrl && capturedImage);
+  const displayImage = shouldUseCapturedImage && capturedImage 
     ? capturedImage 
-    : (imageError ? null : result.imageUrl);
+    : (imageError ? (capturedImage || null) : result.imageUrl);
 
   const handleAddToBinder = async () => {
     // Pass whether we're using the captured image
@@ -52,7 +60,8 @@ export function TcgScanResultModal({
     }
   };
 
-  const formatPrice = (price: number | null) => {
+  const formatPrice = (price: number | null, isNonGame: boolean = false) => {
+    if (isNonGame) return "N/A - Non-TCG";
     if (price === null) return "N/A";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -161,7 +170,7 @@ export function TcgScanResultModal({
                     <span className="text-xs">Low</span>
                   </div>
                   <p className="font-semibold text-sm">
-                    {formatPrice(result.prices.low)}
+                    {formatPrice(result.prices.low, isNonGameCard)}
                   </p>
                 </div>
 
@@ -172,7 +181,7 @@ export function TcgScanResultModal({
                     <span className="text-xs">Market</span>
                   </div>
                   <p className="font-bold text-lg text-secondary">
-                    {formatPrice(result.prices.market)}
+                    {formatPrice(result.prices.market, isNonGameCard)}
                   </p>
                 </div>
 
@@ -183,12 +192,16 @@ export function TcgScanResultModal({
                     <span className="text-xs">High</span>
                   </div>
                   <p className="font-semibold text-sm">
-                    {formatPrice(result.prices.high)}
+                    {formatPrice(result.prices.high, isNonGameCard)}
                   </p>
                 </div>
               </div>
 
-              {result.prices.market === null && (
+              {isNonGameCard ? (
+                <p className="text-xs text-muted-foreground text-center">
+                  This appears to be a sports/collectible card. Pricing unavailable through TCG APIs.
+                </p>
+              ) : result.prices.market === null && (
                 <p className="text-xs text-muted-foreground text-center">
                   Pricing unavailable for this card
                 </p>
