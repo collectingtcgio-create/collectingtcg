@@ -364,11 +364,24 @@ export default function Scanner() {
                 />
               </div>
 
-              {/* Image Upload */}
+              {/* Image Upload with Scan capability */}
               <ImageUpload
                 userId={profile.id}
                 currentUrl={imageUrl}
                 onUpload={(url) => setImageUrl(url)}
+                onScanImage={async (imageBase64: string) => {
+                  setCapturedImage(imageBase64);
+                  const result = await tcgScanCard(imageBase64);
+                  if (result) {
+                    if (result.candidates && result.candidates.length > 0) {
+                      setShowManualAdd(false);
+                      setShowTcgCandidates(true);
+                    } else if (result.cardName && !result.error) {
+                      setShowManualAdd(false);
+                      setShowTcgResult(true);
+                    }
+                  }
+                }}
               />
 
               {/* URL Input as fallback */}
