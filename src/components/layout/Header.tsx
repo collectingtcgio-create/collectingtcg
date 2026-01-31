@@ -69,21 +69,13 @@ export function Header() {
           <div className="flex items-center gap-3">
             {user && (
               <>
-                <StartStreamModal
-                  trigger={
-                    <Button
-                      className={cn(
-                        "rounded-full px-6 font-semibold transition-all duration-300",
-                        profile?.is_live
-                          ? "bg-secondary hover:bg-secondary/80 neon-glow-magenta pulse-live"
-                          : "bg-muted hover:bg-muted/80 text-foreground hover:neon-glow-magenta"
-                      )}
-                    >
-                      <Radio className={cn("w-4 h-4 mr-2", profile?.is_live && "animate-pulse")} />
-                      {profile?.is_live ? "LIVE" : "GO LIVE"}
-                    </Button>
-                  }
-                />
+                <Button
+                  className="rounded-full px-6 font-semibold transition-all duration-300 bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                  disabled
+                >
+                  <Radio className="w-4 h-4 mr-2" />
+                  Coming Soon
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"

@@ -14,8 +14,7 @@ import {
   Image as ImageIcon, 
   X, 
   Trash2,
-  Gift,
-  Video
+  Gift
 } from "lucide-react";
 import { GiftSelector } from "@/components/gifting/GiftSelector";
 import { GiftAnimation } from "@/components/gifting/GiftAnimation";
@@ -82,8 +81,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   const [postContent, setPostContent] = useState("");
   const [postImage, setPostImage] = useState<File | null>(null);
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
-  const [postVideo, setPostVideo] = useState<File | null>(null);
-  const [postVideoPreview, setPostVideoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [replies, setReplies] = useState<Record<string, WallPostReply[]>>({});
   const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
@@ -93,7 +90,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   const [giftSenderName, setGiftSenderName] = useState<string>("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPosts();
@@ -186,34 +182,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     }
   };
 
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: "Video too large",
-          description: "Please select a video under 50MB",
-          variant: "destructive",
-        });
-        return;
-      }
-      // Clear image if selecting video
-      if (postImage) {
-        removeImage();
-      }
-      setPostVideo(file);
-      setPostVideoPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const removeVideo = () => {
-    setPostVideo(null);
-    setPostVideoPreview(null);
-    if (videoInputRef.current) {
-      videoInputRef.current.value = "";
-    }
-  };
-
   const handleSubmitPost = async () => {
     if (!currentProfile || !postContent.trim()) return;
 
@@ -247,32 +215,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
       imageUrl = publicUrl;
     }
 
-    // Upload video if present
-    if (postVideo) {
-      const fileExt = postVideo.name.split(".").pop();
-      const fileName = `${currentProfile.id}/videos/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("wall-posts")
-        .upload(fileName, postVideo);
-
-      if (uploadError) {
-        toast({
-          title: "Failed to upload video",
-          description: uploadError.message,
-          variant: "destructive",
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("wall-posts")
-        .getPublicUrl(fileName);
-      
-      videoUrl = publicUrl;
-    }
-
     const { error } = await supabase
       .from("wall_posts")
       .insert({
@@ -280,7 +222,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
         author_id: currentProfile.id,
         content: postContent.trim(),
         image_url: imageUrl,
-        video_url: videoUrl,
+        video_url: null,
       });
 
     if (error) {
@@ -295,7 +237,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
       });
       setPostContent("");
       removeImage();
-      removeVideo();
       fetchPosts();
     }
     setSubmitting(false);
@@ -472,26 +413,6 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                   </div>
                 )}
 
-                {/* Video Preview */}
-                {postVideoPreview && (
-                  <div className="relative inline-block max-w-full">
-                    <video
-                      src={postVideoPreview}
-                      className="max-h-64 max-w-full rounded-lg"
-                      controls
-                      playsInline
-                    />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 h-6 w-6"
-                      onClick={removeVideo}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
-                
                 <div className="flex items-center justify-between">
                   <div className="flex gap-1">
                     <input
@@ -506,27 +427,9 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
                       className="text-muted-foreground hover:text-foreground"
-                      disabled={!!postVideo}
                     >
                       <ImageIcon className="w-4 h-4 mr-2" />
                       Photo
-                    </Button>
-                    <input
-                      ref={videoInputRef}
-                      type="file"
-                      accept="video/*"
-                      onChange={handleVideoSelect}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => videoInputRef.current?.click()}
-                      className="text-muted-foreground hover:text-foreground"
-                      disabled={!!postImage}
-                    >
-                      <Video className="w-4 h-4 mr-2" />
-                      Video
                     </Button>
                   </div>
                   <Button
