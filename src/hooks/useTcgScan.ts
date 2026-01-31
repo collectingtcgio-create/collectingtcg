@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+const SAVE_SCAN_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/save-scan-image";
+const GET_CARD_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/get-card-image";
 
 export interface TcgScanPrices {
   low: number | null;
@@ -83,22 +85,27 @@ export function useTcgScan(): UseTcgScanReturn {
     cardNumber?: string | null
   ): Promise<string | null> => {
     try {
-      const response = await supabase.functions.invoke("save-scan-image", {
-        body: {
+      console.log("Calling save-scan-image at:", SAVE_SCAN_IMAGE_URL);
+      const response = await fetch(SAVE_SCAN_IMAGE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           imageBase64,
           game: mapGameType(game),
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
-        },
+        }),
       });
 
-      if (response.error) {
-        console.error("Failed to save card image:", response.error);
+      if (!response.ok) {
+        console.error("Failed to save card image:", response.status, response.statusText);
         return null;
       }
 
-      const data = response.data as SaveImageResponse;
+      const data = await response.json() as SaveImageResponse;
       console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
       return data.imageUrl;
     } catch (error) {
@@ -115,13 +122,19 @@ export function useTcgScan(): UseTcgScanReturn {
     capturedImageRef.current = imageData;
 
     try {
-      const response = await supabase.functions.invoke("tcg-scan", {
-        body: { image_data: imageData },
+      console.log("Calling tcg-scan...");
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tcg-scan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ image_data: imageData }),
       });
 
-      if (response.error) {
+      if (!response.ok) {
         // Check if it's a rate limit error
-        if (response.error.message?.includes("429") || response.error.message?.includes("Rate limit")) {
+        if (response.status === 429) {
           toast({
             title: "Rate Limit Reached",
             description: "You've reached the scan limit. Please wait a minute before trying again.",
@@ -129,11 +142,10 @@ export function useTcgScan(): UseTcgScanReturn {
           });
           return null;
         }
-
-        throw new Error(response.error.message || "Scan failed");
+        throw new Error(`Scan failed: ${response.status}`);
       }
 
-      const result = response.data as TcgScanResult;
+      const result = await response.json() as TcgScanResult;
 
       // Store candidates if any matches found - always show selection grid
       if (result.candidates && result.candidates.length > 0) {
