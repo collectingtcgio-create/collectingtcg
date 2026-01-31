@@ -40,6 +40,7 @@ export default function Scanner() {
     scanCard: tcgScanCard,
     selectCandidate: tcgSelectCandidate,
     resetScan: tcgResetScan,
+    saveCardImage,
   } = useTcgScan();
 
   // Legacy scanner hook (for games other than One Piece / Pokémon)
@@ -143,16 +144,48 @@ export default function Scanner() {
         one_piece: 'onepiece',
         pokemon: 'pokemon',
         dragonball: 'dragonball',
+        yugioh: 'yugioh',
+        magic: 'magic',
+        lorcana: 'lorcana',
       };
       const tcgGame = result.game ? tcgGameMap[result.game] : null;
 
-      // Determine which image to use - prefer API image, fallback to captured
-      const imageToSave = result.imageUrl || (useCapturedImage && capturedImage ? capturedImage : null);
+      // Determine which image to use
+      let imageToSave = result.imageUrl;
+      
+      // If we should use the captured image and have one, save it to storage
+      if (useCapturedImage && capturedImage && result.game && result.cardName) {
+        // Call save-scan-image to upload and get a permanent URL
+        const savedUrl = await saveCardImage(
+          capturedImage,
+          result.cardName,
+          result.game,
+          result.set,
+          result.number
+        );
+        if (savedUrl) {
+          imageToSave = savedUrl;
+        }
+      }
+      
+      // If no image from API and we have a captured image, save it
+      if (!imageToSave && capturedImage && result.game && result.cardName) {
+        const savedUrl = await saveCardImage(
+          capturedImage,
+          result.cardName,
+          result.game,
+          result.set,
+          result.number
+        );
+        if (savedUrl) {
+          imageToSave = savedUrl;
+        }
+      }
 
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: result.cardName,
-        image_url: imageToSave,
+        image_url: imageToSave || null,
         price_estimate: result.prices.market || 0,
         tcg_game: tcgGame || null,
       });
@@ -190,7 +223,7 @@ export default function Scanner() {
     } finally {
       setIsAddingFromTcg(false);
     }
-  }, [profile, toast, capturedImage]);
+  }, [profile, toast, capturedImage, saveCardImage]);
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();

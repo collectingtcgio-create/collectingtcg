@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.recognize]
 verify_jwt = false
+
+[functions.save-scan-image]
+verify_jwt = false
