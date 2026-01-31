@@ -16,6 +16,7 @@ export interface TcgScanCandidate {
   number: string | null;
   imageUrl: string | null;
   prices: TcgScanPrices;
+  productId?: string | null;
 }
 
 export interface TcgScanResult {
@@ -29,12 +30,18 @@ export interface TcgScanResult {
   source: "cache" | "live";
   error: string | null;
   candidates?: TcgScanCandidate[];
+  productId?: string | null;
 }
 
 interface SaveImageResponse {
   imageUrl: string;
   title: string;
   cached: boolean;
+}
+
+interface GetImageResponse {
+  imageUrl: string | null;
+  exists: boolean;
 }
 
 interface UseTcgScanReturn {
@@ -45,7 +52,46 @@ interface UseTcgScanReturn {
   scanCard: (imageData: string) => Promise<TcgScanResult | null>;
   selectCandidate: (candidate: TcgScanCandidate) => void;
   resetScan: () => void;
-  saveCardImage: (imageBase64: string, cardName: string, game: string, setName?: string | null, cardNumber?: string | null) => Promise<string | null>;
+  saveCardImage: (imageBase64: string, cardName: string, game: string, setName?: string | null, cardNumber?: string | null, productId?: string | null) => Promise<string | null>;
+  getCardImage: (cardKey: string) => Promise<string | null>;
+  generateCardKey: (game: string | null, cardName: string, setName?: string | null, cardNumber?: string | null, productId?: string | null) => string;
+}
+
+// Normalize a string for use in card keys
+function normalizeForKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+// Generate a canonical card key
+export function generateCardKey(
+  game: string | null,
+  cardName: string,
+  setName?: string | null,
+  cardNumber?: string | null,
+  productId?: string | null
+): string {
+  // If we have a stable productId from pricing API, use it as the canonical key
+  if (productId) {
+    const key = `${normalizeForKey(game || 'unknown')}:pid:${productId}`;
+    console.log("[card_key] Using productId-based key:", key);
+    return key;
+  }
+  
+  // Otherwise build a normalized key from card attributes
+  const parts = [
+    normalizeForKey(game || 'unknown'),
+    normalizeForKey(cardName),
+    normalizeForKey(setName || ''),
+    normalizeForKey(cardNumber || ''),
+  ];
+  
+  const key = parts.join(':');
+  console.log("[card_key] Generated normalized key:", key);
+  return key;
 }
 
 // Map game types for the save-scan-image function
@@ -76,16 +122,47 @@ export function useTcgScan(): UseTcgScanReturn {
   const imageSavedRef = useRef<boolean>(false);
   const capturedImageRef = useRef<string | null>(null);
 
-  // Save card image to storage (only called once per scan)
+  // Get existing card image from storage
+  const getCardImage = useCallback(async (cardKey: string): Promise<string | null> => {
+    try {
+      console.log("[get-card-image] Fetching image for card_key:", cardKey);
+      const response = await fetch(GET_CARD_IMAGE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cardKey }),
+      });
+
+      if (!response.ok) {
+        console.log("[get-card-image] Response status:", response.status, response.statusText);
+        return null;
+      }
+
+      const data = await response.json() as GetImageResponse;
+      console.log("[get-card-image] Response:", data.exists ? "Found" : "Not found", data.imageUrl || "");
+      return data.imageUrl;
+    } catch (error) {
+      console.error("[get-card-image] Error:", error);
+      return null;
+    }
+  }, []);
+
+  // Save card image to storage - ALWAYS called when adding to collection
   const saveCardImage = useCallback(async (
     imageBase64: string,
     cardName: string,
     game: string,
     setName?: string | null,
-    cardNumber?: string | null
+    cardNumber?: string | null,
+    productId?: string | null
   ): Promise<string | null> => {
+    const cardKey = generateCardKey(game, cardName, setName, cardNumber, productId);
+    console.log("[save-scan-image] Calling with card_key:", cardKey);
+    console.log("[save-scan-image] URL:", SAVE_SCAN_IMAGE_URL);
+    console.log("[save-scan-image] Payload:", { game: mapGameType(game), cardName, setName, cardNumber, productId });
+    
     try {
-      console.log("Calling save-scan-image at:", SAVE_SCAN_IMAGE_URL);
       const response = await fetch(SAVE_SCAN_IMAGE_URL, {
         method: "POST",
         headers: {
@@ -97,19 +174,25 @@ export function useTcgScan(): UseTcgScanReturn {
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
+          productId: productId || null,
         }),
       });
 
+      console.log("[save-scan-image] Response status:", response.status, response.statusText);
+
       if (!response.ok) {
-        console.error("Failed to save card image:", response.status, response.statusText);
+        console.error("[save-scan-image] Failed:", response.status, response.statusText);
+        const errorText = await response.text();
+        console.error("[save-scan-image] Error body:", errorText);
         return null;
       }
 
       const data = await response.json() as SaveImageResponse;
-      console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
+      console.log("[save-scan-image] Success:", data.cached ? "Retrieved from cache" : "Saved new image");
+      console.log("[save-scan-image] Returned imageUrl:", data.imageUrl);
       return data.imageUrl;
     } catch (error) {
-      console.error("Error saving card image:", error);
+      console.error("[save-scan-image] Error:", error);
       return null;
     }
   }, []);
@@ -122,7 +205,7 @@ export function useTcgScan(): UseTcgScanReturn {
     capturedImageRef.current = imageData;
 
     try {
-      console.log("Calling tcg-scan...");
+      console.log("[tcg-scan] Calling scan endpoint...");
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tcg-scan`, {
         method: "POST",
         headers: {
@@ -146,6 +229,7 @@ export function useTcgScan(): UseTcgScanReturn {
       }
 
       const result = await response.json() as TcgScanResult;
+      console.log("[tcg-scan] Result:", result);
 
       // Store candidates if any matches found - always show selection grid
       if (result.candidates && result.candidates.length > 0) {
@@ -170,7 +254,7 @@ export function useTcgScan(): UseTcgScanReturn {
 
       return result;
     } catch (error) {
-      console.error("TCG scan error:", error);
+      console.error("[tcg-scan] Error:", error);
       
       const errorMessage = error instanceof Error ? error.message : "Failed to scan card";
       
@@ -196,6 +280,7 @@ export function useTcgScan(): UseTcgScanReturn {
         number: candidate.number,
         imageUrl: candidate.imageUrl,
         prices: candidate.prices,
+        productId: candidate.productId,
       };
     });
     setCandidates([]);
@@ -217,5 +302,7 @@ export function useTcgScan(): UseTcgScanReturn {
     selectCandidate,
     resetScan,
     saveCardImage,
+    getCardImage,
+    generateCardKey,
   };
 }

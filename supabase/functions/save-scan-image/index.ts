@@ -6,22 +6,47 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Normalize a string for use in identifiers
+function normalizeForKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
 // Generate a unique identifier for a card based on its properties
-function generateCardIdentifier(game: string, cardName: string, setName?: string | null, cardNumber?: string | null): string {
+function generateCardIdentifier(
+  game: string,
+  cardName: string,
+  setName?: string | null,
+  cardNumber?: string | null,
+  productId?: string | null
+): string {
+  // If we have a stable productId from pricing API, use it as the canonical key
+  if (productId) {
+    const key = `${normalizeForKey(game)}__pid__${productId}`;
+    console.log("[card_key] Using productId-based key:", key);
+    return key;
+  }
+  
+  // Otherwise build a normalized key from card attributes
   const parts = [
-    game.toLowerCase().replace(/\s+/g, '_'),
-    cardName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+    normalizeForKey(game),
+    normalizeForKey(cardName),
   ];
   
   if (setName) {
-    parts.push(setName.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+    parts.push(normalizeForKey(setName));
   }
   
   if (cardNumber) {
-    parts.push(cardNumber.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+    parts.push(normalizeForKey(cardNumber));
   }
   
-  return parts.join('__');
+  const key = parts.join('__');
+  console.log("[card_key] Generated normalized key:", key);
+  return key;
 }
 
 // Check if an image already exists for this card
@@ -29,6 +54,8 @@ async function getExistingImage(
   supabase: any,
   identifier: string
 ): Promise<string | null> {
+  console.log("[getExistingImage] Checking for existing image:", identifier);
+  
   // Check card_cache table first for existing image
   const { data: cacheData } = await supabase
     .from("card_cache")
@@ -37,7 +64,7 @@ async function getExistingImage(
     .single();
 
   if (cacheData?.image_url) {
-    console.log(`Found existing image in cache for: ${identifier}`);
+    console.log("[getExistingImage] Found in card_cache:", cacheData.image_url);
     return cacheData.image_url;
   }
 
@@ -56,11 +83,12 @@ async function getExistingImage(
       .getPublicUrl(`scans/${listData[0].name}`);
     
     if (urlData?.publicUrl) {
-      console.log(`Found existing image in storage for: ${identifier}`);
+      console.log("[getExistingImage] Found in storage:", urlData.publicUrl);
       return urlData.publicUrl;
     }
   }
 
+  console.log("[getExistingImage] No existing image found");
   return null;
 }
 
@@ -70,11 +98,22 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("[save-scan-image] Function invoked");
+
   try {
-    const { imageBase64, game, cardName, setName, cardNumber } = await req.json();
+    const { imageBase64, game, cardName, setName, cardNumber, productId } = await req.json();
+
+    console.log("[save-scan-image] Request received:");
+    console.log("[save-scan-image]   game:", game);
+    console.log("[save-scan-image]   cardName:", cardName);
+    console.log("[save-scan-image]   setName:", setName || "null");
+    console.log("[save-scan-image]   cardNumber:", cardNumber || "null");
+    console.log("[save-scan-image]   productId:", productId || "null");
+    console.log("[save-scan-image]   imageBase64 length:", imageBase64?.length || 0);
 
     // Validate required fields
     if (!imageBase64) {
+      console.log("[save-scan-image] Error: imageBase64 is required");
       return new Response(
         JSON.stringify({ error: "imageBase64 is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -82,6 +121,7 @@ Deno.serve(async (req) => {
     }
 
     if (!cardName) {
+      console.log("[save-scan-image] Error: cardName is required");
       return new Response(
         JSON.stringify({ error: "cardName is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -89,6 +129,7 @@ Deno.serve(async (req) => {
     }
 
     if (!game) {
+      console.log("[save-scan-image] Error: game is required");
       return new Response(
         JSON.stringify({ error: "game is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -102,16 +143,19 @@ Deno.serve(async (req) => {
     );
 
     // Generate unique identifier for this card
-    const identifier = generateCardIdentifier(game, cardName, setName, cardNumber);
+    const identifier = generateCardIdentifier(game, cardName, setName, cardNumber, productId);
     
     // Create a readable title
     const title = cardName + (setName ? ` (${setName})` : "") + (cardNumber ? ` #${cardNumber}` : "");
+
+    console.log("[save-scan-image] Generated identifier:", identifier);
+    console.log("[save-scan-image] Generated title:", title);
 
     // Check if image already exists
     const existingUrl = await getExistingImage(supabase, identifier);
     
     if (existingUrl) {
-      console.log(`Returning existing image for: ${identifier}`);
+      console.log("[save-scan-image] Returning cached image:", existingUrl);
       return new Response(
         JSON.stringify({
           imageUrl: existingUrl,
@@ -143,6 +187,7 @@ Deno.serve(async (req) => {
 
     // Generate filename
     const filename = `scans/${identifier}.${extension}`;
+    console.log("[save-scan-image] Uploading to:", filename);
 
     // Upload to Supabase storage
     const { data: uploadData, error: uploadError } = await supabase
@@ -154,7 +199,7 @@ Deno.serve(async (req) => {
       });
 
     if (uploadError) {
-      console.error("Upload error:", uploadError);
+      console.error("[save-scan-image] Upload error:", uploadError);
       return new Response(
         JSON.stringify({ error: `Failed to upload image: ${uploadError.message}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -169,7 +214,7 @@ Deno.serve(async (req) => {
 
     const imageUrl = urlData.publicUrl;
 
-    console.log(`Image saved successfully: ${imageUrl}`);
+    console.log("[save-scan-image] Image saved successfully:", imageUrl);
 
     // Return success response
     return new Response(
@@ -182,7 +227,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("save-scan-image error:", error);
+    console.error("[save-scan-image] Error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
