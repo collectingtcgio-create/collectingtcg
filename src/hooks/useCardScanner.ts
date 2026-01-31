@@ -4,6 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 
+const SAVE_SCAN_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/save-scan-image";
+
 interface ScanResult {
   success: boolean;
   cards?: CardResult[];
@@ -57,22 +59,27 @@ export function useCardScanner() {
     cardNumber?: string | null
   ): Promise<string | null> => {
     try {
-      const response = await supabase.functions.invoke("save-scan-image", {
-        body: {
+      console.log("Calling save-scan-image at:", SAVE_SCAN_IMAGE_URL);
+      const response = await fetch(SAVE_SCAN_IMAGE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           imageBase64,
           game,
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
-        },
+        }),
       });
 
-      if (response.error) {
-        console.error("Failed to save card image:", response.error);
+      if (!response.ok) {
+        console.error("Failed to save card image:", response.status, response.statusText);
         return null;
       }
 
-      const data = response.data as SaveImageResponse;
+      const data = await response.json() as SaveImageResponse;
       console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
       return data.imageUrl;
     } catch (error) {
