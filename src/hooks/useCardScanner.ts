@@ -200,8 +200,9 @@ export function useCardScanner() {
     setShowResult(true);
   }, []);
 
-  const addToBinder = useCallback(async (updatedCard?: CardResult): Promise<boolean> => {
+  const addToBinder = useCallback(async (updatedCard?: CardResult, quantity?: number): Promise<boolean> => {
     const cardToAdd = updatedCard || selectedCard;
+    const qty = quantity || 1;
     
     if (!profile || !cardToAdd) {
       toast({
@@ -228,6 +229,7 @@ export function useCardScanner() {
         console.log("[addToBinder] Game:", cardToAdd.tcg_game);
         console.log("[addToBinder] Set:", cardToAdd.set_name);
         console.log("[addToBinder] Number:", cardToAdd.card_number);
+        console.log("[addToBinder] Quantity:", qty);
         
         const savedUrl = await saveCardImage(
           capturedImageData,
@@ -250,14 +252,22 @@ export function useCardScanner() {
         console.log("[addToBinder] card_name exists:", !!cardToAdd.card_name);
       }
       
-      // Insert the card into user_cards with tcg_game
-      const { error: insertError } = await supabase.from("user_cards").insert({
-        user_id: profile.id,
-        card_name: cardToAdd.card_name,
-        image_url: imageToSave || null,
-        price_estimate: cardToAdd.price_estimate || cardToAdd.price_market || 0,
-        tcg_game: dbTcgGame || null,
-      });
+      // Insert multiple cards if quantity > 1
+      const insertPromises = [];
+      for (let i = 0; i < qty; i++) {
+        insertPromises.push(
+          supabase.from("user_cards").insert({
+            user_id: profile.id,
+            card_name: cardToAdd.card_name,
+            image_url: imageToSave || null,
+            price_estimate: cardToAdd.price_estimate || cardToAdd.price_market || 0,
+            tcg_game: dbTcgGame || null,
+          })
+        );
+      }
+      
+      const results = await Promise.all(insertPromises);
+      const insertError = results.find(r => r.error)?.error;
 
       if (insertError) {
         throw insertError;
@@ -267,19 +277,20 @@ export function useCardScanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "scan",
-        description: `Scanned and added "${cardToAdd.card_name}" to their collection`,
+        description: `Scanned and added ${qty > 1 ? `${qty}x ` : ''}"${cardToAdd.card_name}" to their collection`,
         metadata: {
           card_name: cardToAdd.card_name,
           tcg_game: cardToAdd.tcg_game,
           set_name: cardToAdd.set_name,
           rarity: cardToAdd.rarity,
           price_estimate: cardToAdd.price_estimate || cardToAdd.price_market,
+          quantity: qty,
         },
       });
 
       toast({
         title: "Card Added!",
-        description: `${cardToAdd.card_name} has been added to your binder.`,
+        description: `${qty > 1 ? `${qty}x ` : ''}${cardToAdd.card_name} has been added to your binder.`,
       });
 
       return true;
