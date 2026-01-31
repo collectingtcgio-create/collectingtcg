@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-const SAVE_SCAN_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/save-scan-image";
-const GET_CARD_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/get-card-image";
+const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
+const GET_CARD_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/get-card-image";
 
 export interface TcgScanPrices {
   low: number | null;

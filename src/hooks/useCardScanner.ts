@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 
-const SAVE_SCAN_IMAGE_URL = "https://upcggxhufxvtuqrxfqvt.supabase.co/functions/v1/save-scan-image";
+const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
 
 interface ScanResult {
   success: boolean;
