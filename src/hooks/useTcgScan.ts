@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +29,12 @@ export interface TcgScanResult {
   candidates?: TcgScanCandidate[];
 }
 
+interface SaveImageResponse {
+  imageUrl: string;
+  title: string;
+  cached: boolean;
+}
+
 interface UseTcgScanReturn {
   isScanning: boolean;
   scanResult: TcgScanResult | null;
@@ -37,6 +43,24 @@ interface UseTcgScanReturn {
   scanCard: (imageData: string) => Promise<TcgScanResult | null>;
   selectCandidate: (candidate: TcgScanCandidate) => void;
   resetScan: () => void;
+  saveCardImage: (imageBase64: string, cardName: string, game: string, setName?: string | null, cardNumber?: string | null) => Promise<string | null>;
+}
+
+// Map game types for the save-scan-image function
+function mapGameType(game: string | null): string {
+  if (!game) return "unknown";
+  
+  const gameMap: Record<string, string> = {
+    one_piece: "onepiece",
+    pokemon: "pokemon",
+    dragonball: "dragonball",
+    yugioh: "yugioh",
+    magic: "mtg",
+    lorcana: "lorcana",
+    non_game: "non_game",
+  };
+  
+  return gameMap[game] || game;
 }
 
 export function useTcgScan(): UseTcgScanReturn {
@@ -45,11 +69,50 @@ export function useTcgScan(): UseTcgScanReturn {
   const [scanResult, setScanResult] = useState<TcgScanResult | null>(null);
   const [candidates, setCandidates] = useState<TcgScanCandidate[]>([]);
   const [remainingScans, setRemainingScans] = useState<number | null>(null);
+  
+  // Track if we've already saved the image for this scan
+  const imageSavedRef = useRef<boolean>(false);
+  const capturedImageRef = useRef<string | null>(null);
+
+  // Save card image to storage (only called once per scan)
+  const saveCardImage = useCallback(async (
+    imageBase64: string,
+    cardName: string,
+    game: string,
+    setName?: string | null,
+    cardNumber?: string | null
+  ): Promise<string | null> => {
+    try {
+      const response = await supabase.functions.invoke("save-scan-image", {
+        body: {
+          imageBase64,
+          game: mapGameType(game),
+          cardName,
+          setName: setName || null,
+          cardNumber: cardNumber || null,
+        },
+      });
+
+      if (response.error) {
+        console.error("Failed to save card image:", response.error);
+        return null;
+      }
+
+      const data = response.data as SaveImageResponse;
+      console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
+      return data.imageUrl;
+    } catch (error) {
+      console.error("Error saving card image:", error);
+      return null;
+    }
+  }, []);
 
   const scanCard = useCallback(async (imageData: string): Promise<TcgScanResult | null> => {
     setIsScanning(true);
     setScanResult(null);
     setCandidates([]);
+    imageSavedRef.current = false;
+    capturedImageRef.current = imageData;
 
     try {
       const response = await supabase.functions.invoke("tcg-scan", {
@@ -129,6 +192,8 @@ export function useTcgScan(): UseTcgScanReturn {
   const resetScan = useCallback(() => {
     setScanResult(null);
     setCandidates([]);
+    imageSavedRef.current = false;
+    capturedImageRef.current = null;
   }, []);
 
   return {
@@ -139,5 +204,6 @@ export function useTcgScan(): UseTcgScanReturn {
     scanCard,
     selectCandidate,
     resetScan,
+    saveCardImage,
   };
 }

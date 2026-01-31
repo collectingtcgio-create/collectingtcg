@@ -11,6 +11,30 @@ interface ScanResult {
   processing_time_ms?: number;
 }
 
+interface SaveImageResponse {
+  imageUrl: string;
+  title: string;
+  cached: boolean;
+}
+
+// Map game types for the save-scan-image function
+function mapGameType(game: TcgGame | undefined): string {
+  if (!game) return "unknown";
+  
+  const gameMap: Record<string, string> = {
+    onepiece: "onepiece",
+    pokemon: "pokemon",
+    dragonball: "dragonball",
+    yugioh: "yugioh",
+    magic: "mtg",
+    lorcana: "lorcana",
+    unionarena: "unionarena",
+    marvel: "marvel",
+  };
+  
+  return gameMap[game] || game;
+}
+
 export function useCardScanner() {
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -22,11 +46,46 @@ export function useCardScanner() {
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [showNoCardModal, setShowNoCardModal] = useState(false);
   const [isAddingToBinder, setIsAddingToBinder] = useState(false);
+  const [capturedImageData, setCapturedImageData] = useState<string | null>(null);
+
+  // Save card image to storage
+  const saveCardImage = useCallback(async (
+    imageBase64: string,
+    cardName: string,
+    game: string,
+    setName?: string | null,
+    cardNumber?: string | null
+  ): Promise<string | null> => {
+    try {
+      const response = await supabase.functions.invoke("save-scan-image", {
+        body: {
+          imageBase64,
+          game,
+          cardName,
+          setName: setName || null,
+          cardNumber: cardNumber || null,
+        },
+      });
+
+      if (response.error) {
+        console.error("Failed to save card image:", response.error);
+        return null;
+      }
+
+      const data = response.data as SaveImageResponse;
+      console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
+      return data.imageUrl;
+    } catch (error) {
+      console.error("Error saving card image:", error);
+      return null;
+    }
+  }, []);
 
   const identifyCard = useCallback(async (imageData: string, gameHint?: string): Promise<ScanResult> => {
     setIsProcessing(true);
     setScanResults([]);
     setSelectedCard(null);
+    setCapturedImageData(imageData); // Store captured image
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -101,14 +160,31 @@ export function useCardScanner() {
     setIsAddingToBinder(true);
 
     try {
-      // Map tcg_game to valid database enum (marvel not in DB enum)
+      // Map tcg_game to valid database enum
       const dbTcgGame = cardToAdd.tcg_game === 'marvel' ? null : cardToAdd.tcg_game;
+      
+      // Determine which image to use
+      let imageToSave = cardToAdd.image_url;
+      
+      // If no image from API and we have a captured image, save it to storage
+      if (!imageToSave && capturedImageData && cardToAdd.tcg_game && cardToAdd.card_name) {
+        const savedUrl = await saveCardImage(
+          capturedImageData,
+          cardToAdd.card_name,
+          mapGameType(cardToAdd.tcg_game),
+          cardToAdd.set_name,
+          cardToAdd.card_number
+        );
+        if (savedUrl) {
+          imageToSave = savedUrl;
+        }
+      }
       
       // Insert the card into user_cards with tcg_game
       const { error: insertError } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: cardToAdd.card_name,
-        image_url: cardToAdd.image_url || null,
+        image_url: imageToSave || null,
         price_estimate: cardToAdd.price_estimate || cardToAdd.price_market || 0,
         tcg_game: dbTcgGame || null,
       });
@@ -150,7 +226,7 @@ export function useCardScanner() {
     } finally {
       setIsAddingToBinder(false);
     }
-  }, [profile, selectedCard, toast]);
+  }, [profile, selectedCard, toast, capturedImageData, saveCardImage]);
 
   const resetScanner = useCallback(() => {
     setScanResults([]);
@@ -158,6 +234,7 @@ export function useCardScanner() {
     setShowResult(false);
     setShowSelectionModal(false);
     setShowNoCardModal(false);
+    setCapturedImageData(null);
   }, []);
 
   return {
