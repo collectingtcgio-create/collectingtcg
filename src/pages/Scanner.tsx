@@ -158,13 +158,13 @@ export default function Scanner() {
       const qty = quantity || 1;
       const priceToUse = customPrice !== null && customPrice !== undefined ? customPrice : (result.prices.market || 0);
 
-      // ALWAYS call save-scan-image when adding to collection
+      // ALWAYS call save-scan-image when adding to collection - UNCONDITIONALLY
       let imageToSave = result.imageUrl;
       
       // Use cropped image if provided, otherwise use captured image
       const imageToUpload = croppedImage || capturedImage;
       
-      console.log("[handleAddFromTcgScan] Adding card to collection...");
+      console.log("=== [ADD TO COLLECTION] START ===");
       console.log("[handleAddFromTcgScan] Card:", result.cardName);
       console.log("[handleAddFromTcgScan] Game:", result.game);
       console.log("[handleAddFromTcgScan] Set:", result.set);
@@ -174,29 +174,30 @@ export default function Scanner() {
       console.log("[handleAddFromTcgScan] Price:", priceToUse);
       console.log("[handleAddFromTcgScan] Has capturedImage:", !!capturedImage);
       console.log("[handleAddFromTcgScan] Has croppedImage:", !!croppedImage);
-      console.log("[handleAddFromTcgScan] useCapturedImage flag:", useCapturedImage);
+      console.log("[handleAddFromTcgScan] imageToUpload available:", !!imageToUpload);
       
-      // ALWAYS save the captured/cropped image regardless of whether API provided an image
-      if (imageToUpload && result.cardName) {
-        console.log("[handleAddFromTcgScan] CALLING save-scan-image (always)...");
-        const savedUrl = await saveCardImage(
-          imageToUpload,
-          result.cardName,
-          result.game || 'unknown',
-          result.set,
-          result.number,
-          result.productId
-        );
-        
-        console.log("[handleAddFromTcgScan] save-scan-image called: YES");
-        console.log("[handleAddFromTcgScan] Response status: success");
-        console.log("[handleAddFromTcgScan] Returned imageUrl:", savedUrl || "null");
-        
-        if (savedUrl) {
-          imageToSave = savedUrl;
-        }
+      // CRITICAL: ALWAYS call save-scan-image - UNCONDITIONALLY
+      // Do NOT depend on recognition success, confidence, or presence of API images
+      console.log(">>> [BEFORE] Calling save-scan-image Edge Function...");
+      
+      const savedUrl = await saveCardImage(
+        imageToUpload || "", // Pass empty string if no image - function will handle
+        result.cardName,
+        result.game || 'unknown',
+        result.set,
+        result.number,
+        result.productId
+      );
+      
+      console.log("<<< [AFTER] save-scan-image Edge Function returned");
+      console.log("[handleAddFromTcgScan] save-scan-image called: YES (unconditional)");
+      console.log("[handleAddFromTcgScan] Returned imageUrl:", savedUrl || "null (empty)");
+      
+      if (savedUrl) {
+        imageToSave = savedUrl;
+        console.log("[handleAddFromTcgScan] Using saved image URL for collection");
       } else {
-        console.log("[handleAddFromTcgScan] save-scan-image called: NO (no image to upload)");
+        console.log("[handleAddFromTcgScan] No saved URL returned, using fallback:", imageToSave || "null");
       }
 
       // Insert multiple cards if quantity > 1

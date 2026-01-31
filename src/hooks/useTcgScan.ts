@@ -149,6 +149,7 @@ export function useTcgScan(): UseTcgScanReturn {
   }, []);
 
   // Save card image to storage - ALWAYS called when adding to collection
+  // This is UNCONDITIONAL - does NOT depend on recognition success or API images
   const saveCardImage = useCallback(async (
     imageBase64: string,
     cardName: string,
@@ -157,12 +158,31 @@ export function useTcgScan(): UseTcgScanReturn {
     cardNumber?: string | null,
     productId?: string | null
   ): Promise<string | null> => {
+    // Validate we have required data
+    if (!cardName) {
+      console.error("[save-scan-image] SKIPPED: No cardName provided");
+      return null;
+    }
+    
+    if (!imageBase64) {
+      console.warn("[save-scan-image] WARNING: No imageBase64 provided, but proceeding anyway");
+    }
+    
     const cardKey = generateCardKey(game, cardName, setName, cardNumber, productId);
-    console.log("[save-scan-image] Calling with card_key:", cardKey);
+    console.log("=== [SAVE-SCAN-IMAGE] CALLING EDGE FUNCTION ===");
+    console.log("[save-scan-image] card_key:", cardKey);
     console.log("[save-scan-image] URL:", SAVE_SCAN_IMAGE_URL);
-    console.log("[save-scan-image] Payload:", { game: mapGameType(game), cardName, setName, cardNumber, productId });
+    console.log("[save-scan-image] Payload:", { 
+      game: mapGameType(game), 
+      cardName, 
+      setName, 
+      cardNumber, 
+      productId,
+      imageBase64Length: imageBase64?.length || 0
+    });
     
     try {
+      console.log(">>> [FETCH START] save-scan-image");
       const response = await fetch(SAVE_SCAN_IMAGE_URL, {
         method: "POST",
         headers: {
@@ -177,22 +197,24 @@ export function useTcgScan(): UseTcgScanReturn {
           productId: productId || null,
         }),
       });
+      console.log("<<< [FETCH END] save-scan-image");
 
       console.log("[save-scan-image] Response status:", response.status, response.statusText);
 
       if (!response.ok) {
-        console.error("[save-scan-image] Failed:", response.status, response.statusText);
+        console.error("[save-scan-image] FAILED:", response.status, response.statusText);
         const errorText = await response.text();
         console.error("[save-scan-image] Error body:", errorText);
         return null;
       }
 
       const data = await response.json() as SaveImageResponse;
-      console.log("[save-scan-image] Success:", data.cached ? "Retrieved from cache" : "Saved new image");
+      console.log("[save-scan-image] SUCCESS:", data.cached ? "Retrieved from cache" : "Saved new image");
       console.log("[save-scan-image] Returned imageUrl:", data.imageUrl);
+      console.log("=== [SAVE-SCAN-IMAGE] COMPLETE ===");
       return data.imageUrl;
     } catch (error) {
-      console.error("[save-scan-image] Error:", error);
+      console.error("[save-scan-image] EXCEPTION:", error);
       return null;
     }
   }, []);
