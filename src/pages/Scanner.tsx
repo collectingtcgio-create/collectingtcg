@@ -150,36 +150,39 @@ export default function Scanner() {
       };
       const tcgGame = result.game ? tcgGameMap[result.game] : null;
 
-      // Determine which image to use
+      // ALWAYS call save-scan-image when adding to collection
       let imageToSave = result.imageUrl;
       
-      // If we should use the captured image and have one, save it to storage
-      if (useCapturedImage && capturedImage && result.game && result.cardName) {
-        // Call save-scan-image to upload and get a permanent URL
-        const savedUrl = await saveCardImage(
-          capturedImage,
-          result.cardName,
-          result.game,
-          result.set,
-          result.number
-        );
-        if (savedUrl) {
-          imageToSave = savedUrl;
-        }
-      }
+      console.log("[handleAddFromTcgScan] Adding card to collection...");
+      console.log("[handleAddFromTcgScan] Card:", result.cardName);
+      console.log("[handleAddFromTcgScan] Game:", result.game);
+      console.log("[handleAddFromTcgScan] Set:", result.set);
+      console.log("[handleAddFromTcgScan] Number:", result.number);
+      console.log("[handleAddFromTcgScan] ProductId:", result.productId || "none");
+      console.log("[handleAddFromTcgScan] Has capturedImage:", !!capturedImage);
+      console.log("[handleAddFromTcgScan] useCapturedImage flag:", useCapturedImage);
       
-      // If no image from API and we have a captured image, save it
-      if (!imageToSave && capturedImage && result.game && result.cardName) {
+      // ALWAYS save the captured image regardless of whether API provided an image
+      if (capturedImage && result.cardName) {
+        console.log("[handleAddFromTcgScan] CALLING save-scan-image (always)...");
         const savedUrl = await saveCardImage(
           capturedImage,
           result.cardName,
-          result.game,
+          result.game || 'unknown',
           result.set,
-          result.number
+          result.number,
+          result.productId
         );
+        
+        console.log("[handleAddFromTcgScan] save-scan-image called: YES");
+        console.log("[handleAddFromTcgScan] Response status: success");
+        console.log("[handleAddFromTcgScan] Returned imageUrl:", savedUrl || "null");
+        
         if (savedUrl) {
           imageToSave = savedUrl;
         }
+      } else {
+        console.log("[handleAddFromTcgScan] save-scan-image called: NO (no captured image)");
       }
 
       const { error: insertError } = await supabase.from("user_cards").insert({

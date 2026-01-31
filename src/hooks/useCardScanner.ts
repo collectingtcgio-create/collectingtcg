@@ -19,6 +19,43 @@ interface SaveImageResponse {
   cached: boolean;
 }
 
+// Normalize a string for use in card keys
+function normalizeForKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+// Generate a canonical card key
+function generateCardKey(
+  game: string | null | undefined,
+  cardName: string,
+  setName?: string | null,
+  cardNumber?: string | null,
+  productId?: string | null
+): string {
+  // If we have a stable productId from pricing API, use it as the canonical key
+  if (productId) {
+    const key = `${normalizeForKey(game || 'unknown')}:pid:${productId}`;
+    console.log("[card_key] Using productId-based key:", key);
+    return key;
+  }
+  
+  // Otherwise build a normalized key from card attributes
+  const parts = [
+    normalizeForKey(game || 'unknown'),
+    normalizeForKey(cardName),
+    normalizeForKey(setName || ''),
+    normalizeForKey(cardNumber || ''),
+  ];
+  
+  const key = parts.join(':');
+  console.log("[card_key] Generated normalized key:", key);
+  return key;
+}
+
 // Map game types for the save-scan-image function
 function mapGameType(game: TcgGame | undefined): string {
   if (!game) return "unknown";
@@ -50,16 +87,21 @@ export function useCardScanner() {
   const [isAddingToBinder, setIsAddingToBinder] = useState(false);
   const [capturedImageData, setCapturedImageData] = useState<string | null>(null);
 
-  // Save card image to storage
+  // Save card image to storage - ALWAYS called when adding to collection
   const saveCardImage = useCallback(async (
     imageBase64: string,
     cardName: string,
     game: string,
     setName?: string | null,
-    cardNumber?: string | null
+    cardNumber?: string | null,
+    productId?: string | null
   ): Promise<string | null> => {
+    const cardKey = generateCardKey(game, cardName, setName, cardNumber, productId);
+    console.log("[save-scan-image] Calling with card_key:", cardKey);
+    console.log("[save-scan-image] URL:", SAVE_SCAN_IMAGE_URL);
+    console.log("[save-scan-image] Payload:", { game, cardName, setName, cardNumber, productId });
+    
     try {
-      console.log("Calling save-scan-image at:", SAVE_SCAN_IMAGE_URL);
       const response = await fetch(SAVE_SCAN_IMAGE_URL, {
         method: "POST",
         headers: {
@@ -71,19 +113,25 @@ export function useCardScanner() {
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
+          productId: productId || null,
         }),
       });
 
+      console.log("[save-scan-image] Response status:", response.status, response.statusText);
+
       if (!response.ok) {
-        console.error("Failed to save card image:", response.status, response.statusText);
+        console.error("[save-scan-image] Failed:", response.status, response.statusText);
+        const errorText = await response.text();
+        console.error("[save-scan-image] Error body:", errorText);
         return null;
       }
 
       const data = await response.json() as SaveImageResponse;
-      console.log(`Image ${data.cached ? "retrieved from cache" : "saved"}: ${data.imageUrl}`);
+      console.log("[save-scan-image] Success:", data.cached ? "Retrieved from cache" : "Saved new image");
+      console.log("[save-scan-image] Returned imageUrl:", data.imageUrl);
       return data.imageUrl;
     } catch (error) {
-      console.error("Error saving card image:", error);
+      console.error("[save-scan-image] Error:", error);
       return null;
     }
   }, []);
@@ -170,21 +218,36 @@ export function useCardScanner() {
       // Map tcg_game to valid database enum
       const dbTcgGame = cardToAdd.tcg_game === 'marvel' ? null : cardToAdd.tcg_game;
       
-      // Determine which image to use
+      // ALWAYS call save-scan-image when adding to collection
       let imageToSave = cardToAdd.image_url;
       
-      // If no image from API and we have a captured image, save it to storage
-      if (!imageToSave && capturedImageData && cardToAdd.tcg_game && cardToAdd.card_name) {
+      // Always try to save the captured image to get a permanent URL
+      if (capturedImageData && cardToAdd.card_name) {
+        console.log("[addToBinder] ALWAYS calling save-scan-image...");
+        console.log("[addToBinder] Card:", cardToAdd.card_name);
+        console.log("[addToBinder] Game:", cardToAdd.tcg_game);
+        console.log("[addToBinder] Set:", cardToAdd.set_name);
+        console.log("[addToBinder] Number:", cardToAdd.card_number);
+        
         const savedUrl = await saveCardImage(
           capturedImageData,
           cardToAdd.card_name,
           mapGameType(cardToAdd.tcg_game),
           cardToAdd.set_name,
-          cardToAdd.card_number
+          cardToAdd.card_number,
+          null // productId - would come from pricing API if available
         );
+        
         if (savedUrl) {
+          console.log("[addToBinder] save-scan-image returned imageUrl:", savedUrl);
           imageToSave = savedUrl;
+        } else {
+          console.log("[addToBinder] save-scan-image returned null, using original image_url");
         }
+      } else {
+        console.log("[addToBinder] No captured image data, skipping save-scan-image");
+        console.log("[addToBinder] capturedImageData exists:", !!capturedImageData);
+        console.log("[addToBinder] card_name exists:", !!cardToAdd.card_name);
       }
       
       // Insert the card into user_cards with tcg_game
