@@ -133,7 +133,13 @@ export default function Scanner() {
     setShowTcgResult(true);
   }, [tcgSelectCandidate]);
 
-  const handleAddFromTcgScan = useCallback(async (result: TcgScanResult, useCapturedImage?: boolean): Promise<boolean> => {
+  const handleAddFromTcgScan = useCallback(async (
+    result: TcgScanResult, 
+    useCapturedImage?: boolean,
+    quantity?: number,
+    customPrice?: number | null,
+    croppedImage?: string | null
+  ): Promise<boolean> => {
     if (!profile || !result.cardName) return false;
 
     setIsAddingFromTcg(true);
@@ -149,9 +155,14 @@ export default function Scanner() {
         lorcana: 'lorcana',
       };
       const tcgGame = result.game ? tcgGameMap[result.game] : null;
+      const qty = quantity || 1;
+      const priceToUse = customPrice !== null && customPrice !== undefined ? customPrice : (result.prices.market || 0);
 
       // ALWAYS call save-scan-image when adding to collection
       let imageToSave = result.imageUrl;
+      
+      // Use cropped image if provided, otherwise use captured image
+      const imageToUpload = croppedImage || capturedImage;
       
       console.log("[handleAddFromTcgScan] Adding card to collection...");
       console.log("[handleAddFromTcgScan] Card:", result.cardName);
@@ -159,14 +170,17 @@ export default function Scanner() {
       console.log("[handleAddFromTcgScan] Set:", result.set);
       console.log("[handleAddFromTcgScan] Number:", result.number);
       console.log("[handleAddFromTcgScan] ProductId:", result.productId || "none");
+      console.log("[handleAddFromTcgScan] Quantity:", qty);
+      console.log("[handleAddFromTcgScan] Price:", priceToUse);
       console.log("[handleAddFromTcgScan] Has capturedImage:", !!capturedImage);
+      console.log("[handleAddFromTcgScan] Has croppedImage:", !!croppedImage);
       console.log("[handleAddFromTcgScan] useCapturedImage flag:", useCapturedImage);
       
-      // ALWAYS save the captured image regardless of whether API provided an image
-      if (capturedImage && result.cardName) {
+      // ALWAYS save the captured/cropped image regardless of whether API provided an image
+      if (imageToUpload && result.cardName) {
         console.log("[handleAddFromTcgScan] CALLING save-scan-image (always)...");
         const savedUrl = await saveCardImage(
-          capturedImage,
+          imageToUpload,
           result.cardName,
           result.game || 'unknown',
           result.set,
@@ -182,16 +196,25 @@ export default function Scanner() {
           imageToSave = savedUrl;
         }
       } else {
-        console.log("[handleAddFromTcgScan] save-scan-image called: NO (no captured image)");
+        console.log("[handleAddFromTcgScan] save-scan-image called: NO (no image to upload)");
       }
 
-      const { error: insertError } = await supabase.from("user_cards").insert({
-        user_id: profile.id,
-        card_name: result.cardName,
-        image_url: imageToSave || null,
-        price_estimate: result.prices.market || 0,
-        tcg_game: tcgGame || null,
-      });
+      // Insert multiple cards if quantity > 1
+      const insertPromises = [];
+      for (let i = 0; i < qty; i++) {
+        insertPromises.push(
+          supabase.from("user_cards").insert({
+            user_id: profile.id,
+            card_name: result.cardName,
+            image_url: imageToSave || null,
+            price_estimate: priceToUse,
+            tcg_game: tcgGame || null,
+          })
+        );
+      }
+      
+      const results = await Promise.all(insertPromises);
+      const insertError = results.find(r => r.error)?.error;
 
       if (insertError) throw insertError;
 
@@ -199,19 +222,20 @@ export default function Scanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "scan",
-        description: `Scanned and added "${result.cardName}" to their collection`,
+        description: `Scanned and added ${qty > 1 ? `${qty}x ` : ''}"${result.cardName}" to their collection`,
         metadata: {
           card_name: result.cardName,
           tcg_game: result.game,
           set_name: result.set,
           card_number: result.number,
-          price_market: result.prices.market,
+          price_market: priceToUse,
+          quantity: qty,
         },
       });
 
       toast({
         title: "Card Added!",
-        description: `${result.cardName} has been added to your binder.`,
+        description: `${qty > 1 ? `${qty}x ` : ''}${result.cardName} has been added to your binder.`,
       });
 
       return true;
