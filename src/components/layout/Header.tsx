@@ -9,12 +9,10 @@ import { Badge } from "@/components/ui/badge";
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/search", icon: Search, label: "Find Players" },
-  { path: "/scanner", icon: Camera, label: "Scanner" },
   { path: "/marketplace", icon: ShoppingBag, label: "Marketplace" },
   { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
   { path: "/profile", icon: User, label: "Profile" },
-  { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function Header() {
