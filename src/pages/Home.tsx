@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +7,6 @@ import { EventsCalendarCompact } from "@/components/events/EventsCalendarCompact
 import { StoreLocator } from "@/components/home/StoreLocator";
 import { MarketHeatmap } from "@/components/home/MarketHeatmap";
 import { SetCountdown } from "@/components/home/SetCountdown";
-import { QuickScanButton } from "@/components/home/QuickScanButton";
 import { ActiveStreamsWidget } from "@/components/live/ActiveStreamsWidget";
 import { GlobalFeed } from "@/components/home/GlobalFeed";
 
@@ -29,7 +27,7 @@ export default function Home() {
                 Welcome to CollectingTCG
               </h1>
               <p className="text-muted-foreground max-w-xl mx-auto mb-6">
-                The ultimate social platform for trading card game collectors. Scan cards, build your collection, and connect with fellow collectors.
+                The ultimate social platform for trading card game collectors. Capture cards, build your collection, and connect with fellow collectors.
               </p>
               <Link
                 to="/auth"
@@ -40,7 +38,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Bento Grid Layout - Reorganized with Global Feed on top */}
+          {/* Bento Grid Layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {/* Row 1: Global Feed (prominent, wide) */}
             <div className="col-span-full lg:col-span-4 xl:col-span-4 min-h-[400px]">
@@ -49,11 +47,6 @@ export default function Home() {
 
             {/* Right side widgets */}
             <div className="md:col-span-2 lg:col-span-2 xl:col-span-2 space-y-4">
-              {/* Quick Scan */}
-              <div className="min-h-[120px]">
-                <QuickScanButton variant="tile" />
-              </div>
-
               {/* Market Heatmap */}
               <div className="min-h-[120px]">
                 <MarketHeatmap />
@@ -85,11 +78,6 @@ export default function Home() {
               <StoreLocator />
             </div>
           </div>
-        </div>
-
-        {/* Floating Quick Scan Button (mobile) */}
-        <div className="lg:hidden">
-          <QuickScanButton variant="floating" />
         </div>
       </div>
     </Layout>

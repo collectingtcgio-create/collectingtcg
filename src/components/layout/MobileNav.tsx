@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Camera, Mail, User } from "lucide-react";
+import { Home, Search, Layers, Mail, User } from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/search", icon: Search, label: "Search" },
-  { path: "/scanner", icon: Camera, label: "Scan" },
+  { path: "/collections", icon: Layers, label: "Collection" },
   { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
