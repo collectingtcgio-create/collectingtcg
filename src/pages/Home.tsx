@@ -2,6 +2,10 @@ import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { Radio } from "lucide-react";
 import { HeroSection } from "@/components/home/HeroSection";
+import { SupportedGames } from "@/components/home/SupportedGames";
+import { TrendingSection } from "@/components/home/TrendingSection";
+import { CTASection } from "@/components/home/CTASection";
+import { Footer } from "@/components/home/Footer";
 import { MarketTicker } from "@/components/home/MarketTicker";
 import { GlobalFeed } from "@/components/home/GlobalFeed";
 import { MarketHeatmap } from "@/components/home/MarketHeatmap";
@@ -10,12 +14,25 @@ import { ActiveStreamsWidget } from "@/components/live/ActiveStreamsWidget";
 export default function Home() {
   const { user } = useAuth();
 
+  // Landing page for non-logged-in users
+  if (!user) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex flex-col cosmic-bg">
+          <HeroSection />
+          <SupportedGames />
+          <TrendingSection />
+          <CTASection />
+          <Footer />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Dashboard for logged-in users
   return (
     <Layout>
       <div className="min-h-screen flex flex-col cosmic-bg">
-        {/* Hero Section - only show when not logged in */}
-        {!user && <HeroSection />}
-
         {/* Holy Grails Market - horizontal featured cards */}
         <MarketTicker />
 
