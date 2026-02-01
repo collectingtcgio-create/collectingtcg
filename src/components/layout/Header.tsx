@@ -10,7 +10,6 @@ import { StartStreamModal } from "@/components/live/StartStreamModal";
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/search", icon: Search, label: "Find Players" },
-  { path: "/scanner", icon: Camera, label: "Scanner" },
   { path: "/marketplace", icon: ShoppingBag, label: "Marketplace" },
   { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
