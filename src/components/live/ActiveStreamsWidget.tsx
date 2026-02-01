@@ -33,14 +33,14 @@ export function ActiveStreamsWidget() {
       if (error) throw error;
       return data as unknown as LiveStream[];
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
   if (isLoading) {
     return (
       <div className="space-y-3">
         {[1, 2].map((i) => (
-          <Skeleton key={i} className="h-16 w-full" />
+          <Skeleton key={i} className="h-16 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -48,9 +48,10 @@ export function ActiveStreamsWidget() {
 
   if (streams.length === 0) {
     return (
-      <div className="text-center py-6 text-muted-foreground">
-        <Radio className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <div className="text-center py-8 text-muted-foreground">
+        <Radio className="w-10 h-10 mx-auto mb-3 opacity-30" />
         <p className="text-sm">No active streams</p>
+        <p className="text-xs mt-1 opacity-70">Check back later</p>
       </div>
     );
   }
@@ -61,10 +62,10 @@ export function ActiveStreamsWidget() {
         <Link
           key={stream.id}
           to={`/live/${stream.id}`}
-          className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
+          className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-200 group border border-transparent hover:border-border/30"
         >
           {/* Streamer avatar with live border */}
-          <div className="w-10 h-10 rounded-full overflow-hidden live-border flex-shrink-0">
+          <div className="w-11 h-11 rounded-full overflow-hidden live-border flex-shrink-0">
             {stream.streamer?.avatar_url ? (
               <img
                 src={stream.streamer.avatar_url}
@@ -72,7 +73,7 @@ export function ActiveStreamsWidget() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-muted flex items-center justify-center font-medium">
+              <div className="w-full h-full bg-muted flex items-center justify-center font-medium text-muted-foreground">
                 {stream.streamer?.username?.[0]?.toUpperCase()}
               </div>
             )}
@@ -80,7 +81,7 @@ export function ActiveStreamsWidget() {
 
           {/* Stream info */}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+            <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
               {stream.streamer?.username}
             </p>
             <p className="text-xs text-muted-foreground truncate">
@@ -90,7 +91,7 @@ export function ActiveStreamsWidget() {
 
           {/* Viewer count and live badge */}
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded flex items-center gap-1">
+            <span className="text-[10px] font-bold bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full flex items-center gap-1">
               <Radio className="w-2.5 h-2.5 animate-pulse" />
               LIVE
             </span>
