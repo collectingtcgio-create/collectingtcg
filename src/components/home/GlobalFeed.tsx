@@ -100,7 +100,6 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
       }
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
-      // Clear video if image is selected
       setVideoFile(null);
       setVideoPreview(null);
     }
@@ -115,7 +114,6 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
       }
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
-      // Clear image if video is selected
       setImageFile(null);
       setImagePreview(null);
     }
@@ -145,7 +143,6 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
       let imageUrl = null;
       let videoUrl = null;
 
-      // Upload image if present
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
@@ -163,7 +160,6 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
         imageUrl = urlData.publicUrl;
       }
 
-      // Upload video if present
       if (videoFile) {
         const fileExt = videoFile.name.split(".").pop();
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
@@ -181,7 +177,6 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
         videoUrl = urlData.publicUrl;
       }
 
-      // Create post
       const { error } = await supabase.from("global_posts").insert({
         author_id: profile.id,
         content: content.trim(),
@@ -206,19 +201,19 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
     : posts;
 
   return (
-    <div className={`glass-card neon-border-cyan h-full flex flex-col ${compact ? "p-4" : "p-6"}`}>
+    <div className={`glass-card h-full flex flex-col ${compact ? "p-4" : "p-5"}`}>
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "global" | "followers")} className="flex flex-col h-full">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <h2 className={`font-semibold flex items-center gap-2 ${compact ? "text-base" : "text-lg"}`}>
             <Globe className="w-5 h-5 text-primary" />
             Global Feed
           </h2>
-          <TabsList className="h-8">
-            <TabsTrigger value="global" className="text-xs px-3 gap-1">
+          <TabsList className="h-9 bg-muted/50">
+            <TabsTrigger value="global" className="text-xs px-3 gap-1.5 rounded-lg">
               <Globe className="w-3 h-3" />
               Global
             </TabsTrigger>
-            <TabsTrigger value="followers" className="text-xs px-3 gap-1">
+            <TabsTrigger value="followers" className="text-xs px-3 gap-1.5 rounded-lg">
               <Users className="w-3 h-3" />
               Following
             </TabsTrigger>
@@ -227,43 +222,44 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
 
         {/* Post composer */}
         {user && (
-          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+          <div className="mb-5 p-4 bg-muted/30 rounded-xl border border-border/30">
             <div className="flex gap-3">
-              <Avatar className="w-8 h-8">
+              <Avatar className="w-10 h-10 ring-2 ring-border/50">
                 <AvatarImage src={profile?.avatar_url || ""} />
-                <AvatarFallback>{profile?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  {profile?.username?.[0]?.toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <Textarea
                   placeholder="What's happening?"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  className="min-h-[60px] resize-none bg-transparent border-none focus-visible:ring-0 p-0 text-sm"
+                  className="min-h-[70px] resize-none bg-transparent border-none focus-visible:ring-0 p-0 text-sm placeholder:text-muted-foreground/60"
                   maxLength={500}
                 />
                 
-                {/* Media preview */}
                 {(imagePreview || videoPreview) && (
-                  <div className="relative mt-2 rounded-lg overflow-hidden">
+                  <div className="relative mt-3 rounded-xl overflow-hidden">
                     {imagePreview && (
-                      <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg" />
+                      <img src={imagePreview} alt="Preview" className="max-h-48 rounded-xl" />
                     )}
                     {videoPreview && (
-                      <video src={videoPreview} className="max-h-40 rounded-lg" controls />
+                      <video src={videoPreview} className="max-h-48 rounded-xl" controls />
                     )}
                     <Button
                       size="icon"
                       variant="secondary"
-                      className="absolute top-2 right-2 w-6 h-6"
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full"
                       onClick={clearMedia}
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex gap-2">
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+                  <div className="flex gap-1">
                     <input
                       ref={imageInputRef}
                       type="file"
@@ -274,10 +270,10 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="w-8 h-8"
+                      className="w-9 h-9 rounded-xl text-muted-foreground hover:text-primary"
                       onClick={() => imageInputRef.current?.click()}
                     >
-                      <Image className="w-4 h-4" />
+                      <Image className="w-5 h-5" />
                     </Button>
                     <input
                       ref={videoInputRef}
@@ -289,19 +285,19 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="w-8 h-8"
+                      className="w-9 h-9 rounded-xl text-muted-foreground hover:text-primary"
                       onClick={() => videoInputRef.current?.click()}
                     >
-                      <Video className="w-4 h-4" />
+                      <Video className="w-5 h-5" />
                     </Button>
                   </div>
                   <Button
                     size="sm"
                     onClick={handlePost}
                     disabled={posting || (!content.trim() && !imageFile && !videoFile)}
-                    className="gap-1"
+                    className="gap-1.5 rounded-full px-5"
                   >
-                    {posting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     Post
                   </Button>
                 </div>
@@ -314,8 +310,8 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
           {loading ? (
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="animate-pulse flex gap-3 p-3 bg-muted/30 rounded-lg">
-                  <div className="w-8 h-8 rounded-full bg-muted" />
+                <div key={i} className="animate-pulse flex gap-3 p-4 bg-muted/30 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-muted" />
                   <div className="flex-1">
                     <div className="h-3 bg-muted rounded w-1/4 mb-2" />
                     <div className="h-4 bg-muted rounded w-3/4" />
@@ -324,29 +320,32 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
               ))}
             </div>
           ) : filteredPosts.length === 0 ? (
-            <div className="text-center py-8">
-              <Globe className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="text-muted-foreground text-sm">
+            <div className="text-center py-12">
+              <Globe className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">
                 {activeTab === "followers" 
                   ? "No posts from people you follow" 
                   : "No posts yet. Be the first!"}
               </p>
             </div>
           ) : (
-            filteredPosts.map((post) => (
+            filteredPosts.map((post, index) => (
               <div
                 key={post.id}
-                className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                className="p-4 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors border border-transparent hover:border-border/30"
+                style={{ 
+                  minHeight: index % 3 === 1 ? '140px' : index % 3 === 2 ? '120px' : '100px' 
+                }}
               >
                 <div className="flex gap-3">
                   <Link to={`/profile/${post.profiles.id}`}>
-                    <Avatar className={`w-8 h-8 ${post.profiles.is_live ? "ring-2 ring-secondary animate-pulse" : ""}`}>
+                    <Avatar className={`w-10 h-10 ${post.profiles.is_live ? "ring-2 ring-secondary animate-pulse" : ""}`}>
                       <AvatarImage src={post.profiles.avatar_url || ""} />
-                      <AvatarFallback>{post.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="bg-muted">{post.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Link>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <Link 
                         to={`/profile/${post.profiles.id}`}
                         className="font-medium text-sm hover:text-primary transition-colors"
@@ -354,7 +353,7 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
                         {post.profiles.username}
                       </Link>
                       {post.profiles.is_live && (
-                        <span className="px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary rounded-full">
+                        <span className="px-1.5 py-0.5 text-[10px] bg-secondary/20 text-secondary rounded-full font-medium">
                           LIVE
                         </span>
                       )}
@@ -362,20 +361,20 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
                         {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                       </span>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap break-words">{post.content}</p>
+                    <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                     
                     {post.image_url && (
                       <img 
                         src={post.image_url} 
                         alt="Post image" 
-                        className="mt-2 rounded-lg max-h-60 object-cover"
+                        className="mt-3 rounded-xl max-h-72 object-cover"
                       />
                     )}
                     {post.video_url && (
                       <video 
                         src={post.video_url} 
                         controls 
-                        className="mt-2 rounded-lg max-h-60"
+                        className="mt-3 rounded-xl max-h-72"
                       />
                     )}
                   </div>
