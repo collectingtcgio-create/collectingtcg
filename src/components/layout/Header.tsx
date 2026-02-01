@@ -28,7 +28,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center neon-glow-pink">
               <span className="text-primary-foreground font-bold text-base">C</span>
             </div>
             <span className="hidden sm:block text-lg font-bold gradient-text">

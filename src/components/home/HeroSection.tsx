@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 
 export function HeroSection() {
   return (
-    <section className="relative py-12 lg:py-16 overflow-hidden">
+    <section className="relative py-12 lg:py-20 overflow-hidden">
       {/* Gradient blobs */}
-      <div className="gradient-blob gradient-blob-purple w-[500px] h-[500px] -top-40 -left-40 absolute" />
-      <div className="gradient-blob gradient-blob-cyan w-[400px] h-[400px] top-20 right-0 absolute" />
+      <div className="gradient-blob gradient-blob-pink w-[600px] h-[600px] -top-40 -left-40 absolute" />
+      <div className="gradient-blob gradient-blob-purple w-[500px] h-[500px] top-0 right-0 absolute" />
+      <div className="gradient-blob gradient-blob-cyan w-[400px] h-[400px] bottom-0 right-1/4 absolute" />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
