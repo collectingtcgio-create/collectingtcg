@@ -201,7 +201,7 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
     : posts;
 
   return (
-    <div className={`glass-card h-full flex flex-col ${compact ? "p-4" : "p-5"}`}>
+    <div className={`glass-card h-full flex flex-col neon-border-pink ${compact ? "p-4" : "p-5"}`}>
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "global" | "followers")} className="flex flex-col h-full">
         <div className="flex items-center justify-between mb-5">
           <h2 className={`font-semibold flex items-center gap-2 ${compact ? "text-base" : "text-lg"}`}>

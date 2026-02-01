@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <Layout>
-      <div className="min-h-screen flex flex-col grid-texture">
+      <div className="min-h-screen flex flex-col cosmic-bg">
         {/* Hero Section - only show when not logged in */}
         {!user && <HeroSection />}
 

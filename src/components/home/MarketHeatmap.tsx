@@ -46,7 +46,7 @@ export function MarketHeatmap() {
   };
 
   return (
-    <div className="glass-card p-5 h-full">
+    <div className="glass-card p-5 h-full neon-border-pink">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-secondary" />
