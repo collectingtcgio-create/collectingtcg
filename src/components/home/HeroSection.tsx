@@ -23,7 +23,7 @@ export function HeroSection() {
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
-              Snap a card — we identify it, price it, and save it to your profile instantly. Follow collectors, trade, and build your legacy.
+              Snap a card - Save it to your collection, and add to your profile's top 8 instantly. Add a YouTube playlist to your profile to share with your followers. Follow collectors, trade and build your legacy. Marketplace coming soon....
             </p>
 
             <div className="flex flex-wrap gap-4 pt-4">
