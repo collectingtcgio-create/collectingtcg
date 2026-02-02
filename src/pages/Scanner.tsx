@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Camera, Upload, Check, RotateCcw } from "lucide-react";
+import { Camera, Upload, Check, RotateCcw, Minus, Plus } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 
 const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
@@ -27,6 +27,11 @@ export default function Scanner() {
   // Manual add form
   const [cardName, setCardName] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
+  const [quantity, setQuantity] = useState(1);
+
+  const handleQuantityChange = (delta: number) => {
+    setQuantity(prev => Math.max(1, Math.min(20, prev + delta)));
+  };
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,6 +93,7 @@ export default function Scanner() {
     setCapturedImage(null);
     setCardName("");
     setPriceEstimate("");
+    setQuantity(1);
     cameraRef.current?.startCamera();
   }, []);
 
@@ -126,13 +132,14 @@ export default function Scanner() {
         console.error("[handleAddToCollection] Failed to save image:", error);
       }
 
-      // Add to collection
+      // Add to collection with quantity
       const { error } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: cardNameToUse,
         image_url: savedImageUrl || capturedImage,
         price_estimate: priceEstimate ? parseFloat(priceEstimate) : 0,
         tcg_game: gameToUse,
+        quantity: quantity,
       });
 
       if (error) throw error;
@@ -141,22 +148,28 @@ export default function Scanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "capture",
-        description: `Added "${cardNameToUse}" to their collection`,
+        description: quantity > 1 
+          ? `Added ${quantity}x "${cardNameToUse}" to their collection`
+          : `Added "${cardNameToUse}" to their collection`,
         metadata: {
           card_name: cardNameToUse,
           tcg_game: gameToUse,
+          quantity: quantity,
         },
       });
 
       toast({
         title: "Card Added!",
-        description: `${cardNameToUse} has been added to your collection.`,
+        description: quantity > 1 
+          ? `${quantity}x ${cardNameToUse} has been added to your collection.`
+          : `${cardNameToUse} has been added to your collection.`,
       });
 
       // Reset and go to collections
       setCapturedImage(null);
       setCardName("");
       setPriceEstimate("");
+      setQuantity(1);
       navigate("/collections");
     } catch (error) {
       console.error("Error adding card:", error);
@@ -271,7 +284,7 @@ export default function Scanner() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block text-muted-foreground">
-                    Price (optional)
+                    Price per card (optional)
                   </label>
                   <Input
                     value={priceEstimate}
@@ -282,6 +295,44 @@ export default function Scanner() {
                     min="0"
                     className="bg-input border-border"
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block text-muted-foreground">
+                    Quantity (1-20)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= 1}
+                      className="h-10 w-10 rounded-full"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <Input
+                      value={quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 1;
+                        setQuantity(Math.max(1, Math.min(20, val)));
+                      }}
+                      type="number"
+                      min="1"
+                      max="20"
+                      className="bg-input border-border text-center w-20"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= 20}
+                      className="h-10 w-10 rounded-full"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
