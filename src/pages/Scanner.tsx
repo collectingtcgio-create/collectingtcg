@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Camera, X, Check, RotateCcw } from "lucide-react";
+import { Camera, Upload, Check, RotateCcw } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 
 const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
@@ -18,6 +18,7 @@ export default function Scanner() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const cameraRef = useRef<CameraViewHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<TcgGame | 'auto'>('auto');
@@ -26,6 +27,45 @@ export default function Scanner() {
   // Manual add form
   const [cardName, setCardName] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
+
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (JPG, PNG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 20MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setCapturedImage(base64);
+      // Stop camera if it was active
+      cameraRef.current?.stopCamera();
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [toast]);
 
   const handleCapture = useCallback(() => {
     if (!cameraRef.current) return;
@@ -177,9 +217,9 @@ export default function Scanner() {
                 </div>
               )}
 
-              {/* Start Camera Button */}
+              {/* Start Camera & Upload Buttons */}
               {!isCameraActive && (
-                <div className="mt-6">
+                <div className="mt-6 space-y-3">
                   <Button
                     onClick={() => cameraRef.current?.startCamera()}
                     className="w-full rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300 h-12"
@@ -187,6 +227,21 @@ export default function Scanner() {
                     <Camera className="w-4 h-4 mr-2" />
                     Start Camera
                   </Button>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    className="w-full rounded-full h-12 border-border hover:bg-muted"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Photo
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
                 </div>
               )}
             </>
