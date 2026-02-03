@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, Camera, BookOpen, User, LogOut, ShoppingBag, Mail, Settings } from "lucide-react";
+import { Home, Search, BookOpen, User, LogOut, ShoppingBag, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { NotificationsDropdown } from "./NotificationsDropdown";
 
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
@@ -69,6 +70,9 @@ export function Header() {
             <span className="badge-coming-soon hidden sm:inline-flex">
               Coming Soon
             </span>
+
+            {/* Notifications Bell */}
+            {user && <NotificationsDropdown />}
 
             {user && (
               <Button

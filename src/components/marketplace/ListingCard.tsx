@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DollarSign, Eye, User, Package, Calendar } from "lucide-react";
+import { DollarSign, Eye, User, Package, Calendar, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MarketplaceListing } from "./types";
 import { conditionLabels, conditionColors, gameColors, listingTypeLabels, listingTypeColors } from "./types";
@@ -41,9 +41,12 @@ export const ListingCard = forwardRef<HTMLDivElement, ListingCardProps>(({ listi
         {/* Sold Overlay */}
         {isSold && (
           <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-            <Badge className="bg-red-500/90 text-white text-lg px-4 py-2 font-bold">
-              SOLD
-            </Badge>
+            <div className="flex flex-col items-center gap-2">
+              <Bell className="w-8 h-8 text-primary animate-pulse" />
+              <Badge className="bg-red-500/90 text-white text-lg px-4 py-2 font-bold">
+                SOLD
+              </Badge>
+            </div>
           </div>
         )}
         

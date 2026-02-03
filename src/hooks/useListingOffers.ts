@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { getPurchaseMessage, getNewOfferMessage, getCounterOfferMessage } from "@/lib/systemMessages";
 
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'countered' | 'expired' | 'cancelled';
-export type MessageType = 'text' | 'offer_sent' | 'counter_sent' | 'offer_accepted' | 'offer_declined' | 'offer_expired' | 'buy_now';
+export type MessageType = 'text' | 'offer_sent' | 'counter_sent' | 'offer_accepted' | 'offer_declined' | 'offer_expired' | 'buy_now' | 'system';
 
 export interface ListingOffer {
   id: string;
@@ -229,6 +230,19 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     mutationFn: async ({ amount }: { amount: number }) => {
       if (!profile?.id || !listingId || !sellerId) throw new Error('Missing required data');
 
+      // Get listing and buyer info for system message
+      const { data: listing } = await supabase
+        .from('marketplace_listings')
+        .select('card_name')
+        .eq('id', listingId)
+        .single();
+
+      const { data: buyerProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', profile.id)
+        .single();
+
       // Create the offer
       const { data: offer, error: offerError } = await supabase
         .from('listing_offers')
@@ -245,7 +259,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
 
       if (offerError) throw offerError;
 
-      // Create system message
+      // Create listing-specific message
       await supabase.from('listing_messages').insert({
         listing_id: listingId,
         offer_id: offer.id,
@@ -255,11 +269,25 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         message_type: 'offer_sent',
       });
 
+      // Send system notification to seller (DM from CollectingTCG)
+      const systemMessage = getNewOfferMessage(
+        listing?.card_name || 'your item',
+        amount,
+        buyerProfile?.username || 'a buyer'
+      );
+      
+      await supabase.from('messages').insert({
+        sender_id: profile.id,
+        recipient_id: sellerId,
+        content: `[SYSTEM] ${systemMessage}`,
+      });
+
       return offer;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listing-offers', listingId] });
       queryClient.invalidateQueries({ queryKey: ['listing-messages', listingId] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast({ title: 'Offer sent!' });
     },
     onError: (error) => {
@@ -281,6 +309,19 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
 
       if (offerFetchError) throw offerFetchError;
       const offerAmount = amount ?? offerData.amount;
+
+      // Get listing and buyer info for system message
+      const { data: listing } = await supabase
+        .from('marketplace_listings')
+        .select('card_name')
+        .eq('id', listingId)
+        .single();
+
+      const { data: buyerProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', buyerId)
+        .single();
 
       // Update the offer
       const { error: offerError } = await supabase
@@ -317,7 +358,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         })
         .eq('id', listingId);
 
-      // Create system message
+      // Create system message for offer accepted
       await supabase.from('listing_messages').insert({
         listing_id: listingId,
         offer_id: offerId,
@@ -327,6 +368,20 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         message_type: 'offer_accepted',
       });
 
+      // Send system notification to seller (DM from CollectingTCG)
+      const systemMessage = getPurchaseMessage(
+        listing?.card_name || 'your item',
+        offerAmount,
+        buyerProfile?.username || 'a buyer'
+      );
+      
+      // Insert system message into messages table (seller receives)
+      await supabase.from('messages').insert({
+        sender_id: buyerId, // Use buyer as sender for RLS, but mark as system
+        recipient_id: sellerId,
+        content: `[SYSTEM] ${systemMessage}`,
+      });
+
       return { offerId, buyerId, amount: offerAmount };
     },
     onSuccess: (data) => {
@@ -334,6 +389,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
       queryClient.invalidateQueries({ queryKey: ['listing-messages', listingId] });
       queryClient.invalidateQueries({ queryKey: ['my-orders'] });
       queryClient.invalidateQueries({ queryKey: ['marketplace-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast({ title: 'Offer accepted! Order created.' });
     },
     onError: (error) => {
@@ -379,6 +435,19 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     mutationFn: async ({ offerId, buyerId, amount }: { offerId: string; buyerId: string; amount: number }) => {
       if (!profile?.id || !listingId || !sellerId) throw new Error('Missing required data');
 
+      // Get listing info for system message
+      const { data: listing } = await supabase
+        .from('marketplace_listings')
+        .select('card_name')
+        .eq('id', listingId)
+        .single();
+
+      const { data: buyerProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', buyerId)
+        .single();
+
       // Mark old offer as countered
       const { error: updateError } = await supabase
         .from('listing_offers')
@@ -405,7 +474,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
 
       if (counterError) throw counterError;
 
-      // Create system message
+      // Create system message for listing
       const { error: msgError } = await supabase.from('listing_messages').insert({
         listing_id: listingId,
         offer_id: counter.id,
@@ -417,11 +486,25 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
 
       if (msgError) console.error('Failed to create counter message:', msgError);
 
+      // Send system notification to seller about counter-offer made (DM)
+      const systemMessage = getCounterOfferMessage(
+        listing?.card_name || 'the item',
+        amount,
+        buyerProfile?.username || 'buyer'
+      );
+      
+      await supabase.from('messages').insert({
+        sender_id: buyerId,
+        recipient_id: sellerId,
+        content: `[SYSTEM] Counter-offer of $${amount.toFixed(2)} sent for "${listing?.card_name || 'your listing'}".`,
+      });
+
       return counter;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listing-offers', listingId] });
       queryClient.invalidateQueries({ queryKey: ['listing-messages', listingId] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
       toast({ title: 'Counter-offer sent!' });
     },
     onError: (error) => {
