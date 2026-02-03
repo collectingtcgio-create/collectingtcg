@@ -30,7 +30,7 @@ interface ListingOfferPanelProps {
   myActiveOffer: ListingOffer | undefined;
   onBuyNow: (amount: number) => void;
   onSendOffer: (amount: number) => void;
-  onAcceptOffer: (offerId: string, buyerId: string) => void;
+  onAcceptOffer: (offerId: string, buyerId: string, amount: number) => void;
   onDeclineOffer: (offerId: string, buyerId: string) => void;
   onCounterOffer: (offerId: string, buyerId: string, amount: number) => void;
   isBuying: boolean;
@@ -274,7 +274,7 @@ export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelPro
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => onAcceptOffer(offer.id, offer.buyer_id)}
+                        onClick={() => onAcceptOffer(offer.id, offer.buyer_id, offer.amount)}
                         disabled={isAccepting}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8"
                       >

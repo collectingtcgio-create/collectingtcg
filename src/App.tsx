@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ChatPopup } from "@/components/messages/ChatPopup";
+import { GlobalOfferNotifications } from "@/components/marketplace/GlobalOfferNotifications";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
@@ -29,6 +30,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <ChatPopup />
+          <GlobalOfferNotifications />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
