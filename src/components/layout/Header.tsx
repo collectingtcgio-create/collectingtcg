@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, BookOpen, User, LogOut, ShoppingBag, Mail } from "lucide-react";
+import { Home, Search, BookOpen, User, LogOut, ShoppingBag, Mail, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,17 @@ export function Header() {
             {/* Notifications Bell */}
             {user && <NotificationsDropdown />}
 
+            {user && (
+              <Link to="/settings">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground rounded-xl"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
             {user && (
               <Button
                 variant="ghost"
