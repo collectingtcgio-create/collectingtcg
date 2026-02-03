@@ -1,7 +1,6 @@
 import { useState, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +14,12 @@ import {
   X, 
   RefreshCw,
   User,
-  Clock
+  Clock,
+  ArrowRight,
+  ArrowLeft,
+  History
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { ListingOffer } from "@/hooks/useListingOffers";
 
@@ -27,7 +29,9 @@ interface ListingOfferPanelProps {
   isOwner: boolean;
   isLoggedIn: boolean;
   pendingOffers: ListingOffer[];
+  allOffers: ListingOffer[];
   myActiveOffer: ListingOffer | undefined;
+  currentUserId: string | undefined;
   onBuyNow: (amount: number) => void;
   onSendOffer: (amount: number) => void;
   onAcceptOffer: (offerId: string, buyerId: string, amount: number) => void;
@@ -40,13 +44,33 @@ interface ListingOfferPanelProps {
   isCountering: boolean;
 }
 
+// Helper to get status badge
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/50">Pending</Badge>;
+    case 'accepted':
+      return <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/50">Accepted</Badge>;
+    case 'declined':
+      return <Badge variant="outline" className="bg-red-500/20 text-red-400 border-red-500/50">Declined</Badge>;
+    case 'countered':
+      return <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/50">Countered</Badge>;
+    case 'expired':
+      return <Badge variant="outline" className="bg-muted text-muted-foreground border-muted">Expired</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+};
+
 export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelProps>(({
   askingPrice,
   acceptsOffers,
   isOwner,
   isLoggedIn,
   pendingOffers,
+  allOffers,
   myActiveOffer,
+  currentUserId,
   onBuyNow,
   onSendOffer,
   onAcceptOffer,
@@ -77,8 +101,21 @@ export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelPro
     setCounterAmounts(prev => ({ ...prev, [offerId]: '' }));
   };
 
+  // Filter offers relevant to the current user
+  const myOffers = allOffers.filter(o => o.buyer_id === currentUserId || o.seller_id === currentUserId);
+  
+  // Build offer history chains for display (buyer view)
+  const getOfferChain = (offers: ListingOffer[]) => {
+    // Sort by created_at ascending to show chronological order
+    return [...offers].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  };
+
   // Buyer view
   if (!isOwner) {
+    const offerChain = getOfferChain(myOffers);
+    const latestOffer = offerChain[offerChain.length - 1];
+    const canRespond = latestOffer?.status === 'pending' && latestOffer.is_counter;
+
     return (
       <div ref={ref} className="space-y-4">
         {/* Buy Now Section */}
@@ -119,21 +156,83 @@ export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelPro
                 Make an Offer
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {myActiveOffer ? (
+            <CardContent className="space-y-4">
+              {/* Offer History */}
+              {offerChain.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Your active offer</span>
-                    <Badge variant="outline" className="bg-primary/20 text-primary border-primary/50">
-                      ${myActiveOffer.amount.toFixed(2)}
-                    </Badge>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <History className="w-3 h-3" />
+                    Offer History
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    Expires {formatDistanceToNow(new Date(myActiveOffer.expires_at), { addSuffix: true })}
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {offerChain.map((offer, index) => {
+                      const isMine = offer.buyer_id === currentUserId && !offer.is_counter;
+                      const isSellerCounter = offer.is_counter;
+                      
+                      return (
+                        <div 
+                          key={offer.id} 
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-lg text-sm",
+                            isMine ? "bg-primary/20 ml-4" : "bg-muted/50 mr-4"
+                          )}
+                        >
+                          {isMine ? (
+                            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+                          ) : (
+                            <ArrowLeft className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                ${offer.amount.toFixed(2)}
+                              </span>
+                              {isSellerCounter && (
+                                <Badge variant="outline" className="text-[10px] h-4">Counter</Badge>
+                              )}
+                              {getStatusBadge(offer.status)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {isMine ? 'You' : 'Seller'} • {formatDistanceToNow(new Date(offer.created_at), { addSuffix: true })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : isLoggedIn ? (
+              )}
+
+              {/* Respond to Counter-Offer */}
+              {canRespond && (
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <div className="text-sm font-medium text-foreground">
+                    Seller countered with ${latestOffer.amount.toFixed(2)}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => onAcceptOffer(latestOffer.id, latestOffer.buyer_id, latestOffer.amount)}
+                      disabled={isAccepting}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                      Accept ${latestOffer.amount.toFixed(2)}
+                    </Button>
+                    <Button
+                      onClick={() => onDeclineOffer(latestOffer.id, latestOffer.buyer_id)}
+                      disabled={isDeclining}
+                      variant="destructive"
+                    >
+                      {isDeclining ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="text-xs text-muted-foreground">Or make a new offer:</div>
+                </div>
+              )}
+
+              {/* New Offer Input */}
+              {isLoggedIn ? (
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -221,7 +320,7 @@ export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelPro
                         {offer.buyer_profile?.username || 'Unknown'}
                       </span>
                       {offer.is_counter && (
-                        <Badge variant="outline" className="text-xs">Counter</Badge>
+                        <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/50">Your Counter</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-1">
@@ -317,6 +416,54 @@ export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelPro
           )}
         </CardContent>
       </Card>
+
+      {/* All Offer History for Seller */}
+      {allOffers.length > 0 && (
+        <Card className="bg-background/50 border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="w-4 h-4 text-muted-foreground" />
+              Offer History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {getOfferChain(allOffers).map((offer) => {
+                const isFromBuyer = !offer.is_counter;
+                
+                return (
+                  <div 
+                    key={offer.id} 
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg text-sm",
+                      isFromBuyer ? "bg-muted/50 mr-4" : "bg-primary/20 ml-4"
+                    )}
+                  >
+                    {isFromBuyer ? (
+                      <ArrowLeft className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+                    )}
+                    <Avatar className="w-5 h-5 flex-shrink-0">
+                      <AvatarImage src={offer.buyer_profile?.avatar_url || ''} />
+                      <AvatarFallback><User className="w-2 h-2" /></AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">${offer.amount.toFixed(2)}</span>
+                        {getStatusBadge(offer.status)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {isFromBuyer ? offer.buyer_profile?.username || 'Buyer' : 'You'} • {formatDistanceToNow(new Date(offer.created_at), { addSuffix: true })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 });
