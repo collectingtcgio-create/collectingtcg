@@ -122,7 +122,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     enabled: !!listingId && !!profile?.id,
   });
 
-  // Real-time subscriptions
+  // Real-time subscriptions with offer alerts
   useEffect(() => {
     if (!listingId || !profile?.id) return;
 
@@ -131,12 +131,62 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'listing_offers',
           filter: `listing_id=eq.${listingId}`,
         },
-        () => {
+        (payload) => {
+          const newOffer = payload.new as any;
+          // Alert if the offer is for the current user (either as buyer or seller)
+          if (newOffer.seller_id === profile.id && newOffer.buyer_id !== profile.id) {
+            // Seller receives a new offer
+            if (newOffer.is_counter) {
+              toast({ 
+                title: '🔄 Counter-offer response!', 
+                description: `Buyer responded with a counter-offer of $${newOffer.amount.toFixed(2)}`,
+              });
+            } else {
+              toast({ 
+                title: '💰 New offer received!', 
+                description: `Someone made an offer of $${newOffer.amount.toFixed(2)} on your listing`,
+              });
+            }
+          } else if (newOffer.buyer_id === profile.id && newOffer.is_counter) {
+            // Buyer receives a counter-offer from seller
+            toast({ 
+              title: '🔄 Counter-offer received!', 
+              description: `The seller countered with $${newOffer.amount.toFixed(2)}`,
+            });
+          }
+          queryClient.invalidateQueries({ queryKey: ['listing-offers', listingId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'listing_offers',
+          filter: `listing_id=eq.${listingId}`,
+        },
+        (payload) => {
+          const updatedOffer = payload.new as any;
+          // Alert buyer when their offer is accepted or declined
+          if (updatedOffer.buyer_id === profile.id) {
+            if (updatedOffer.status === 'accepted') {
+              toast({ 
+                title: '✅ Offer accepted!', 
+                description: `Your offer of $${updatedOffer.amount.toFixed(2)} was accepted!`,
+              });
+            } else if (updatedOffer.status === 'declined') {
+              toast({ 
+                title: '❌ Offer declined', 
+                description: `Your offer of $${updatedOffer.amount.toFixed(2)} was declined`,
+                variant: 'destructive',
+              });
+            }
+          }
           queryClient.invalidateQueries({ queryKey: ['listing-offers', listingId] });
         }
       )
@@ -147,12 +197,22 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'listing_messages',
           filter: `listing_id=eq.${listingId}`,
         },
-        () => {
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Alert when receiving a new message (not from self)
+          if (newMsg.recipient_id === profile.id && newMsg.sender_id !== profile.id) {
+            if (newMsg.message_type === 'text') {
+              toast({ 
+                title: '💬 New message', 
+                description: 'You have a new message about this listing',
+              });
+            }
+          }
           queryClient.invalidateQueries({ queryKey: ['listing-messages', listingId] });
         }
       )
@@ -273,24 +333,27 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     },
   });
 
-  // Counter offer
+  // Counter offer - seller sends a counter to the buyer
   const counterOffer = useMutation({
     mutationFn: async ({ offerId, buyerId, amount }: { offerId: string; buyerId: string; amount: number }) => {
-      if (!profile?.id || !listingId) throw new Error('Missing required data');
+      if (!profile?.id || !listingId || !sellerId) throw new Error('Missing required data');
 
       // Mark old offer as countered
-      await supabase
+      const { error: updateError } = await supabase
         .from('listing_offers')
         .update({ status: 'countered' })
         .eq('id', offerId);
 
-      // Create new counter offer
+      if (updateError) throw updateError;
+
+      // Create new counter offer - keep original buyer/seller relationship
+      // The seller (profile.id) is countering, so buyer stays as buyerId, seller stays as sellerId
       const { data: counter, error: counterError } = await supabase
         .from('listing_offers')
         .insert({
           listing_id: listingId,
           buyer_id: buyerId,
-          seller_id: profile.id,
+          seller_id: sellerId,
           amount,
           status: 'pending',
           is_counter: true,
@@ -302,7 +365,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
       if (counterError) throw counterError;
 
       // Create system message
-      await supabase.from('listing_messages').insert({
+      const { error: msgError } = await supabase.from('listing_messages').insert({
         listing_id: listingId,
         offer_id: counter.id,
         sender_id: profile.id,
@@ -310,6 +373,8 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         content: `Counter-offer sent: $${amount.toFixed(2)}`,
         message_type: 'counter_sent',
       });
+
+      if (msgError) console.error('Failed to create counter message:', msgError);
 
       return counter;
     },
@@ -319,6 +384,7 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
       toast({ title: 'Counter-offer sent!' });
     },
     onError: (error) => {
+      console.error('Counter offer error:', error);
       toast({ title: 'Failed to send counter-offer', description: error.message, variant: 'destructive' });
     },
   });
@@ -389,6 +455,87 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     },
   });
 
+  // Block user from this listing's chat
+  const blockUser = useMutation({
+    mutationFn: async ({ blockedUserId }: { blockedUserId: string }) => {
+      if (!profile?.id) throw new Error('Must be logged in');
+
+      const { error } = await supabase
+        .from('blocked_users')
+        .insert({
+          blocker_id: profile.id,
+          blocked_id: blockedUserId,
+        });
+
+      if (error) {
+        // Check if already blocked
+        if (error.code === '23505') {
+          throw new Error('User is already blocked');
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({ title: 'User blocked', description: 'They can no longer message you' });
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to block user', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Unblock user
+  const unblockUser = useMutation({
+    mutationFn: async ({ blockedUserId }: { blockedUserId: string }) => {
+      if (!profile?.id) throw new Error('Must be logged in');
+
+      const { error } = await supabase
+        .from('blocked_users')
+        .delete()
+        .eq('blocker_id', profile.id)
+        .eq('blocked_id', blockedUserId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'User unblocked' });
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to unblock user', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Check if a user is blocked
+  const checkBlockedQuery = useQuery({
+    queryKey: ['blocked-check', profile?.id, sellerId],
+    queryFn: async () => {
+      if (!profile?.id) return { isBlocked: false, hasBlocked: false };
+      
+      // Check if current user has blocked the other party or vice versa
+      const otherPartyId = sellerId;
+      if (!otherPartyId) return { isBlocked: false, hasBlocked: false };
+
+      const { data: blockedBy } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .eq('blocker_id', otherPartyId)
+        .eq('blocked_id', profile.id)
+        .maybeSingle();
+
+      const { data: hasBlocked } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .eq('blocker_id', profile.id)
+        .eq('blocked_id', otherPartyId)
+        .maybeSingle();
+
+      return {
+        isBlocked: !!blockedBy,
+        hasBlocked: !!hasBlocked,
+      };
+    },
+    enabled: !!profile?.id && !!sellerId,
+  });
+
   // Get active offer for current user
   const myActiveOffer = offersQuery.data?.find(
     offer => offer.buyer_id === profile?.id && offer.status === 'pending'
@@ -409,5 +556,9 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
     counterOffer,
     sendMessage,
     buyNow,
+    blockUser,
+    unblockUser,
+    isBlocked: checkBlockedQuery.data?.isBlocked ?? false,
+    hasBlockedOther: checkBlockedQuery.data?.hasBlocked ?? false,
   };
 }

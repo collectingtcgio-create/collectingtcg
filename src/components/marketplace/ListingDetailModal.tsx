@@ -73,6 +73,10 @@ export function ListingDetailModal({
     counterOffer,
     sendMessage,
     buyNow,
+    blockUser,
+    unblockUser,
+    isBlocked,
+    hasBlockedOther,
   } = useListingOffers(listing?.id, listing?.seller_id);
   
   // Get all images (combine image_url and images array)
@@ -526,6 +530,11 @@ export function ListingDetailModal({
                       onSendMessage={(content, recipientId) => sendMessage.mutate({ content, recipientId })}
                       isSending={sendMessage.isPending}
                       isLoading={offersLoading}
+                      isBlocked={isBlocked}
+                      hasBlockedOther={hasBlockedOther}
+                      onBlockUser={() => blockUser.mutate({ blockedUserId: listing.seller_id })}
+                      onUnblockUser={() => unblockUser.mutate({ blockedUserId: listing.seller_id })}
+                      isBlockingUser={blockUser.isPending || unblockUser.isPending}
                     />
                   ) : chatRecipientId ? (
                     <ListingChat
@@ -536,6 +545,11 @@ export function ListingDetailModal({
                       onSendMessage={(content, recipientId) => sendMessage.mutate({ content, recipientId })}
                       isSending={sendMessage.isPending}
                       isLoading={offersLoading}
+                      isBlocked={isBlocked}
+                      hasBlockedOther={hasBlockedOther}
+                      onBlockUser={() => blockUser.mutate({ blockedUserId: chatRecipientId })}
+                      onUnblockUser={() => unblockUser.mutate({ blockedUserId: chatRecipientId })}
+                      isBlockingUser={blockUser.isPending || unblockUser.isPending}
                     />
                   ) : null}
                 </TabsContent>

@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,13 +14,13 @@ interface ListingCardProps {
   showSoldInfo?: boolean;
 }
 
-export function ListingCard({ listing, onViewDetails, showSoldInfo }: ListingCardProps) {
+export const ListingCard = forwardRef<HTMLDivElement, ListingCardProps>(({ listing, onViewDetails, showSoldInfo }, ref) => {
   const gameColor = gameColors[listing.tcg_game] || 'bg-muted text-muted-foreground';
   const typeColor = listingTypeColors[listing.listing_type] || listingTypeColors.single;
   const isSold = listing.status === 'sold';
 
   return (
-    <div className={cn(
+    <div ref={ref} className={cn(
       "glass-card rounded-xl overflow-hidden group transition-all duration-300",
       isSold ? "opacity-90" : "hover:neon-border-cyan"
     )}>
@@ -142,4 +143,6 @@ export function ListingCard({ listing, onViewDetails, showSoldInfo }: ListingCar
       </div>
     </div>
   );
-}
+});
+
+ListingCard.displayName = 'ListingCard';

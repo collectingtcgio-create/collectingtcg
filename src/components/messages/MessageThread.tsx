@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useMessages, Message } from "@/hooks/useMessages";
@@ -14,13 +14,13 @@ interface MessageThreadProps {
   compact?: boolean;
 }
 
-export function MessageThread({
+export const MessageThread = forwardRef<HTMLDivElement, MessageThreadProps>(({
   partnerId,
   partnerUsername,
   partnerAvatar,
   onBack,
   compact = false,
-}: MessageThreadProps) {
+}, ref) => {
   const { profile } = useAuth();
   const { getConversation, sendMessage, markAsRead } = useMessages();
   const [newMessage, setNewMessage] = useState("");
@@ -174,4 +174,6 @@ export function MessageThread({
       </div>
     </div>
   );
-}
+});
+
+MessageThread.displayName = 'MessageThread';
