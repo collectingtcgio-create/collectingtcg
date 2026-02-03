@@ -1567,11 +1567,16 @@ export type Database = {
       }
     }
     Functions: {
+      get_profile_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_listing_seller: {
+        Args: { _listing_id: string; _seller_id: string }
         Returns: boolean
       }
       search_marketplace_listings: {
@@ -1601,6 +1606,15 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      validate_counter_offer: {
+        Args: {
+          _buyer_id: string
+          _listing_id: string
+          _parent_offer_id: string
+          _seller_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
