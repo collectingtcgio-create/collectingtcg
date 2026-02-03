@@ -24,6 +24,7 @@ export interface MarketplaceListing {
   updated_at: string;
   sold_at: string | null;
   sold_price: number | null;
+  pending_offers_count?: number;
   profiles?: {
     id: string;
     username: string;
