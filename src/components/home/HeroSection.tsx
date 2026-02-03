@@ -50,7 +50,7 @@ export function HeroSection() {
             <img 
               src={tcgCardsHero} 
               alt="Collection of trading cards from various games including Marvel, Pokémon, One Piece, and more" 
-              className="relative w-full max-w-2xl mx-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500 object-contain"
+              className="relative w-full max-w-2xl mx-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500 object-contain animate-float"
             />
           </div>
         </div>
