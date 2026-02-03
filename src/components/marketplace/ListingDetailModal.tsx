@@ -495,7 +495,7 @@ export function ListingDetailModal({
                       myActiveOffer={myActiveOffer}
                       onBuyNow={(amount) => buyNow.mutate({ amount })}
                       onSendOffer={(amount) => sendOffer.mutate({ amount })}
-                      onAcceptOffer={(offerId, buyerId) => acceptOffer.mutate({ offerId, buyerId })}
+                      onAcceptOffer={(offerId, buyerId, amount) => acceptOffer.mutate({ offerId, buyerId, amount })}
                       onDeclineOffer={(offerId, buyerId) => declineOffer.mutate({ offerId, buyerId })}
                       onCounterOffer={(offerId, buyerId, amount) => counterOffer.mutate({ offerId, buyerId, amount })}
                       isBuying={buyNow.isPending}

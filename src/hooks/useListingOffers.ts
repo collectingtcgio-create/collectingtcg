@@ -269,8 +269,18 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
 
   // Accept offer
   const acceptOffer = useMutation({
-    mutationFn: async ({ offerId, buyerId }: { offerId: string; buyerId: string }) => {
-      if (!profile?.id || !listingId) throw new Error('Missing required data');
+    mutationFn: async ({ offerId, buyerId, amount }: { offerId: string; buyerId: string; amount?: number }) => {
+      if (!profile?.id || !listingId || !sellerId) throw new Error('Missing required data');
+
+      // Get the offer to get the amount
+      const { data: offerData, error: offerFetchError } = await supabase
+        .from('listing_offers')
+        .select('amount')
+        .eq('id', offerId)
+        .single();
+
+      if (offerFetchError) throw offerFetchError;
+      const offerAmount = amount ?? offerData.amount;
 
       // Update the offer
       const { error: offerError } = await supabase
@@ -279,6 +289,33 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         .eq('id', offerId);
 
       if (offerError) throw offerError;
+
+      // Create an order
+      const { error: orderError } = await supabase
+        .from('orders' as any)
+        .insert({
+          listing_id: listingId,
+          offer_id: offerId,
+          buyer_id: buyerId,
+          seller_id: sellerId,
+          amount: offerAmount,
+          status: 'pending_payment',
+        });
+
+      if (orderError) {
+        console.error('Failed to create order:', orderError);
+        // Don't throw - order creation is secondary
+      }
+
+      // Update listing status to sold
+      await supabase
+        .from('marketplace_listings')
+        .update({ 
+          status: 'sold', 
+          sold_price: offerAmount,
+          sold_at: new Date().toISOString(),
+        })
+        .eq('id', listingId);
 
       // Create system message
       await supabase.from('listing_messages').insert({
@@ -289,11 +326,15 @@ export function useListingOffers(listingId: string | undefined, sellerId: string
         content: 'Offer accepted!',
         message_type: 'offer_accepted',
       });
+
+      return { offerId, buyerId, amount: offerAmount };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['listing-offers', listingId] });
       queryClient.invalidateQueries({ queryKey: ['listing-messages', listingId] });
-      toast({ title: 'Offer accepted!' });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-listings'] });
+      toast({ title: 'Offer accepted! Order created.' });
     },
     onError: (error) => {
       toast({ title: 'Failed to accept offer', description: error.message, variant: 'destructive' });

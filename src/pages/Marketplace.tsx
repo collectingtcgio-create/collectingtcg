@@ -2,20 +2,21 @@ import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ShoppingBag, Package, Loader2, History, Camera } from "lucide-react";
+import { Plus, ShoppingBag, Package, Loader2, History, Camera, ClipboardList } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMarketplaceListings } from "@/hooks/useMarketplaceListings";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { CreateListingModal } from "@/components/marketplace/CreateListingModal";
 import { ListingDetailModal } from "@/components/marketplace/ListingDetailModal";
+import { OrdersSection } from "@/components/marketplace/OrdersSection";
 import type { MarketplaceListing, CardCondition, ListingType, CardRarity } from "@/components/marketplace/types";
 import { Link } from "react-router-dom";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export default function Marketplace() {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'browse' | 'my-listings' | 'sold'>('browse');
+  const [activeTab, setActiveTab] = useState<'browse' | 'my-listings' | 'orders' | 'sold'>('browse');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -134,10 +135,16 @@ export default function Marketplace() {
               Browse All
             </TabsTrigger>
             {user && (
-              <TabsTrigger value="my-listings" className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                My Listings
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="my-listings" className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  My Listings
+                </TabsTrigger>
+                <TabsTrigger value="orders" className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4" />
+                  Orders
+                </TabsTrigger>
+              </>
             )}
             <TabsTrigger value="sold" className="flex items-center gap-2">
               <History className="w-4 h-4" />
@@ -145,26 +152,28 @@ export default function Marketplace() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Filters */}
-          <MarketplaceFilters
-            game={game}
-            onGameChange={setGame}
-            minPrice={minPrice}
-            onMinPriceChange={setMinPrice}
-            maxPrice={maxPrice}
-            onMaxPriceChange={setMaxPrice}
-            condition={condition}
-            onConditionChange={setCondition}
-            listingType={listingType}
-            onListingTypeChange={setListingType}
-            rarity={rarity}
-            onRarityChange={setRarity}
-            sortBy={sortBy}
-            onSortByChange={setSortBy}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            onClearFilters={clearFilters}
-          />
+          {/* Filters - hide for orders tab */}
+          {activeTab !== 'orders' && (
+            <MarketplaceFilters
+              game={game}
+              onGameChange={setGame}
+              minPrice={minPrice}
+              onMinPriceChange={setMinPrice}
+              maxPrice={maxPrice}
+              onMaxPriceChange={setMaxPrice}
+              condition={condition}
+              onConditionChange={setCondition}
+              listingType={listingType}
+              onListingTypeChange={setListingType}
+              rarity={rarity}
+              onRarityChange={setRarity}
+              sortBy={sortBy}
+              onSortByChange={setSortBy}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              onClearFilters={clearFilters}
+            />
+          )}
 
           <TabsContent value="browse" className="mt-0">
             {isLoading ? (
@@ -228,6 +237,10 @@ export default function Marketplace() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="orders" className="mt-0">
+            <OrdersSection />
           </TabsContent>
 
           <TabsContent value="sold" className="mt-0">
