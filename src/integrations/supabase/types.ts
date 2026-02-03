@@ -357,7 +357,14 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          images: string[] | null
+          listing_type: Database["public"]["Enums"]["listing_type"]
+          quantity: number
+          rarity: Database["public"]["Enums"]["card_rarity"] | null
+          rarity_custom: string | null
           seller_id: string
+          sold_at: string | null
+          sold_price: number | null
           status: Database["public"]["Enums"]["listing_status"]
           tcg_game: Database["public"]["Enums"]["tcg_game"]
           updated_at: string
@@ -371,7 +378,14 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
+          listing_type?: Database["public"]["Enums"]["listing_type"]
+          quantity?: number
+          rarity?: Database["public"]["Enums"]["card_rarity"] | null
+          rarity_custom?: string | null
           seller_id: string
+          sold_at?: string | null
+          sold_price?: number | null
           status?: Database["public"]["Enums"]["listing_status"]
           tcg_game: Database["public"]["Enums"]["tcg_game"]
           updated_at?: string
@@ -385,7 +399,14 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
+          listing_type?: Database["public"]["Enums"]["listing_type"]
+          quantity?: number
+          rarity?: Database["public"]["Enums"]["card_rarity"] | null
+          rarity_custom?: string | null
           seller_id?: string
+          sold_at?: string | null
+          sold_price?: number | null
           status?: Database["public"]["Enums"]["listing_status"]
           tcg_game?: Database["public"]["Enums"]["tcg_game"]
           updated_at?: string
@@ -1164,6 +1185,33 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_marketplace_listings: {
+        Args: { search_query: string; similarity_threshold?: number }
+        Returns: {
+          asking_price: number
+          card_id: string
+          card_name: string
+          condition: Database["public"]["Enums"]["card_condition"]
+          created_at: string
+          description: string
+          id: string
+          image_url: string
+          images: string[]
+          listing_type: Database["public"]["Enums"]["listing_type"]
+          quantity: number
+          rarity: Database["public"]["Enums"]["card_rarity"]
+          rarity_custom: string
+          seller_id: string
+          similarity_score: number
+          sold_at: string
+          sold_price: number
+          status: Database["public"]["Enums"]["listing_status"]
+          tcg_game: Database["public"]["Enums"]["tcg_game"]
+          updated_at: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
@@ -1173,6 +1221,17 @@ export type Database = {
         | "moderately_played"
         | "heavily_played"
         | "damaged"
+      card_rarity:
+        | "common"
+        | "uncommon"
+        | "rare"
+        | "holo_rare"
+        | "ultra_rare"
+        | "secret_rare"
+        | "special_art"
+        | "full_art"
+        | "promo"
+        | "other"
       event_status:
         | "upcoming"
         | "open_registration"
@@ -1188,6 +1247,7 @@ export type Database = {
         | "ghost_cat"
         | "mecha_pup"
       listing_status: "active" | "sold" | "cancelled"
+      listing_type: "single" | "lot" | "sealed" | "bundle"
       messaging_privacy: "open" | "friends_only"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
@@ -1334,6 +1394,18 @@ export const Constants = {
         "heavily_played",
         "damaged",
       ],
+      card_rarity: [
+        "common",
+        "uncommon",
+        "rare",
+        "holo_rare",
+        "ultra_rare",
+        "secret_rare",
+        "special_art",
+        "full_art",
+        "promo",
+        "other",
+      ],
       event_status: [
         "upcoming",
         "open_registration",
@@ -1351,6 +1423,7 @@ export const Constants = {
         "mecha_pup",
       ],
       listing_status: ["active", "sold", "cancelled"],
+      listing_type: ["single", "lot", "sealed", "bundle"],
       messaging_privacy: ["open", "friends_only"],
       tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [
