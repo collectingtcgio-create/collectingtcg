@@ -44,13 +44,13 @@ export function HeroSection() {
           </div>
 
           {/* Right: TCG Cards Collage */}
-          <div className="relative h-[500px] md:h-[600px] lg:h-[700px] flex items-center justify-center">
+          <div className="relative h-[550px] md:h-[650px] lg:h-[750px] flex items-center justify-center">
             {/* Glow effect behind image */}
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 blur-3xl rounded-full scale-90" />
             <img 
               src={tcgCardsHero} 
               alt="Collection of trading cards from various games including Marvel, Pokémon, One Piece, and more" 
-              className="relative w-full max-w-2xl mx-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500 object-contain animate-float"
+              className="relative w-full max-w-3xl mx-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500 object-contain"
             />
           </div>
         </div>
