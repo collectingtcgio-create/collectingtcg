@@ -36,6 +36,7 @@ interface MarketplaceFilters {
   myListingsOnly?: boolean;
   searchQuery?: string;
   showSold?: boolean;
+  sellerId?: string;
 }
 
 export function useMarketplaceListings(filters?: MarketplaceFilters) {
@@ -66,7 +67,9 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
             filtered = filtered.filter(item => item.status === 'active');
           }
 
-          if (filters?.myListingsOnly && profile?.id) {
+          if (filters?.sellerId) {
+            filtered = filtered.filter(item => item.seller_id === filters.sellerId);
+          } else if (filters?.myListingsOnly && profile?.id) {
             filtered = filtered.filter(item => item.seller_id === profile.id);
           }
 
@@ -132,6 +135,8 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
 
       if (filters?.showSold) {
         query = query.eq('status', 'sold');
+      } else if (filters?.sellerId) {
+        query = query.eq('seller_id', filters.sellerId).eq('status', 'active');
       } else if (filters?.myListingsOnly && profile?.id) {
         query = query.eq('seller_id', profile.id);
       } else {

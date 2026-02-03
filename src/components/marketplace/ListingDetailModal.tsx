@@ -426,20 +426,34 @@ export function ListingDetailModal({
                   {/* Seller Info */}
                   <div className="border-t border-border pt-4">
                     <span className="text-sm text-muted-foreground block mb-2">Seller</span>
-                    <Link 
-                      to={`/profile/${listing.profiles?.id}`}
-                      className="flex items-center gap-3 hover:bg-background/30 p-2 rounded-lg transition-colors"
-                    >
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={listing.profiles?.avatar_url || ''} />
-                        <AvatarFallback>
-                          <User className="w-5 h-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium text-foreground">
-                        {listing.profiles?.username || 'Unknown Seller'}
-                      </span>
-                    </Link>
+                    <div className="flex items-center justify-between gap-3">
+                      <Link 
+                        to={`/profile/${listing.profiles?.id}`}
+                        className="flex items-center gap-3 hover:bg-background/30 p-2 rounded-lg transition-colors"
+                      >
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={listing.profiles?.avatar_url || ''} />
+                          <AvatarFallback>
+                            <User className="w-5 h-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground">
+                          {listing.profiles?.username || 'Unknown Seller'}
+                        </span>
+                      </Link>
+                      {!isOwner && (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onOpenChange(false)}
+                        >
+                          <Link to={`/marketplace?seller=${listing.seller_id}`}>
+                            View All Listings
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Owner Actions */}
