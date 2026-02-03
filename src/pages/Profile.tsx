@@ -4,6 +4,9 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useFriendships } from "@/hooks/useFriendships";
+import { usePrivacySettings } from "@/hooks/usePrivacySettings";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SendMessageModal } from "@/components/messages/SendMessageModal";
@@ -19,6 +22,9 @@ import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
 import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
 import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
 import { MusicPlayerSection } from "@/components/profile/MusicPlayerSection";
+import { OnlineStatusBadge } from "@/components/profile/OnlineStatusBadge";
+import { FriendRequestButton } from "@/components/profile/FriendRequestButton";
+import { FollowButton } from "@/components/profile/FollowButton";
 import { 
   UserPlus, 
   UserMinus, 
@@ -33,7 +39,9 @@ import {
   Ban,
   Link as LinkIcon,
   Plus,
-  BookOpen
+  BookOpen,
+  Lock,
+  ShieldAlert
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -82,12 +90,14 @@ export default function Profile() {
   const { user, profile: currentProfile } = useAuth();
   const { toast } = useToast();
   const { blockUser, isUserBlocked } = useUserSettings();
+  const { getFriendshipStatus } = useFriendships();
   
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [topEight, setTopEight] = useState<TopEightItem[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [cardCount, setCardCount] = useState(0);
+  const [friendCount, setFriendCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -102,6 +112,28 @@ export default function Profile() {
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
+
+  // Online status tracking for current user
+  useOnlineStatus();
+
+  // Get privacy settings for target profile
+  const { settings: targetPrivacySettings } = usePrivacySettings(targetProfileId);
+
+  // Check if current user can view this profile
+  const canViewProfile = () => {
+    if (isOwnProfile) return true;
+    if (!targetPrivacySettings) return true; // Default to public
+    if (targetPrivacySettings.profile_visibility === "public") return true;
+    if (targetPrivacySettings.profile_visibility === "private") return false;
+    if (targetPrivacySettings.profile_visibility === "friends_only") {
+      const friendStatus = getFriendshipStatus(targetProfileId || "");
+      return friendStatus.isFriend;
+    }
+    return true;
+  };
+
+  // Check if blocked
+  const isBlocked = isUserBlocked(targetProfileId || "");
 
   useEffect(() => {
     if (targetProfileId) {
@@ -140,27 +172,54 @@ export default function Profile() {
       setTopEight(topEightData as unknown as TopEightItem[]);
     }
 
-    // Fetch follower/following/card counts
+    // Fetch follower/following/card/friend counts
     const { count: followers } = await supabase
-      .from("follows")
+      .from("followers")
       .select("*", { count: "exact", head: true })
-      .eq("following_id", targetProfileId);
+      .eq("following_id", targetProfileId)
+      .eq("status", "approved");
 
     const { count: following } = await supabase
-      .from("follows")
+      .from("followers")
       .select("*", { count: "exact", head: true })
-      .eq("follower_id", targetProfileId);
+      .eq("follower_id", targetProfileId)
+      .eq("status", "approved");
 
     const { count: cards } = await supabase
       .from("user_cards")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetProfileId);
 
+    // Count accepted friendships
+    const { count: friendsAsRequester } = await supabase
+      .from("friendships")
+      .select("*", { count: "exact", head: true })
+      .eq("requester_id", targetProfileId)
+      .eq("status", "accepted");
+
+    const { count: friendsAsAddressee } = await supabase
+      .from("friendships")
+      .select("*", { count: "exact", head: true })
+      .eq("addressee_id", targetProfileId)
+      .eq("status", "accepted");
+
     setFollowerCount(followers || 0);
     setFollowingCount(following || 0);
     setCardCount(cards || 0);
+    setFriendCount((friendsAsRequester || 0) + (friendsAsAddressee || 0));
 
     // Check if current user follows this profile
+    if (currentProfile && !isOwnProfile) {
+      const { data: followData } = await supabase
+        .from("followers")
+        .select("id")
+        .eq("follower_id", currentProfile.id)
+        .eq("following_id", targetProfileId)
+        .eq("status", "approved")
+        .maybeSingle();
+
+      setIsFollowing(!!followData);
+    }
     if (currentProfile && !isOwnProfile) {
       const { data: followData } = await supabase
         .from("follows")
@@ -250,21 +309,62 @@ export default function Profile() {
     );
   }
 
+  // Check if profile is blocked or private
+  if (isBlocked && !isOwnProfile) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 text-center py-12">
+          <ShieldAlert className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Profile Unavailable</h2>
+          <p className="text-muted-foreground">This profile is not available.</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Check if profile is private or friends-only (and user is not a friend)
+  if (!canViewProfile() && !isOwnProfile) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 max-w-2xl">
+          <div className="glass-card p-8 text-center neon-border-cyan">
+            <Lock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">{profileData.username}</h2>
+            <p className="text-muted-foreground mb-6">
+              {targetPrivacySettings?.profile_visibility === "private"
+                ? "This profile is private."
+                : "This profile is only visible to friends."}
+            </p>
+            {targetPrivacySettings?.profile_visibility === "friends_only" && user && (
+              <div className="flex justify-center gap-3">
+                <FriendRequestButton targetUserId={targetProfileId || ""} />
+              </div>
+            )}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="container mx-auto px-4 max-w-6xl">
         {/* MySpace-style Header Banner */}
         <div className="glass-card p-4 mb-4 neon-border-cyan fade-in">
           <div className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent flex items-center gap-2">
-              {profileData.username}
-              <CreatorBadge userId={profileData.user_id} />
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent flex items-center gap-2">
+                {profileData.username}
+                <CreatorBadge userId={profileData.user_id} />
+              </h1>
+              {!isOwnProfile && (
+                <OnlineStatusBadge userId={targetProfileId || ""} showLastSeen />
+              )}
+            </div>
             {!isOwnProfile && user && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground hidden md:block">
-                  {isFollowing ? "In your network" : "Add to your network"}
-                </span>
+                <FriendRequestButton targetUserId={targetProfileId || ""} size="sm" />
+                <FollowButton targetUserId={targetProfileId || ""} size="sm" />
               </div>
             )}
           </div>
@@ -338,7 +438,7 @@ export default function Profile() {
               </div>
 
               {/* Stats Row - Clickable */}
-              <div className="flex gap-4 mt-4 pt-4 border-t border-border/50 text-center">
+              <div className="flex gap-2 mt-4 pt-4 border-t border-border/50 text-center">
                 <button 
                   onClick={() => {
                     setFollowersModalTab("followers");
@@ -359,6 +459,10 @@ export default function Profile() {
                   <p className="text-lg font-bold text-secondary">{followingCount}</p>
                   <p className="text-xs text-muted-foreground">Following</p>
                 </button>
+                <div className="flex-1 rounded-lg p-2">
+                  <p className="text-lg font-bold text-accent">{friendCount}</p>
+                  <p className="text-xs text-muted-foreground">Friends</p>
+                </div>
               </div>
 
               {/* View Links (MySpace style) */}
@@ -404,24 +508,12 @@ export default function Profile() {
                       <Mail className="w-3 h-3 mr-2" />
                       Send Message
                     </Button>
-                    <Button
+                    <FriendRequestButton 
+                      targetUserId={targetProfileId || ""} 
                       variant="ghost"
                       size="sm"
-                      onClick={handleFollow}
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
-                    >
-                      {isFollowing ? (
-                        <>
-                          <UserMinus className="w-3 h-3 mr-2" />
-                          Unfollow
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-3 h-3 mr-2" />
-                          Add to Friends
-                        </>
-                      )}
-                    </Button>
+                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary col-span-2"
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
