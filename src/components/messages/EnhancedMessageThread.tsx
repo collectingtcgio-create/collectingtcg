@@ -4,10 +4,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMessages } from "@/hooks/useMessages";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, Send, DollarSign } from "lucide-react";
+import { Loader2, Send, DollarSign, Bot } from "lucide-react";
 import { GiftSelector } from "@/components/gifting/GiftSelector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SYSTEM_SENDER_NAME } from "@/lib/systemMessages";
+
+// Check if a message is a system message
+const isSystemMessage = (content: string) => content.startsWith('[SYSTEM]');
+const getSystemMessageContent = (content: string) => content.replace('[SYSTEM] ', '');
 
 interface EnhancedMessageThreadProps {
   partnerId: string;
@@ -104,6 +109,31 @@ export function EnhancedMessageThread({
         ) : (
           messages.map((msg) => {
             const isOwn = msg.sender_id === profile?.id;
+            const isSystem = isSystemMessage(msg.content);
+            const displayContent = isSystem ? getSystemMessageContent(msg.content) : msg.content;
+            
+            // System messages get special styling
+            if (isSystem) {
+              return (
+                <div key={msg.id} className="flex justify-center">
+                  <div className="max-w-[85%] rounded-xl px-4 py-3 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                        <Bot className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                      <span className="text-xs font-semibold text-primary">{SYSTEM_SENDER_NAME}</span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap break-words text-foreground">
+                      {displayContent}
+                    </p>
+                    <p className="text-xs mt-1 text-muted-foreground">
+                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            
             return (
               <div
                 key={msg.id}

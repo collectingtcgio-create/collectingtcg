@@ -102,7 +102,9 @@ export function ContactsList({ onSelectContact, selectedPartnerId }: ContactsLis
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
-                  {conv.lastMessage}
+                  {conv.lastMessage.startsWith('[SYSTEM]') 
+                    ? `🤖 ${conv.lastMessage.replace('[SYSTEM] ', '').slice(0, 50)}...`
+                    : conv.lastMessage}
                 </p>
               </div>
 
