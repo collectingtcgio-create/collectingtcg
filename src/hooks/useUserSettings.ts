@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-export type MessagingPrivacy = "open" | "friends_only";
+export type MessagingPrivacy = "open" | "friends_only" | "buyers_only";
 
 export interface UserSettings {
   id: string;
