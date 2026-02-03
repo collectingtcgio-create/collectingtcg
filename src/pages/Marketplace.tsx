@@ -1,20 +1,21 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ShoppingBag, Package, Loader2 } from "lucide-react";
+import { Plus, ShoppingBag, Package, Loader2, History, Camera } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMarketplaceListings } from "@/hooks/useMarketplaceListings";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { CreateListingModal } from "@/components/marketplace/CreateListingModal";
 import { ListingDetailModal } from "@/components/marketplace/ListingDetailModal";
-import type { MarketplaceListing, CardCondition } from "@/components/marketplace/types";
+import type { MarketplaceListing, CardCondition, ListingType, CardRarity } from "@/components/marketplace/types";
 import { Link } from "react-router-dom";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function Marketplace() {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'browse' | 'my-listings'>('browse');
+  const [activeTab, setActiveTab] = useState<'browse' | 'my-listings' | 'sold'>('browse');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -24,14 +25,23 @@ export default function Marketplace() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [condition, setCondition] = useState<CardCondition | ''>('');
+  const [listingType, setListingType] = useState<ListingType | ''>('');
+  const [rarity, setRarity] = useState<CardRarity | ''>('');
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Debounce search query to avoid too many API calls
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const clearFilters = () => {
     setGame('all');
     setMinPrice('');
     setMaxPrice('');
     setCondition('');
+    setListingType('');
+    setRarity('');
     setSortBy('newest');
+    setSearchQuery('');
   };
 
   const { listings, isLoading, createListing, updateListing, deleteListing } = useMarketplaceListings({
@@ -39,8 +49,12 @@ export default function Marketplace() {
     minPrice: minPrice ? parseFloat(minPrice) : undefined,
     maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
     condition: condition || undefined,
+    listingType: listingType || undefined,
+    rarity: rarity || undefined,
     sortBy,
     myListingsOnly: activeTab === 'my-listings',
+    showSold: activeTab === 'sold',
+    searchQuery: debouncedSearchQuery,
   });
 
   const handleViewDetails = (listing: MarketplaceListing) => {
@@ -49,7 +63,12 @@ export default function Marketplace() {
   };
 
   const handleMarkSold = (id: string) => {
-    updateListing.mutate({ id, status: 'sold' });
+    const listing = listings.find(l => l.id === id);
+    updateListing.mutate({ 
+      id, 
+      status: 'sold',
+      sold_price: listing?.asking_price,
+    });
     setDetailModalOpen(false);
   };
 
@@ -82,8 +101,8 @@ export default function Marketplace() {
               onClick={() => setCreateModalOpen(true)}
               className="bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              List a Card
+              <Camera className="w-4 h-4 mr-2" />
+              Create Listing
             </Button>
           ) : (
             <Button asChild className="bg-primary hover:bg-primary/80 text-primary-foreground">
@@ -105,6 +124,10 @@ export default function Marketplace() {
                 My Listings
               </TabsTrigger>
             )}
+            <TabsTrigger value="sold" className="flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Recently Sold
+            </TabsTrigger>
           </TabsList>
 
           {/* Filters */}
@@ -117,8 +140,14 @@ export default function Marketplace() {
             onMaxPriceChange={setMaxPrice}
             condition={condition}
             onConditionChange={setCondition}
+            listingType={listingType}
+            onListingTypeChange={setListingType}
+            rarity={rarity}
+            onRarityChange={setRarity}
             sortBy={sortBy}
             onSortByChange={setSortBy}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             onClearFilters={clearFilters}
           />
 
@@ -134,7 +163,9 @@ export default function Marketplace() {
                   No listings found
                 </h3>
                 <p className="text-muted-foreground">
-                  {game !== 'all' || minPrice || maxPrice || condition
+                  {debouncedSearchQuery 
+                    ? `No results for "${debouncedSearchQuery}". Try a different search.`
+                    : game !== 'all' || minPrice || maxPrice || condition || listingType || rarity
                     ? 'Try adjusting your filters'
                     : 'Be the first to list a card!'}
                 </p>
@@ -178,6 +209,35 @@ export default function Marketplace() {
                     key={listing.id}
                     listing={listing}
                     onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sold" className="mt-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : listings.length === 0 ? (
+              <div className="glass-card rounded-xl p-12 text-center">
+                <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  No sold listings yet
+                </h3>
+                <p className="text-muted-foreground">
+                  Sold cards will appear here for price reference.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {listings.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    onViewDetails={handleViewDetails}
+                    showSoldInfo
                   />
                 ))}
               </div>

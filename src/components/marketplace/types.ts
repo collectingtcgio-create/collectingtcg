@@ -1,5 +1,7 @@
 export type ListingStatus = 'active' | 'sold' | 'cancelled';
 export type CardCondition = 'near_mint' | 'lightly_played' | 'moderately_played' | 'heavily_played' | 'damaged';
+export type ListingType = 'single' | 'lot' | 'sealed' | 'bundle';
+export type CardRarity = 'common' | 'uncommon' | 'rare' | 'holo_rare' | 'ultra_rare' | 'secret_rare' | 'special_art' | 'full_art' | 'promo' | 'other';
 
 export interface MarketplaceListing {
   id: string;
@@ -7,13 +9,20 @@ export interface MarketplaceListing {
   card_id: string | null;
   card_name: string;
   image_url: string | null;
+  images: string[];
   tcg_game: string;
   asking_price: number;
   condition: CardCondition;
+  listing_type: ListingType;
+  rarity: CardRarity | null;
+  rarity_custom: string | null;
+  quantity: number;
   description: string | null;
   status: ListingStatus;
   created_at: string;
   updated_at: string;
+  sold_at: string | null;
+  sold_price: number | null;
   profiles?: {
     id: string;
     username: string;
@@ -35,6 +44,46 @@ export const conditionColors: Record<CardCondition, string> = {
   moderately_played: 'text-yellow-400',
   heavily_played: 'text-orange-400',
   damaged: 'text-red-400',
+};
+
+export const listingTypeLabels: Record<ListingType, string> = {
+  single: 'Single Card',
+  lot: 'Card Lot',
+  sealed: 'Sealed Product',
+  bundle: 'Mixed Bundle',
+};
+
+export const listingTypeColors: Record<ListingType, string> = {
+  single: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+  lot: 'bg-purple-500/20 text-purple-400 border-purple-500/50',
+  sealed: 'bg-green-500/20 text-green-400 border-green-500/50',
+  bundle: 'bg-orange-500/20 text-orange-400 border-orange-500/50',
+};
+
+export const rarityLabels: Record<CardRarity, string> = {
+  common: 'Common',
+  uncommon: 'Uncommon',
+  rare: 'Rare',
+  holo_rare: 'Holo Rare',
+  ultra_rare: 'Ultra Rare',
+  secret_rare: 'Secret Rare',
+  special_art: 'Special Art',
+  full_art: 'Full Art',
+  promo: 'Promo',
+  other: 'Other',
+};
+
+export const rarityColors: Record<CardRarity, string> = {
+  common: 'text-gray-400',
+  uncommon: 'text-green-400',
+  rare: 'text-blue-400',
+  holo_rare: 'text-cyan-400',
+  ultra_rare: 'text-purple-400',
+  secret_rare: 'text-yellow-400',
+  special_art: 'text-pink-400',
+  full_art: 'text-orange-400',
+  promo: 'text-red-400',
+  other: 'text-muted-foreground',
 };
 
 export const gameColors: Record<string, string> = {
