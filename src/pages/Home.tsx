@@ -8,7 +8,7 @@ import { Footer } from "@/components/home/Footer";
 export default function Home() {
   return (
     <Layout>
-      <div className="min-h-screen flex flex-col cosmic-bg">
+      <div className="min-h-screen flex flex-col">
         <HeroSection />
         <SupportedGames />
         <TrendingSection />
