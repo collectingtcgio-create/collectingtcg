@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useFriendships } from "@/hooks/useFriendships";
 import { usePrivacySettings } from "@/hooks/usePrivacySettings";
 import { useAuth } from "@/hooks/useAuth";
-import { UserPlus, UserMinus, UserCheck, Clock, Loader2 } from "lucide-react";
+import { UserPlus, UserCheck, Clock, Loader2, Check, X } from "lucide-react";
 
 interface FriendRequestButtonProps {
   targetUserId: string;
@@ -41,27 +41,19 @@ export function FriendRequestButton({
     return true;
   };
 
-  const handleClick = () => {
-    if (status.isFriend && status.friendshipId) {
-      removeFriend.mutate(status.friendshipId);
-    } else if (status.isPending && !status.isRequester && status.friendshipId) {
-      acceptFriendRequest.mutate(status.friendshipId);
-    } else if (!status.isPending && canSendRequest()) {
-      sendFriendRequest.mutate(targetUserId);
-    }
-  };
-
   const isLoading =
     sendFriendRequest.isPending ||
     acceptFriendRequest.isPending ||
+    declineFriendRequest.isPending ||
     removeFriend.isPending;
 
+  // Already friends
   if (status.isFriend) {
     return (
       <Button
-        variant={variant}
+        variant="outline"
         size={size}
-        onClick={handleClick}
+        onClick={() => status.friendshipId && removeFriend.mutate(status.friendshipId)}
         disabled={isLoading}
         className={className}
       >
@@ -75,43 +67,51 @@ export function FriendRequestButton({
     );
   }
 
-  if (status.isPending) {
-    if (status.isRequester) {
-      return (
-        <Button variant="outline" size={size} disabled className={className}>
-          <Clock className="w-4 h-4 mr-2" />
-          Request Sent
+  // Pending request - current user is the RECEIVER (addressee)
+  if (status.isPending && !status.isRequester && status.friendshipId) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="default"
+          size={size}
+          onClick={() => acceptFriendRequest.mutate(status.friendshipId!)}
+          disabled={isLoading}
+          className={className}
+        >
+          {acceptFriendRequest.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-1" />
+          ) : (
+            <Check className="w-4 h-4 mr-1" />
+          )}
+          Accept
         </Button>
-      );
-    } else {
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="default"
-            size={size}
-            onClick={() => acceptFriendRequest.mutate(status.friendshipId!)}
-            disabled={isLoading}
-            className={className}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Accept"
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size={size}
-            onClick={() => declineFriendRequest.mutate(status.friendshipId!)}
-            disabled={declineFriendRequest.isPending}
-          >
-            Decline
-          </Button>
-        </div>
-      );
-    }
+        <Button
+          variant="outline"
+          size={size}
+          onClick={() => declineFriendRequest.mutate(status.friendshipId!)}
+          disabled={declineFriendRequest.isPending}
+        >
+          {declineFriendRequest.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <X className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
+    );
   }
 
+  // Pending request - current user is the SENDER (requester)
+  if (status.isPending && status.isRequester) {
+    return (
+      <Button variant="outline" size={size} disabled className={className}>
+        <Clock className="w-4 h-4 mr-2" />
+        Request Sent
+      </Button>
+    );
+  }
+
+  // Cannot send request due to privacy settings
   if (!canSendRequest()) {
     return (
       <Button variant="outline" size={size} disabled className={className}>
@@ -121,11 +121,12 @@ export function FriendRequestButton({
     );
   }
 
+  // Can send friend request
   return (
     <Button
       variant={variant}
       size={size}
-      onClick={handleClick}
+      onClick={() => sendFriendRequest.mutate(targetUserId)}
       disabled={isLoading}
       className={className}
     >
