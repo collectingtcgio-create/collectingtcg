@@ -105,7 +105,7 @@ export default function Profile() {
   const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
   const [socialLinksEditorOpen, setSocialLinksEditorOpen] = useState(false);
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
-  const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following">("followers");
+  const [followersModalTab, setFollowersModalTab] = useState<"followers" | "following" | "friends">("followers");
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -459,10 +459,19 @@ export default function Profile() {
                   <p className="text-lg font-bold text-secondary">{followingCount}</p>
                   <p className="text-xs text-muted-foreground">Following</p>
                 </button>
-                <div className="flex-1 rounded-lg p-2">
+                <button 
+                  onClick={() => {
+                    if (isOwnProfile) {
+                      setFollowersModalTab("friends");
+                      setFollowersModalOpen(true);
+                    }
+                  }}
+                  className={`flex-1 rounded-lg p-2 transition-colors ${isOwnProfile ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
+                  disabled={!isOwnProfile}
+                >
                   <p className="text-lg font-bold text-accent">{friendCount}</p>
                   <p className="text-xs text-muted-foreground">Friends</p>
-                </div>
+                </button>
               </div>
 
               {/* View Links (MySpace style) */}
@@ -861,6 +870,7 @@ export default function Profile() {
           profileId={profileData.id}
           profileUsername={profileData.username}
           initialTab={followersModalTab}
+          isOwnProfile={isOwnProfile}
         />
       )}
 

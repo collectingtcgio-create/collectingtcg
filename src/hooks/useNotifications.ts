@@ -5,10 +5,11 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export interface Notification {
   id: string;
-  type: 'purchase' | 'offer' | 'counter_offer' | 'offer_accepted' | 'offer_declined';
+  type: 'purchase' | 'offer' | 'counter_offer' | 'offer_accepted' | 'offer_declined' | 'friend_request';
   title: string;
   message: string;
   listingId?: string;
+  friendshipId?: string;
   createdAt: Date;
   read: boolean;
 }
@@ -202,13 +203,50 @@ export function useNotifications() {
       )
       .subscribe();
 
+    // Listen for friend requests where I'm the addressee
+    const friendRequestChannel = supabase
+      .channel(`notifications-friend-requests-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'friendships',
+          filter: `addressee_id=eq.${profile.id}`,
+        },
+        async (payload) => {
+          const friendship = payload.new as any;
+          
+          if (friendship.status === 'pending') {
+            // Fetch the requester's profile
+            const { data: requester } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', friendship.requester_id)
+              .single();
+
+            addNotification({
+              type: 'friend_request',
+              title: '👋 New Friend Request!',
+              message: `${requester?.username || 'Someone'} wants to be friends with you`,
+              friendshipId: friendship.id,
+            });
+
+            // Invalidate friendships query to refresh pending requests
+            queryClient.invalidateQueries({ queryKey: ['friendships'] });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(soldChannel);
       supabase.removeChannel(offersChannel);
       supabase.removeChannel(buyerChannel);
       supabase.removeChannel(counterChannel);
+      supabase.removeChannel(friendRequestChannel);
     };
-  }, [profile?.id, addNotification]);
+  }, [profile?.id, addNotification, queryClient]);
 
   return {
     notifications,

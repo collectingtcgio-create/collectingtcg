@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, UserCheck } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FollowerUser {
   id: string;
@@ -18,7 +19,8 @@ interface FollowersModalProps {
   onOpenChange: (open: boolean) => void;
   profileId: string;
   profileUsername: string;
-  initialTab?: "followers" | "following";
+  initialTab?: "followers" | "following" | "friends";
+  isOwnProfile?: boolean;
 }
 
 export function FollowersModal({
@@ -27,29 +29,35 @@ export function FollowersModal({
   profileId,
   profileUsername,
   initialTab = "followers",
+  isOwnProfile = false,
 }: FollowersModalProps) {
-  const [activeTab, setActiveTab] = useState<"followers" | "following">(initialTab);
+  const { profile: currentProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState<"followers" | "following" | "friends">(initialTab);
   const [followers, setFollowers] = useState<FollowerUser[]>([]);
   const [following, setFollowing] = useState<FollowerUser[]>([]);
+  const [friends, setFriends] = useState<FollowerUser[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(false);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [loadingFriends, setLoadingFriends] = useState(false);
 
   useEffect(() => {
     if (open) {
       setActiveTab(initialTab);
       fetchFollowers();
       fetchFollowing();
+      fetchFriends();
     }
   }, [open, profileId, initialTab]);
 
   const fetchFollowers = async () => {
     setLoadingFollowers(true);
     const { data, error } = await supabase
-      .from("follows")
+      .from("followers")
       .select(`
-        follower:profiles!follows_follower_id_fkey(id, username, avatar_url)
+        follower:profiles!followers_follower_id_fkey(id, username, avatar_url)
       `)
-      .eq("following_id", profileId);
+      .eq("following_id", profileId)
+      .eq("status", "approved");
 
     if (!error && data) {
       const users = data
@@ -63,11 +71,12 @@ export function FollowersModal({
   const fetchFollowing = async () => {
     setLoadingFollowing(true);
     const { data, error } = await supabase
-      .from("follows")
+      .from("followers")
       .select(`
-        following:profiles!follows_following_id_fkey(id, username, avatar_url)
+        following:profiles!followers_following_id_fkey(id, username, avatar_url)
       `)
-      .eq("follower_id", profileId);
+      .eq("follower_id", profileId)
+      .eq("status", "approved");
 
     if (!error && data) {
       const users = data
@@ -76,6 +85,37 @@ export function FollowersModal({
       setFollowing(users);
     }
     setLoadingFollowing(false);
+  };
+
+  const fetchFriends = async () => {
+    setLoadingFriends(true);
+    
+    // Fetch friendships where user is requester or addressee, and status is accepted
+    const { data, error } = await supabase
+      .from("friendships")
+      .select(`
+        requester:profiles!friendships_requester_id_fkey(id, username, avatar_url),
+        addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url),
+        requester_id,
+        addressee_id
+      `)
+      .or(`requester_id.eq.${profileId},addressee_id.eq.${profileId}`)
+      .eq("status", "accepted");
+
+    if (!error && data) {
+      const users = data
+        .map((f) => {
+          // Return the other person in the friendship
+          if (f.requester_id === profileId) {
+            return f.addressee;
+          } else {
+            return f.requester;
+          }
+        })
+        .filter((u): u is FollowerUser => u !== null);
+      setFriends(users);
+    }
+    setLoadingFriends(false);
   };
 
   const renderUserList = (users: FollowerUser[], loading: boolean, emptyMessage: string) => {
@@ -118,6 +158,9 @@ export function FollowersModal({
     );
   };
 
+  // Only show friends tab for own profile or if user can view (for now, show for all)
+  const canViewFriends = isOwnProfile || currentProfile?.id === profileId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-card neon-border-cyan max-w-md">
@@ -127,14 +170,20 @@ export function FollowersModal({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "followers" | "following")}>
-          <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "followers" | "following" | "friends")}>
+          <TabsList className={`grid w-full ${canViewFriends ? 'grid-cols-3' : 'grid-cols-2'} bg-muted/50`}>
             <TabsTrigger value="followers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Followers ({followers.length})
             </TabsTrigger>
             <TabsTrigger value="following" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground">
               Following ({following.length})
             </TabsTrigger>
+            {canViewFriends && (
+              <TabsTrigger value="friends" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+                <UserCheck className="w-3 h-3 mr-1" />
+                Friends ({friends.length})
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <ScrollArea className="h-[300px] mt-4">
@@ -144,6 +193,11 @@ export function FollowersModal({
             <TabsContent value="following" className="mt-0">
               {renderUserList(following, loadingFollowing, `${profileUsername} isn't following anyone yet`)}
             </TabsContent>
+            {canViewFriends && (
+              <TabsContent value="friends" className="mt-0">
+                {renderUserList(friends, loadingFriends, `${profileUsername} has no friends yet`)}
+              </TabsContent>
+            )}
           </ScrollArea>
         </Tabs>
       </DialogContent>
