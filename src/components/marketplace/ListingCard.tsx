@@ -54,9 +54,9 @@ export const ListingCard = forwardRef<HTMLDivElement, ListingCardProps>(({ listi
 
         {/* Pending Offers Indicator (visible to seller) */}
         {!isSold && hasPendingOffers && isOwner && (
-          <div className="absolute top-2 right-14 z-10">
-            <div className="relative">
-              <Bell className="w-6 h-6 text-yellow-400 animate-bounce" />
+          <div className="absolute bottom-2 right-2 z-10">
+            <div className="relative bg-background/80 backdrop-blur-sm rounded-full p-1.5">
+              <Bell className="w-5 h-5 text-yellow-400 animate-bounce" />
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
                 {listing.pending_offers_count}
               </span>
