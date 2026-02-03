@@ -1259,6 +1259,7 @@ export type Database = {
         | "lorcana"
         | "unionarena"
         | "marvel"
+        | "starwars"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1435,6 +1436,7 @@ export const Constants = {
         "lorcana",
         "unionarena",
         "marvel",
+        "starwars",
       ],
     },
   },

@@ -95,4 +95,17 @@ export const gameColors: Record<string, string> = {
   dragonball: 'bg-orange-600/20 text-orange-300 border-orange-600/50',
   unionarena: 'bg-pink-500/20 text-pink-400 border-pink-500/50',
   marvel: 'bg-red-600/20 text-red-300 border-red-600/50',
+  starwars: 'bg-blue-600/20 text-blue-300 border-blue-600/50',
+};
+
+export const gameLabels: Record<string, string> = {
+  pokemon: 'Pokémon',
+  magic: 'Magic: The Gathering',
+  yugioh: 'Yu-Gi-Oh!',
+  onepiece: 'One Piece',
+  lorcana: 'Lorcana',
+  dragonball: 'Dragon Ball',
+  unionarena: 'Union Arena',
+  marvel: 'Marvel',
+  starwars: 'Star Wars',
 };
