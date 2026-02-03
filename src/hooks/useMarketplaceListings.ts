@@ -252,6 +252,7 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
       asking_price,
       condition,
       description,
+      image_url,
     }: { 
       id: string; 
       card_name?: string; 
@@ -259,6 +260,7 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
       asking_price?: number;
       condition?: CardCondition;
       description?: string;
+      image_url?: string;
     }) => {
       const updateData: any = {};
       
@@ -267,6 +269,7 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
       if (asking_price !== undefined) updateData.asking_price = asking_price;
       if (condition !== undefined) updateData.condition = condition;
       if (description !== undefined) updateData.description = description;
+      if (image_url !== undefined) updateData.image_url = image_url;
 
       const { error } = await supabase
         .from('marketplace_listings')
