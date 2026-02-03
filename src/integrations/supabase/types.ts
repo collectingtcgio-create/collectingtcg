@@ -306,6 +306,142 @@ export type Database = {
           },
         ]
       }
+      listing_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          listing_id: string
+          message_type: string
+          offer_id: string | null
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          listing_id: string
+          message_type?: string
+          offer_id?: string | null
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          listing_id?: string
+          message_type?: string
+          offer_id?: string | null
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_messages_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_messages_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "listing_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      listing_offers: {
+        Row: {
+          amount: number
+          buyer_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_counter: boolean
+          listing_id: string
+          parent_offer_id: string | null
+          seller_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buyer_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_counter?: boolean
+          listing_id: string
+          parent_offer_id?: string | null
+          seller_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buyer_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_counter?: boolean
+          listing_id?: string
+          parent_offer_id?: string | null
+          seller_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_offers_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_offers_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_offers_parent_offer_id_fkey"
+            columns: ["parent_offer_id"]
+            isOneToOne: false
+            referencedRelation: "listing_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_offers_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_streams: {
         Row: {
           description: string | null
@@ -349,6 +485,7 @@ export type Database = {
       }
       marketplace_listings: {
         Row: {
+          accepts_offers: boolean
           asking_price: number
           card_id: string | null
           card_name: string
@@ -370,6 +507,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepts_offers?: boolean
           asking_price: number
           card_id?: string | null
           card_name: string
@@ -391,6 +529,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepts_offers?: boolean
           asking_price?: number
           card_id?: string | null
           card_name?: string

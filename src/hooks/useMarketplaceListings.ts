@@ -22,6 +22,7 @@ interface CreateListingData {
   rarity_custom?: string;
   quantity?: number;
   description?: string;
+  accepts_offers?: boolean;
 }
 
 interface MarketplaceFilters {
@@ -189,6 +190,7 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
         rarity_custom: data.rarity_custom || null,
         quantity: data.quantity || 1,
         description: data.description || null,
+        accepts_offers: data.accepts_offers !== false,
         status: 'active' as const,
       });
 

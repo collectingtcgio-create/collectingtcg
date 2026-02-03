@@ -19,6 +19,7 @@ export interface MarketplaceListing {
   quantity: number;
   description: string | null;
   status: ListingStatus;
+  accepts_offers: boolean;
   created_at: string;
   updated_at: string;
   sold_at: string | null;
