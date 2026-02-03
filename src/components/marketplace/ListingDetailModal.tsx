@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, User, Calendar, Mail, Trash2, XCircle, Pencil, Save, X } from "lucide-react";
+import { DollarSign, User, Calendar, Mail, Trash2, XCircle, Pencil, Save, X, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +21,7 @@ interface ListingDetailModalProps {
   onMarkSold?: (id: string) => void;
   onCancel?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onEdit?: (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string }) => void;
+  onEdit?: (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string; image_url?: string }) => void;
 }
 
 const games = [
@@ -52,6 +52,30 @@ export function ListingDetailModal({
   const [editAskingPrice, setEditAskingPrice] = useState('');
   const [editCondition, setEditCondition] = useState<CardCondition>('near_mint');
   const [editDescription, setEditDescription] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Get all images (combine image_url and images array)
+  const getAllImages = () => {
+    if (!listing) return [];
+    const allImages: string[] = [];
+    
+    // Add images from the images array first
+    if (listing.images && listing.images.length > 0) {
+      allImages.push(...listing.images);
+    }
+    
+    // If image_url exists and is not already in the array, add it
+    if (listing.image_url && !allImages.includes(listing.image_url)) {
+      // If it's already the first image in the array, don't add duplicate
+      if (allImages.length === 0 || allImages[0] !== listing.image_url) {
+        allImages.unshift(listing.image_url);
+      }
+    }
+    
+    return allImages;
+  };
+
+  const allImages = listing ? getAllImages() : [];
   
   // Reset edit state when listing changes or modal opens
   useEffect(() => {
@@ -61,6 +85,7 @@ export function ListingDetailModal({
       setEditAskingPrice(listing.asking_price.toString());
       setEditCondition(listing.condition);
       setEditDescription(listing.description || '');
+      setCurrentImageIndex(0);
     }
     setIsEditing(false);
   }, [listing, open]);
@@ -95,12 +120,25 @@ export function ListingDetailModal({
     setIsEditing(false);
   };
 
-  // Get the primary image (first from images array or fallback to image_url)
-  const primaryImage = listing.images?.[0] || listing.image_url;
+  const handleSetMainImage = (imageUrl: string) => {
+    if (isOwner && onEdit) {
+      onEdit(listing.id, { image_url: imageUrl });
+    }
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1);
+  };
+
+  const currentImage = allImages[currentImageIndex] || listing.image_url;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-border max-w-2xl">
+      <DialogContent className="glass-card border-border max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground">
             {isEditing ? 'Edit Listing' : 'Listing Details'}
@@ -111,37 +149,98 @@ export function ListingDetailModal({
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-6 mt-4">
-          {/* Card Image */}
-          <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-background/50">
-            {primaryImage ? (
-              <img
-                src={primaryImage}
-                alt={listing.card_name}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                No Image
+          {/* Card Image with Gallery */}
+          <div className="space-y-3">
+            <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-background/50">
+              {currentImage ? (
+                <img
+                  src={currentImage}
+                  alt={listing.card_name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  No Image
+                </div>
+              )}
+              
+              {/* Status Badge */}
+              {listing.status !== 'active' && (
+                <div className={cn(
+                  "absolute inset-0 flex items-center justify-center bg-background/80",
+                  listing.status === 'sold' ? 'text-primary' : 'text-muted-foreground'
+                )}>
+                  <span className="text-2xl font-bold uppercase">
+                    {listing.status}
+                  </span>
+                </div>
+              )}
+
+              {/* Navigation Arrows (only show if multiple images) */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                  
+                  {/* Image counter */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-background/80 text-foreground text-xs px-3 py-1 rounded-full">
+                    {currentImageIndex + 1} / {allImages.length}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Gallery */}
+            {allImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {allImages.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={cn(
+                      "relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all",
+                      currentImageIndex === index 
+                        ? "border-primary ring-2 ring-primary/50" 
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <img
+                      src={img}
+                      alt={`${listing.card_name} - ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Main image indicator */}
+                    {img === listing.image_url && (
+                      <div className="absolute top-0.5 right-0.5">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
-            
-            {/* Status Badge */}
-            {listing.status !== 'active' && (
-              <div className={cn(
-                "absolute inset-0 flex items-center justify-center bg-background/80",
-                listing.status === 'sold' ? 'text-primary' : 'text-muted-foreground'
-              )}>
-                <span className="text-2xl font-bold uppercase">
-                  {listing.status}
-                </span>
-              </div>
-            )}
-            
-            {/* Multiple images indicator */}
-            {listing.images && listing.images.length > 1 && (
-              <div className="absolute bottom-2 right-2 bg-background/80 text-foreground text-xs px-2 py-1 rounded">
-                +{listing.images.length - 1} more
-              </div>
+
+            {/* Set as Main Image button (owner only) */}
+            {isOwner && allImages.length > 1 && currentImage !== listing.image_url && listing.status === 'active' && (
+              <Button
+                onClick={() => handleSetMainImage(currentImage)}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <Star className="w-4 h-4 mr-2" />
+                Set as Main Image
+              </Button>
             )}
           </div>
 
