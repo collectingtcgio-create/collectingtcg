@@ -492,7 +492,9 @@ export function ListingDetailModal({
                       isOwner={isOwner}
                       isLoggedIn={isLoggedIn}
                       pendingOffers={pendingOffers}
+                      allOffers={offers}
                       myActiveOffer={myActiveOffer}
+                      currentUserId={profile?.id}
                       onBuyNow={(amount) => buyNow.mutate({ amount })}
                       onSendOffer={(amount) => sendOffer.mutate({ amount })}
                       onAcceptOffer={(offerId, buyerId, amount) => acceptOffer.mutate({ offerId, buyerId, amount })}
