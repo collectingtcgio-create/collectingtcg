@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
+import { PrivacySettingsSection } from "@/components/settings/PrivacySettingsSection";
+import { FriendsFollowersSection } from "@/components/settings/FriendsFollowersSection";
 import { 
   Settings as SettingsIcon, 
   Shield, 
@@ -16,7 +18,9 @@ import {
   Loader2,
   UserX,
   ArrowLeft,
-  User
+  User,
+  Users,
+  Eye
 } from "lucide-react";
 
 interface ProfileWithUsernameChange {
@@ -103,19 +107,45 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Privacy Settings */}
+        {/* Profile Privacy & Visibility */}
         <div className="glass-card neon-border-cyan overflow-hidden mb-6">
           <div className="bg-primary/20 px-4 py-3 border-b border-border/50">
             <h2 className="font-semibold flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" />
-              Privacy Settings
+              <Eye className="w-5 h-5 text-primary" />
+              Profile Privacy & Visibility
+            </h2>
+          </div>
+          <div className="p-4">
+            <PrivacySettingsSection />
+          </div>
+        </div>
+
+        {/* Friends & Followers */}
+        <div className="glass-card neon-border-magenta overflow-hidden mb-6">
+          <div className="bg-secondary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Users className="w-5 h-5 text-secondary" />
+              Friends & Followers
+            </h2>
+          </div>
+          <div className="p-4">
+            <FriendsFollowersSection />
+          </div>
+        </div>
+
+        {/* Messaging Privacy */}
+        <div className="glass-card neon-border-cyan overflow-hidden mb-6">
+          <div className="bg-primary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-primary" />
+              Messaging Privacy
             </h2>
           </div>
           <div className="p-4 space-y-6">
             {/* Messaging Privacy */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                <Shield className="w-4 h-4 text-muted-foreground" />
                 <Label className="text-base font-medium">Who can message you?</Label>
               </div>
               <RadioGroup
@@ -141,7 +171,7 @@ export default function Settings() {
                       Friends Only
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Only people you follow can message you
+                      Only your friends can message you
                     </p>
                   </div>
                 </div>

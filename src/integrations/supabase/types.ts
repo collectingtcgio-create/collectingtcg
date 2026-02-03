@@ -146,6 +146,59 @@ export type Database = {
         }
         Relationships: []
       }
+      followers: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+          status: Database["public"]["Enums"]["follow_status"]
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followers_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followers_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followers_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followers_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string
@@ -190,6 +243,62 @@ export type Database = {
           {
             foreignKeyName: "follows_following_id_fkey"
             columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: Database["public"]["Enums"]["friendship_status"]
+          updated_at: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          updated_at?: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
             referencedColumns: ["id"]
@@ -731,6 +840,8 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_live: boolean | null
+          is_online: boolean | null
+          last_seen_at: string | null
           last_username_change_at: string | null
           music_autoplay: boolean | null
           rumble_url: string | null
@@ -754,6 +865,8 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          is_online?: boolean | null
+          last_seen_at?: string | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
           rumble_url?: string | null
@@ -777,6 +890,8 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_live?: boolean | null
+          is_online?: boolean | null
+          last_seen_at?: string | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
           rumble_url?: string | null
@@ -1296,22 +1411,34 @@ export type Database = {
       user_settings: {
         Row: {
           created_at: string
+          follow_permission: Database["public"]["Enums"]["follow_permission"]
+          friend_request_permission: Database["public"]["Enums"]["friend_request_permission"]
           id: string
           messaging_privacy: Database["public"]["Enums"]["messaging_privacy"]
+          profile_visibility: Database["public"]["Enums"]["profile_visibility"]
+          show_online_status: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          follow_permission?: Database["public"]["Enums"]["follow_permission"]
+          friend_request_permission?: Database["public"]["Enums"]["friend_request_permission"]
           id?: string
           messaging_privacy?: Database["public"]["Enums"]["messaging_privacy"]
+          profile_visibility?: Database["public"]["Enums"]["profile_visibility"]
+          show_online_status?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          follow_permission?: Database["public"]["Enums"]["follow_permission"]
+          friend_request_permission?: Database["public"]["Enums"]["friend_request_permission"]
           id?: string
           messaging_privacy?: Database["public"]["Enums"]["messaging_privacy"]
+          profile_visibility?: Database["public"]["Enums"]["profile_visibility"]
+          show_online_status?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -1567,12 +1694,28 @@ export type Database = {
       }
     }
     Functions: {
+      are_friends: {
+        Args: { _user1_id: string; _user2_id: string }
+        Returns: boolean
+      }
+      can_view_profile: {
+        Args: { _profile_id: string; _viewer_id: string }
+        Returns: boolean
+      }
       get_profile_id: { Args: { _user_id: string }; Returns: string }
+      has_block_between: {
+        Args: { _user1_id: string; _user2_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_blocked: {
+        Args: { _blocked_id: string; _blocker_id: string }
         Returns: boolean
       }
       is_listing_seller: {
@@ -1641,6 +1784,10 @@ export type Database = {
         | "sold_out"
         | "live"
         | "completed"
+      follow_permission: "everyone" | "approval_required" | "no_one"
+      follow_status: "pending" | "approved"
+      friend_request_permission: "everyone" | "friends_of_friends" | "no_one"
+      friendship_status: "pending" | "accepted" | "declined"
       gift_source: "live_stream" | "comment_reply" | "direct_message"
       gift_type:
         | "spark_hamster"
@@ -1652,6 +1799,7 @@ export type Database = {
       listing_status: "active" | "sold" | "cancelled"
       listing_type: "single" | "lot" | "sealed" | "bundle"
       messaging_privacy: "open" | "friends_only"
+      profile_visibility: "public" | "friends_only" | "private"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
         | "pokemon"
@@ -1817,6 +1965,10 @@ export const Constants = {
         "live",
         "completed",
       ],
+      follow_permission: ["everyone", "approval_required", "no_one"],
+      follow_status: ["pending", "approved"],
+      friend_request_permission: ["everyone", "friends_of_friends", "no_one"],
+      friendship_status: ["pending", "accepted", "declined"],
       gift_source: ["live_stream", "comment_reply", "direct_message"],
       gift_type: [
         "spark_hamster",
@@ -1829,6 +1981,7 @@ export const Constants = {
       listing_status: ["active", "sold", "cancelled"],
       listing_type: ["single", "lot", "sealed", "bundle"],
       messaging_privacy: ["open", "friends_only"],
+      profile_visibility: ["public", "friends_only", "private"],
       tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [
         "pokemon",
