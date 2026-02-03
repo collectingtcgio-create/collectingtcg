@@ -10,7 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Plus, Check, Camera, Upload, X, Minus } from "lucide-react";
+import { Loader2, Plus, Check, Camera, Upload, X, Minus, HandCoins } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { CardCondition, ListingType, CardRarity } from "./types";
 import { conditionLabels, listingTypeLabels, rarityLabels } from "./types";
@@ -34,6 +35,7 @@ interface CreateListingModalProps {
     rarity_custom?: string;
     quantity?: number;
     description?: string;
+    accepts_offers?: boolean;
   }) => void;
   isSubmitting?: boolean;
 }
@@ -73,6 +75,7 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
   const [askingPrice, setAskingPrice] = useState('');
   const [condition, setCondition] = useState<CardCondition>('near_mint');
   const [description, setDescription] = useState('');
+  const [acceptsOffers, setAcceptsOffers] = useState(true);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch user's cards
@@ -156,6 +159,7 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
         rarity_custom: rarity === 'other' ? rarityCustom : undefined,
         quantity,
         description: description || undefined,
+        accepts_offers: acceptsOffers,
       });
     } else if (tab === 'manual' && cardName && tcgGame) {
       onSubmit({
@@ -170,6 +174,7 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
         rarity_custom: rarity === 'other' ? rarityCustom : undefined,
         quantity,
         description: description || undefined,
+        accepts_offers: acceptsOffers,
       });
     }
 
@@ -189,6 +194,7 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
     setAskingPrice('');
     setCondition('near_mint');
     setDescription('');
+    setAcceptsOffers(true);
   };
 
   const isValid = 
@@ -462,6 +468,26 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
               : "Add any additional details about the card..."
             }
             className="bg-background/50 min-h-[80px]"
+          />
+        </div>
+
+        {/* Accept Offers Toggle */}
+        <div className="flex items-center justify-between mt-4 p-3 bg-primary/10 rounded-lg border border-primary/30">
+          <div className="flex items-center gap-2">
+            <HandCoins className="w-5 h-5 text-primary" />
+            <div>
+              <Label htmlFor="accepts-offers" className="text-sm font-medium cursor-pointer">
+                Accept Best Offers
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Allow buyers to submit custom offers
+              </p>
+            </div>
+          </div>
+          <Switch
+            id="accepts-offers"
+            checked={acceptsOffers}
+            onCheckedChange={setAcceptsOffers}
           />
         </div>
 

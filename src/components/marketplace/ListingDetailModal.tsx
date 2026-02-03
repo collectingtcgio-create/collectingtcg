@@ -6,11 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, User, Calendar, Mail, Trash2, XCircle, Pencil, Save, X, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { DollarSign, User, Calendar, Trash2, XCircle, Pencil, Save, X, ChevronLeft, ChevronRight, Star, MessageCircle, HandCoins } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
+import { useListingOffers } from "@/hooks/useListingOffers";
+import { ListingOfferPanel } from "./ListingOfferPanel";
+import { ListingChat } from "./ListingChat";
 import type { MarketplaceListing, CardCondition } from "./types";
 import { conditionLabels, conditionColors, gameColors, gameLabels } from "./types";
 
@@ -45,7 +50,7 @@ export function ListingDetailModal({
   onDelete,
   onEdit,
 }: ListingDetailModalProps) {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editCardName, setEditCardName] = useState('');
   const [editTcgGame, setEditTcgGame] = useState('');
@@ -53,6 +58,22 @@ export function ListingDetailModal({
   const [editCondition, setEditCondition] = useState<CardCondition>('near_mint');
   const [editDescription, setEditDescription] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState('details');
+
+  // Use the offers hook
+  const {
+    offers,
+    messages,
+    isLoading: offersLoading,
+    myActiveOffer,
+    pendingOffers,
+    sendOffer,
+    acceptOffer,
+    declineOffer,
+    counterOffer,
+    sendMessage,
+    buyNow,
+  } = useListingOffers(listing?.id, listing?.seller_id);
   
   // Get all images (combine image_url and images array)
   const getAllImages = () => {
@@ -86,6 +107,7 @@ export function ListingDetailModal({
       setEditCondition(listing.condition);
       setEditDescription(listing.description || '');
       setCurrentImageIndex(0);
+      setActiveTab('details');
     }
     setIsEditing(false);
   }, [listing, open]);
@@ -93,8 +115,10 @@ export function ListingDetailModal({
   if (!listing) return null;
 
   const isOwner = profile?.id === listing.seller_id;
+  const isLoggedIn = !!user;
   const gameColor = gameColors[listing.tcg_game] || 'bg-muted text-muted-foreground';
   const gameLabel = gameLabels[listing.tcg_game] || listing.tcg_game.toUpperCase();
+  const acceptsOffers = listing.accepts_offers !== false; // Default to true if not set
 
   const handleSaveEdit = () => {
     const price = parseFloat(editAskingPrice);
@@ -136,9 +160,15 @@ export function ListingDetailModal({
 
   const currentImage = allImages[currentImageIndex] || listing.image_url;
 
+  // Get the other party for messaging
+  const chatRecipientId = isOwner ? pendingOffers[0]?.buyer_id : listing.seller_id;
+  const chatRecipientUsername = isOwner 
+    ? pendingOffers[0]?.buyer_profile?.username || 'Buyer' 
+    : listing.profiles?.username || 'Seller';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-border max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="glass-card border-border max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground">
             {isEditing ? 'Edit Listing' : 'Listing Details'}
@@ -148,9 +178,9 @@ export function ListingDetailModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-6 mt-4">
-          {/* Card Image with Gallery */}
-          <div className="space-y-3">
+        <div className="grid lg:grid-cols-5 gap-6 mt-4">
+          {/* Card Image with Gallery - 2 columns */}
+          <div className="lg:col-span-2 space-y-3">
             <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-background/50">
               {currentImage ? (
                 <img
@@ -208,7 +238,7 @@ export function ListingDetailModal({
                     key={index}
                     onClick={() => setCurrentImageIndex(index)}
                     className={cn(
-                      "relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all",
+                      "relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all",
                       currentImageIndex === index 
                         ? "border-primary ring-2 ring-primary/50" 
                         : "border-border hover:border-primary/50"
@@ -244,8 +274,8 @@ export function ListingDetailModal({
             )}
           </div>
 
-          {/* Details */}
-          <div className="space-y-4">
+          {/* Details & Actions - 3 columns */}
+          <div className="lg:col-span-3 space-y-4">
             {isEditing ? (
               // Edit Mode
               <>
@@ -314,78 +344,101 @@ export function ListingDetailModal({
                 </div>
               </>
             ) : (
-              // View Mode
-              <>
-                <div>
-                  <Badge className={cn("border mb-2", gameColor)} variant="outline">
-                    {gameLabel}
-                  </Badge>
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {listing.card_name}
-                  </h2>
-                </div>
+              // View Mode with Tabs
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3 bg-background/50">
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="offers" className="flex items-center gap-1">
+                    <HandCoins className="w-3 h-3" />
+                    {isOwner ? `Offers (${pendingOffers.length})` : 'Buy / Offer'}
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="flex items-center gap-1">
+                    <MessageCircle className="w-3 h-3" />
+                    Chat
+                    {messages.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                        {messages.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
 
-                {/* Price */}
-                <div className="flex items-center gap-2 bg-secondary/20 rounded-xl p-4 neon-glow-magenta">
-                  <DollarSign className="w-8 h-8 text-secondary" />
-                  <span className="text-3xl font-bold text-foreground">
-                    {listing.asking_price.toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Condition */}
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Condition</span>
-                  <Badge 
-                    className={cn("border-none", conditionColors[listing.condition])}
-                    variant="outline"
-                  >
-                    {conditionLabels[listing.condition]}
-                  </Badge>
-                </div>
-
-                {/* Listed Date */}
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Listed</span>
-                  <span className="flex items-center gap-1 text-foreground">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(listing.created_at), 'MMM d, yyyy')}
-                  </span>
-                </div>
-
-                {/* Description */}
-                {listing.description && (
-                  <div className="space-y-1">
-                    <span className="text-sm text-muted-foreground">Description</span>
-                    <p className="text-foreground bg-background/30 rounded-lg p-3">
-                      {listing.description}
-                    </p>
+                {/* Details Tab */}
+                <TabsContent value="details" className="space-y-4 mt-4">
+                  <div>
+                    <Badge className={cn("border mb-2", gameColor)} variant="outline">
+                      {gameLabel}
+                    </Badge>
+                    <h2 className="text-2xl font-bold text-foreground">
+                      {listing.card_name}
+                    </h2>
                   </div>
-                )}
 
-                {/* Seller Info */}
-                <div className="border-t border-border pt-4">
-                  <span className="text-sm text-muted-foreground block mb-2">Seller</span>
-                  <Link 
-                    to={`/profile/${listing.profiles?.id}`}
-                    className="flex items-center gap-3 hover:bg-background/30 p-2 rounded-lg transition-colors"
-                  >
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={listing.profiles?.avatar_url || ''} />
-                      <AvatarFallback>
-                        <User className="w-5 h-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-foreground">
-                      {listing.profiles?.username || 'Unknown Seller'}
+                  {/* Price */}
+                  <div className="flex items-center gap-2 bg-secondary/20 rounded-xl p-4">
+                    <DollarSign className="w-8 h-8 text-secondary" />
+                    <span className="text-3xl font-bold text-foreground">
+                      {listing.asking_price.toFixed(2)}
                     </span>
-                  </Link>
-                </div>
+                    {acceptsOffers && (
+                      <Badge variant="outline" className="ml-2 bg-primary/20 text-primary border-primary/50">
+                        Best Offer
+                      </Badge>
+                    )}
+                  </div>
 
-                {/* Actions */}
-                <div className="space-y-2 pt-4">
-                  {isOwner ? (
-                    <>
+                  {/* Condition */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Condition</span>
+                    <Badge 
+                      className={cn("border-none", conditionColors[listing.condition])}
+                      variant="outline"
+                    >
+                      {conditionLabels[listing.condition]}
+                    </Badge>
+                  </div>
+
+                  {/* Listed Date */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Listed</span>
+                    <span className="flex items-center gap-1 text-foreground">
+                      <Calendar className="w-4 h-4" />
+                      {format(new Date(listing.created_at), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+
+                  {/* Description */}
+                  {listing.description && (
+                    <div className="space-y-1">
+                      <span className="text-sm text-muted-foreground">Description</span>
+                      <p className="text-foreground bg-background/30 rounded-lg p-3">
+                        {listing.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Seller Info */}
+                  <div className="border-t border-border pt-4">
+                    <span className="text-sm text-muted-foreground block mb-2">Seller</span>
+                    <Link 
+                      to={`/profile/${listing.profiles?.id}`}
+                      className="flex items-center gap-3 hover:bg-background/30 p-2 rounded-lg transition-colors"
+                    >
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={listing.profiles?.avatar_url || ''} />
+                        <AvatarFallback>
+                          <User className="w-5 h-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground">
+                        {listing.profiles?.username || 'Unknown Seller'}
+                      </span>
+                    </Link>
+                  </div>
+
+                  {/* Owner Actions */}
+                  {isOwner && (
+                    <div className="space-y-2 pt-4">
                       {listing.status === 'active' && (
                         <>
                           <Button
@@ -420,20 +473,60 @@ export function ListingDetailModal({
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete Listing
                       </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="w-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan"
-                      asChild
-                    >
-                      <Link to={`/profile/${listing.profiles?.id}`}>
-                        <Mail className="w-4 h-4 mr-2" />
-                        Contact Seller
-                      </Link>
-                    </Button>
+                    </div>
                   )}
-                </div>
-              </>
+                </TabsContent>
+
+                {/* Offers Tab */}
+                <TabsContent value="offers" className="mt-4">
+                  {listing.status === 'active' ? (
+                    <ListingOfferPanel
+                      askingPrice={listing.asking_price}
+                      acceptsOffers={acceptsOffers}
+                      isOwner={isOwner}
+                      isLoggedIn={isLoggedIn}
+                      pendingOffers={pendingOffers}
+                      myActiveOffer={myActiveOffer}
+                      onBuyNow={(amount) => buyNow.mutate({ amount })}
+                      onSendOffer={(amount) => sendOffer.mutate({ amount })}
+                      onAcceptOffer={(offerId, buyerId) => acceptOffer.mutate({ offerId, buyerId })}
+                      onDeclineOffer={(offerId, buyerId) => declineOffer.mutate({ offerId, buyerId })}
+                      onCounterOffer={(offerId, buyerId, amount) => counterOffer.mutate({ offerId, buyerId, amount })}
+                      isBuying={buyNow.isPending}
+                      isSendingOffer={sendOffer.isPending}
+                      isAccepting={acceptOffer.isPending}
+                      isDeclining={declineOffer.isPending}
+                      isCountering={counterOffer.isPending}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      This listing is no longer active
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Chat Tab */}
+                <TabsContent value="chat" className="mt-4">
+                  {isLoggedIn && chatRecipientId ? (
+                    <ListingChat
+                      messages={messages}
+                      currentUserId={profile?.id}
+                      recipientId={chatRecipientId}
+                      recipientUsername={chatRecipientUsername}
+                      onSendMessage={(content, recipientId) => sendMessage.mutate({ content, recipientId })}
+                      isSending={sendMessage.isPending}
+                      isLoading={offersLoading}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {isLoggedIn 
+                        ? "Start a conversation by making an offer or using Buy It Now"
+                        : "Log in to message the seller"
+                      }
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         </div>
