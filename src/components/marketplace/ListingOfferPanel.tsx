@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +40,7 @@ interface ListingOfferPanelProps {
   isCountering: boolean;
 }
 
-export function ListingOfferPanel({
+export const ListingOfferPanel = forwardRef<HTMLDivElement, ListingOfferPanelProps>(({
   askingPrice,
   acceptsOffers,
   isOwner,
@@ -57,7 +57,7 @@ export function ListingOfferPanel({
   isAccepting,
   isDeclining,
   isCountering,
-}: ListingOfferPanelProps) {
+}, ref) => {
   const [offerAmount, setOfferAmount] = useState('');
   const [counterAmounts, setCounterAmounts] = useState<Record<string, string>>({});
   const [showCounterInput, setShowCounterInput] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function ListingOfferPanel({
   // Buyer view
   if (!isOwner) {
     return (
-      <div className="space-y-4">
+      <div ref={ref} className="space-y-4">
         {/* Buy Now Section */}
         <Card className="bg-secondary/10 border-secondary/30">
           <CardContent className="pt-4">
@@ -184,7 +184,7 @@ export function ListingOfferPanel({
 
   // Seller view - show pending offers
   return (
-    <div className="space-y-4">
+    <div ref={ref} className="space-y-4">
       <Card className="bg-background/50 border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center justify-between">
@@ -319,4 +319,6 @@ export function ListingOfferPanel({
       </Card>
     </div>
   );
-}
+});
+
+ListingOfferPanel.displayName = 'ListingOfferPanel';

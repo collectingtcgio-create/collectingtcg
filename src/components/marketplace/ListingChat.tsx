@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -61,7 +61,7 @@ const getMessageTypeStyle = (type: MessageType) => {
   }
 };
 
-export function ListingChat({
+export const ListingChat = forwardRef<HTMLDivElement, ListingChatProps>(({
   messages,
   currentUserId,
   recipientId,
@@ -69,7 +69,7 @@ export function ListingChat({
   onSendMessage,
   isSending,
   isLoading,
-}: ListingChatProps) {
+}, ref) => {
   const [messageText, setMessageText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +102,7 @@ export function ListingChat({
   }
 
   return (
-    <div className="flex flex-col h-80 border border-border rounded-lg bg-background/30">
+    <div ref={ref} className="flex flex-col h-80 border border-border rounded-lg bg-background/30">
       {/* Chat Header */}
       <div className="px-4 py-2 border-b border-border bg-background/50">
         <span className="text-sm font-medium text-foreground">
@@ -210,4 +210,6 @@ export function ListingChat({
       )}
     </div>
   );
-}
+});
+
+ListingChat.displayName = 'ListingChat';
