@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMessages, Conversation } from "@/hooks/useMessages";
+import { useFriendships } from "@/hooks/useFriendships";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MessageSquare } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Search, MessageSquare, UserPlus, Check, X, Bell, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 // TCG game type colors
@@ -24,7 +28,9 @@ interface ContactsListProps {
 
 export function ContactsList({ onSelectContact, selectedPartnerId }: ContactsListProps) {
   const { conversations, isLoading } = useMessages();
+  const { pendingRequests, acceptFriendRequest, declineFriendRequest } = useFriendships();
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFriendRequests, setShowFriendRequests] = useState(true);
 
   const filteredConversations = conversations.filter((conv) =>
     conv.partnerUsername.toLowerCase().includes(searchQuery.toLowerCase())
@@ -55,6 +61,89 @@ export function ContactsList({ onSelectContact, selectedPartnerId }: ContactsLis
           />
         </div>
       </div>
+
+      {/* Friend Requests Section */}
+      {pendingRequests.length > 0 && showFriendRequests && (
+        <div className="border-b border-border/50">
+          <button
+            onClick={() => setShowFriendRequests(!showFriendRequests)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-secondary/10 hover:bg-secondary/20 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-secondary animate-pulse" />
+              <span className="text-sm font-semibold text-secondary">Friend Requests</span>
+            </div>
+            <Badge className="bg-secondary text-secondary-foreground text-xs">
+              {pendingRequests.length}
+            </Badge>
+          </button>
+          
+          <div className="max-h-40 overflow-y-auto">
+            {pendingRequests.slice(0, 3).map((request) => (
+              <div
+                key={request.id}
+                className="flex items-center gap-2 p-2 px-3 bg-muted/20 border-b border-border/20"
+              >
+                <Link to={`/profile/${request.requester?.id}`}>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage
+                      src={request.requester?.avatar_url || undefined}
+                      alt={request.requester?.username || "User"}
+                    />
+                    <AvatarFallback className="text-xs">
+                      {request.requester?.username?.[0]?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <Link
+                    to={`/profile/${request.requester?.id}`}
+                    className="font-medium text-xs hover:text-primary truncate block"
+                  >
+                    {request.requester?.username || "Unknown"}
+                  </Link>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                    onClick={() => acceptFriendRequest.mutate(request.id)}
+                    disabled={acceptFriendRequest.isPending}
+                  >
+                    {acceptFriendRequest.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Check className="w-3 h-3" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => declineFriendRequest.mutate(request.id)}
+                    disabled={declineFriendRequest.isPending}
+                  >
+                    {declineFriendRequest.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <X className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {pendingRequests.length > 3 && (
+              <Link
+                to="/settings"
+                className="block text-center text-xs text-primary hover:underline py-2 bg-muted/10"
+              >
+                View all {pendingRequests.length} requests
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Contacts list */}
       <div className="flex-1 overflow-y-auto">
