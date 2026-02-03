@@ -10,6 +10,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UsernameEditor } from "@/components/profile/UsernameEditor";
 import { PrivacySettingsSection } from "@/components/settings/PrivacySettingsSection";
 import { FriendsFollowersSection } from "@/components/settings/FriendsFollowersSection";
+import { AccountSecuritySection } from "@/components/settings/AccountSecuritySection";
+import { AccountManagementSection } from "@/components/settings/AccountManagementSection";
+import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { 
   Settings as SettingsIcon, 
   Shield, 
@@ -20,7 +23,10 @@ import {
   ArrowLeft,
   User,
   Users,
-  Eye
+  Eye,
+  Key,
+  Trash2,
+  Bell
 } from "lucide-react";
 
 interface ProfileWithUsernameChange {
@@ -107,6 +113,32 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Account Security */}
+        <div className="glass-card neon-border-cyan overflow-hidden mb-6">
+          <div className="bg-primary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Key className="w-5 h-5 text-primary" />
+              Account Security
+            </h2>
+          </div>
+          <div className="p-4">
+            <AccountSecuritySection />
+          </div>
+        </div>
+
+        {/* Account Management */}
+        <div className="glass-card neon-border-magenta overflow-hidden mb-6">
+          <div className="bg-secondary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-secondary" />
+              Account Management
+            </h2>
+          </div>
+          <div className="p-4">
+            <AccountManagementSection />
+          </div>
+        </div>
+
         {/* Profile Privacy & Visibility */}
         <div className="glass-card neon-border-cyan overflow-hidden mb-6">
           <div className="bg-primary/20 px-4 py-3 border-b border-border/50">
@@ -180,11 +212,24 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Blocked Users */}
-        <div className="glass-card neon-border-magenta overflow-hidden">
+        {/* Notifications */}
+        <div className="glass-card neon-border-magenta overflow-hidden mb-6">
           <div className="bg-secondary/20 px-4 py-3 border-b border-border/50">
             <h2 className="font-semibold flex items-center gap-2">
-              <Ban className="w-5 h-5 text-secondary" />
+              <Bell className="w-5 h-5 text-secondary" />
+              Notifications
+            </h2>
+          </div>
+          <div className="p-4">
+            <NotificationsSection />
+          </div>
+        </div>
+
+        {/* Blocked Users */}
+        <div className="glass-card neon-border-cyan overflow-hidden">
+          <div className="bg-primary/20 px-4 py-3 border-b border-border/50">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Ban className="w-5 h-5 text-primary" />
               Blocked Users
             </h2>
           </div>
