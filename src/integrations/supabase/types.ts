@@ -1798,7 +1798,7 @@ export type Database = {
         | "mecha_pup"
       listing_status: "active" | "sold" | "cancelled"
       listing_type: "single" | "lot" | "sealed" | "bundle"
-      messaging_privacy: "open" | "friends_only"
+      messaging_privacy: "open" | "friends_only" | "buyers_only"
       profile_visibility: "public" | "friends_only" | "private"
       tcg_event_game: "pokemon" | "magic" | "yugioh" | "onepiece" | "lorcana"
       tcg_game:
@@ -1980,7 +1980,7 @@ export const Constants = {
       ],
       listing_status: ["active", "sold", "cancelled"],
       listing_type: ["single", "lot", "sealed", "bundle"],
-      messaging_privacy: ["open", "friends_only"],
+      messaging_privacy: ["open", "friends_only", "buyers_only"],
       profile_visibility: ["public", "friends_only", "private"],
       tcg_event_game: ["pokemon", "magic", "yugioh", "onepiece", "lorcana"],
       tcg_game: [

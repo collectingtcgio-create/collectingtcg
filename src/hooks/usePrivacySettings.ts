@@ -14,7 +14,7 @@ export interface PrivacySettings {
   show_online_status: boolean;
   friend_request_permission: FriendRequestPermission;
   follow_permission: FollowPermission;
-  messaging_privacy: "open" | "friends_only";
+  messaging_privacy: "open" | "friends_only" | "buyers_only";
   created_at: string;
   updated_at: string;
 }

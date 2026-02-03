@@ -461,13 +461,10 @@ export default function Profile() {
                 </button>
                 <button 
                   onClick={() => {
-                    if (isOwnProfile) {
-                      setFollowersModalTab("friends");
-                      setFollowersModalOpen(true);
-                    }
+                    setFollowersModalTab("friends");
+                    setFollowersModalOpen(true);
                   }}
-                  className={`flex-1 rounded-lg p-2 transition-colors ${isOwnProfile ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
-                  disabled={!isOwnProfile}
+                  className="flex-1 hover:bg-muted/50 rounded-lg p-2 transition-colors cursor-pointer"
                 >
                   <p className="text-lg font-bold text-accent">{friendCount}</p>
                   <p className="text-xs text-muted-foreground">Friends</p>
@@ -490,9 +487,12 @@ export default function Profile() {
                     </button>
                   )}
                   <span className="text-muted-foreground">|</span>
-                  <span className="text-muted-foreground">Decks</span>
-                  <span className="text-muted-foreground">|</span>
-                  <span className="text-muted-foreground">Wishlist</span>
+                  <Link 
+                    to={isOwnProfile ? "/marketplace?tab=my-listings" : `/marketplace?seller=${targetProfileId}`} 
+                    className="text-primary hover:underline flex items-center gap-1"
+                  >
+                    Selling
+                  </Link>
                 </div>
               </div>
             </div>

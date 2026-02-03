@@ -182,7 +182,7 @@ export default function Settings() {
               </div>
               <RadioGroup
                 value={settings?.messaging_privacy || "open"}
-                onValueChange={(value) => updatePrivacy.mutate(value as "open" | "friends_only")}
+                onValueChange={(value) => updatePrivacy.mutate(value as "open" | "friends_only" | "buyers_only")}
                 className="space-y-3"
               >
                 <div className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
@@ -204,6 +204,17 @@ export default function Settings() {
                     </Label>
                     <p className="text-sm text-muted-foreground">
                       Only your friends can message you
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="buyers_only" id="buyers_only" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="buyers_only" className="font-medium cursor-pointer">
+                      Buyers Only
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Only users who have bought from you or made offers on your listings can message you
                     </p>
                   </div>
                 </div>
