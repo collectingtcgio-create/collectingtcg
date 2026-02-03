@@ -98,17 +98,30 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
     const remainingSlots = MAX_IMAGES - images.length;
     const filesToProcess = Array.from(files).slice(0, remainingSlots);
     
+    if (filesToProcess.length === 0) return;
+    
     setIsUploadingImage(true);
     
-    for (const file of filesToProcess) {
-      if (!file.type.startsWith("image/")) continue;
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setImages(prev => [...prev, base64]);
-      };
-      reader.readAsDataURL(file);
+    // Process all files and wait for all to complete
+    const imagePromises = filesToProcess
+      .filter(file => file.type.startsWith("image/"))
+      .map(file => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+    
+    try {
+      const newImages = await Promise.all(imagePromises);
+      setImages(prev => [...prev, ...newImages]);
+    } catch (error) {
+      console.error('Error reading image files:', error);
     }
     
     setIsUploadingImage(false);
