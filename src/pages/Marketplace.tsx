@@ -201,6 +201,7 @@ export default function Marketplace() {
                     key={listing.id}
                     listing={listing}
                     onViewDetails={handleViewDetails}
+                    isOwner={profile?.id === listing.seller_id}
                   />
                 ))}
               </div>
@@ -233,6 +234,7 @@ export default function Marketplace() {
                     key={listing.id}
                     listing={listing}
                     onViewDetails={handleViewDetails}
+                    isOwner={true}
                   />
                 ))}
               </div>

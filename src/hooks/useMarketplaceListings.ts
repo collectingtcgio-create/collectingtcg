@@ -103,10 +103,24 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
 
           const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
+          // Fetch pending offer counts for listings
+          const listingIds = filtered.map(item => item.id);
+          const { data: offers } = await supabase
+            .from('listing_offers')
+            .select('listing_id')
+            .in('listing_id', listingIds)
+            .eq('status', 'pending');
+
+          const offerCountMap = new Map<string, number>();
+          offers?.forEach(offer => {
+            offerCountMap.set(offer.listing_id, (offerCountMap.get(offer.listing_id) || 0) + 1);
+          });
+
           return filtered.map(item => ({
             ...item,
             images: item.images || [],
             profiles: profilesMap.get(item.seller_id),
+            pending_offers_count: offerCountMap.get(item.id) || 0,
           })) as MarketplaceListing[];
         }
       }
@@ -164,10 +178,24 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
 
       if (error) throw error;
       
+      // Fetch pending offer counts for listings
+      const listingIds = (data || []).map(item => item.id);
+      const { data: offers } = await supabase
+        .from('listing_offers')
+        .select('listing_id')
+        .in('listing_id', listingIds)
+        .eq('status', 'pending');
+
+      const offerCountMap = new Map<string, number>();
+      offers?.forEach(offer => {
+        offerCountMap.set(offer.listing_id, (offerCountMap.get(offer.listing_id) || 0) + 1);
+      });
+
       // Ensure images is always an array
       return (data || []).map(item => ({
         ...item,
         images: item.images || [],
+        pending_offers_count: offerCountMap.get(item.id) || 0,
       })) as MarketplaceListing[];
     },
   });
