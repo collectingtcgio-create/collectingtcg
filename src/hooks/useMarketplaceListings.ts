@@ -244,6 +244,46 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
     },
   });
 
+  const editListing = useMutation({
+    mutationFn: async ({ 
+      id, 
+      card_name, 
+      tcg_game,
+      asking_price,
+      condition,
+      description,
+    }: { 
+      id: string; 
+      card_name?: string; 
+      tcg_game?: TcgGame;
+      asking_price?: number;
+      condition?: CardCondition;
+      description?: string;
+    }) => {
+      const updateData: any = {};
+      
+      if (card_name !== undefined) updateData.card_name = card_name;
+      if (tcg_game !== undefined) updateData.tcg_game = tcg_game;
+      if (asking_price !== undefined) updateData.asking_price = asking_price;
+      if (condition !== undefined) updateData.condition = condition;
+      if (description !== undefined) updateData.description = description;
+
+      const { error } = await supabase
+        .from('marketplace_listings')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-listings'] });
+      toast({ title: 'Listing updated successfully!' });
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to update listing', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const deleteListing = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -268,6 +308,7 @@ export function useMarketplaceListings(filters?: MarketplaceFilters) {
     error: listingsQuery.error,
     createListing,
     updateListing,
+    editListing,
     deleteListing,
   };
 }

@@ -44,7 +44,7 @@ export default function Marketplace() {
     setSearchQuery('');
   };
 
-  const { listings, isLoading, createListing, updateListing, deleteListing } = useMarketplaceListings({
+  const { listings, isLoading, createListing, updateListing, editListing, deleteListing } = useMarketplaceListings({
     game: game !== 'all' ? game : undefined,
     minPrice: minPrice ? parseFloat(minPrice) : undefined,
     maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
@@ -80,6 +80,21 @@ export default function Marketplace() {
   const handleDelete = (id: string) => {
     deleteListing.mutate(id);
     setDetailModalOpen(false);
+  };
+
+  const handleEdit = (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string }) => {
+    editListing.mutate({ id, ...data } as any);
+    // Update local selected listing state for immediate UI feedback
+    if (selectedListing) {
+      setSelectedListing({
+        ...selectedListing,
+        card_name: data.card_name ?? selectedListing.card_name,
+        tcg_game: data.tcg_game ?? selectedListing.tcg_game,
+        asking_price: data.asking_price ?? selectedListing.asking_price,
+        condition: data.condition ?? selectedListing.condition,
+        description: data.description ?? selectedListing.description,
+      });
+    }
   };
 
   return (
@@ -264,6 +279,7 @@ export default function Marketplace() {
         onMarkSold={handleMarkSold}
         onCancel={handleCancel}
         onDelete={handleDelete}
+        onEdit={handleEdit}
       />
     </Layout>
   );

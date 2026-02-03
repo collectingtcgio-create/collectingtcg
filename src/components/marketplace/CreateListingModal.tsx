@@ -47,6 +47,7 @@ const games = [
   { value: 'dragonball', label: 'Dragon Ball' },
   { value: 'unionarena', label: 'Union Arena' },
   { value: 'marvel', label: 'Marvel' },
+  { value: 'starwars', label: 'Star Wars' },
 ];
 
 const MAX_IMAGES = 10;
