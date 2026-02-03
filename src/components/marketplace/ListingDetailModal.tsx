@@ -160,11 +160,13 @@ export function ListingDetailModal({
 
   const currentImage = allImages[currentImageIndex] || listing.image_url;
 
-  // Get the other party for messaging
-  const chatRecipientId = isOwner ? pendingOffers[0]?.buyer_id : listing.seller_id;
+  // Get the other party for messaging - buyers chat with seller, sellers chat with latest offer buyer
+  const chatRecipientId = isOwner 
+    ? (pendingOffers[0]?.buyer_id || messages.find(m => m.sender_id !== profile?.id)?.sender_id)
+    : listing.seller_id;
   const chatRecipientUsername = isOwner 
-    ? pendingOffers[0]?.buyer_profile?.username || 'Buyer' 
-    : listing.profiles?.username || 'Seller';
+    ? (pendingOffers[0]?.buyer_profile?.username || 'Buyer') 
+    : (listing.profiles?.username || 'Seller');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -507,7 +509,25 @@ export function ListingDetailModal({
 
                 {/* Chat Tab */}
                 <TabsContent value="chat" className="mt-4">
-                  {isLoggedIn && chatRecipientId ? (
+                  {!isLoggedIn ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Log in to message the seller
+                    </div>
+                  ) : isOwner && !chatRecipientId ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No conversations yet. Wait for buyers to make offers or message you.
+                    </div>
+                  ) : !isOwner ? (
+                    <ListingChat
+                      messages={messages}
+                      currentUserId={profile?.id}
+                      recipientId={listing.seller_id}
+                      recipientUsername={listing.profiles?.username || 'Seller'}
+                      onSendMessage={(content, recipientId) => sendMessage.mutate({ content, recipientId })}
+                      isSending={sendMessage.isPending}
+                      isLoading={offersLoading}
+                    />
+                  ) : chatRecipientId ? (
                     <ListingChat
                       messages={messages}
                       currentUserId={profile?.id}
@@ -517,14 +537,7 @@ export function ListingDetailModal({
                       isSending={sendMessage.isPending}
                       isLoading={offersLoading}
                     />
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      {isLoggedIn 
-                        ? "Start a conversation by making an offer or using Buy It Now"
-                        : "Log in to message the seller"
-                      }
-                    </div>
-                  )}
+                  ) : null}
                 </TabsContent>
               </Tabs>
             )}
