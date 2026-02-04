@@ -1,0 +1,49 @@
+🚀 Starting CSV Import to Supabase
+
+
+📥 Importing Users (Authentication)...
+Found 7 users to import
+✅ Imported pepkillagaming@gmail.com
+✅ Imported tacticaltigr3ss@gmail.com
+✅ Imported womackgaming@yahoo.com
+✅ Imported aegis_md3@outlook.com
+✅ Imported samuel.cookk@gmail.com
+✅ Imported info@ctindustries.ca
+✅ Imported tacitcaltigr3ss@gmail.com
+
+✅ Created: 7
+⏩ Skipped (existing): 0
+❌ Failed: 0
+
+📥 Importing Profiles...
+Found 7 profiles to import
+✅ Imported batch 1 (7 profiles)
+
+✅ Imported: 7
+❌ Failed: 0
+
+📥 Importing User Cards...
+Found 11 cards to import
+ℹ️  Using fallback user ID for orphans: f1ee7cb8-90c6-4c20-9e27-ba24010e5aff (pepkillagaming@gmail.com)
+❌ Error importing batch 1: new row for relation "user_cards" violates check constraint "user_cards_quantity_check"
+
+✅ Imported: 0
+⚠️  Orphan records mapped to fallback: 11
+❌ Failed: 11
+
+📥 Importing Marketplace Listings...
+Found 3 listings to import
+❌ Error importing batch 1: malformed array literal: "[]"
+
+✅ Imported: 0
+⚠️  Orphan records mapped to fallback: 3
+❌ Failed: 3
+
+🎉 Import Complete!
+
+⚠️  Next steps:
+1. Verify data in your Supabase dashboard
+2. Send password reset emails to all users
+3. Migrate storage files (avatars/images)
+4. Test logging in with a migrated user
+
