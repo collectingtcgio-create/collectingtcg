@@ -1,21 +1,190 @@
 -- ============================================
--- USER DATA MIGRATION SCRIPT
+-- COMPLETE USER MIGRATION SCRIPT
+-- From Lovable Cloud to External Supabase
 -- ============================================
--- IMPORTANT: Auth users (auth.users) cannot be exported from Lovable Cloud.
--- Users will need to re-register on your external Supabase instance.
--- After they register, you'll need to update the user_id references below
--- to match their new auth.users IDs.
+-- 
+-- IMPORTANT: Run this in your external Supabase SQL Editor
+-- This script migrates BOTH auth.users AND public schema data
+-- Users will be able to login with their EXISTING passwords!
 --
--- This script contains profile data that references the OLD user_ids.
--- You have two options:
--- 1. Have users re-register, then manually update user_id mappings
--- 2. Use Supabase's admin API to create users with specific IDs (advanced)
 -- ============================================
 
 -- ============================================
--- PROFILES DATA (7 users)
+-- STEP 1: INSERT AUTH USERS (with encrypted passwords)
 -- ============================================
--- Note: You'll need to update user_id values after users re-register
+-- These passwords are bcrypt hashed - users can login with their existing passwords
+
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_user_meta_data,
+  is_super_admin,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change
+) VALUES
+-- User: Pepkilla (pepkillagaming@gmail.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  'a24a29cb-576a-422b-b219-f0aadc1901e4',
+  'authenticated',
+  'authenticated',
+  'pepkillagaming@gmail.com',
+  '$2a$10$qW7qG2NyzUxQNPnR/0OSwu8762T0gt3R6i9bkLuvoS4uMDQXFMyqW',
+  '2026-01-27 23:14:42.275795+00',
+  '2026-01-27 23:14:42.232085+00',
+  '2026-02-04 01:31:10.4456+00',
+  '{"email": "pepkillagaming@gmail.com", "email_verified": true, "phone_verified": false, "sub": "a24a29cb-576a-422b-b219-f0aadc1901e4", "username": "pepkilla"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: tigress (tacticaltigr3ss@gmail.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  'ebd419d6-e148-4b93-8310-1f0a92145c0b',
+  'authenticated',
+  'authenticated',
+  'tacticaltigr3ss@gmail.com',
+  '$2a$10$qHWP0wACLGG.O/0u9VG8Ve9Z1RtuNCCI.xwhaLRqfEUoOdlYXynDe',
+  '2026-01-28 17:40:23.995544+00',
+  '2026-01-28 17:40:23.935284+00',
+  '2026-02-04 01:31:14.016323+00',
+  '{"email": "tacticaltigr3ss@gmail.com", "email_verified": true, "phone_verified": false, "sub": "ebd419d6-e148-4b93-8310-1f0a92145c0b", "username": "tigress"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: Ricky Womack (womackgaming@yahoo.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  '31638a67-285c-40f5-a5ac-c47d23ffd6dc',
+  'authenticated',
+  'authenticated',
+  'womackgaming@yahoo.com',
+  '$2a$10$fxG5yR50wg7XNhmnFuILLOCEQi3O6tXn1Yz.YH/oXWxCU.t2gcUU2',
+  '2026-01-28 20:24:08.754962+00',
+  '2026-01-28 20:24:08.704396+00',
+  '2026-01-29 14:30:56.595442+00',
+  '{"email": "womackgaming@yahoo.com", "email_verified": true, "phone_verified": false, "sub": "31638a67-285c-40f5-a5ac-c47d23ffd6dc", "username": "Ricky Womack"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: FusedAegis (aegis_md3@outlook.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  '80404a9c-cd10-4926-b747-7a80c529376a',
+  'authenticated',
+  'authenticated',
+  'aegis_md3@outlook.com',
+  '$2a$10$FxqpXUHJhDNabtC476u5Vur3CnQ8MjpVID1IjDnG82T1iwVJ.r/Em',
+  '2026-01-28 20:47:45.353227+00',
+  '2026-01-28 20:47:45.312968+00',
+  '2026-01-31 04:13:14.982381+00',
+  '{"email": "aegis_md3@outlook.com", "email_verified": true, "phone_verified": false, "sub": "80404a9c-cd10-4926-b747-7a80c529376a", "username": "FusedAegis"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: Sammyc (samuel.cookk@gmail.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  '845ce37e-ed6b-42cf-b710-790b35a9c3bc',
+  'authenticated',
+  'authenticated',
+  'samuel.cookk@gmail.com',
+  '$2a$10$AvKGSHE8RHNT4y0MHgz.0OGHf00Dw85oGsflmm/uvdYAHJZhU1qzO',
+  '2026-01-29 22:12:19.082907+00',
+  '2026-01-29 22:12:19.011602+00',
+  '2026-01-29 22:12:19.121367+00',
+  '{"email": "samuel.cookk@gmail.com", "email_verified": true, "phone_verified": false, "sub": "845ce37e-ed6b-42cf-b710-790b35a9c3bc", "username": "Sammyc"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: Pepkirra the original (info@ctindustries.ca)
+(
+  '00000000-0000-0000-0000-000000000000',
+  '88201d99-9b7a-49bc-b392-a56dc2f79488',
+  'authenticated',
+  'authenticated',
+  'info@ctindustries.ca',
+  '$2a$10$/D.rCjA2KHo1oigH800jp.pTpHY4SoXGgSDsTkvC6hD82PWtXwx3u',
+  '2026-01-31 17:58:11.159061+00',
+  '2026-01-31 17:58:11.103291+00',
+  '2026-01-31 17:58:11.210792+00',
+  '{"email": "info@ctindustries.ca", "email_verified": true, "phone_verified": false, "sub": "88201d99-9b7a-49bc-b392-a56dc2f79488", "username": "Pepkirra the original"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+),
+-- User: tacticaltigress (tacitcaltigr3ss@gmail.com)
+(
+  '00000000-0000-0000-0000-000000000000',
+  'f6e21021-dcbc-4794-9aa6-7104daf2adf6',
+  'authenticated',
+  'authenticated',
+  'tacitcaltigr3ss@gmail.com',
+  '$2a$10$ZtLAoy0vOACd/D03IKTXA.BhDgkVq8O1/L16nInxg9Wi3DEgv1bS2',
+  '2026-02-03 21:33:51.935829+00',
+  '2026-02-03 21:33:51.885849+00',
+  '2026-02-04 01:31:24.387178+00',
+  '{"email": "tacitcaltigr3ss@gmail.com", "email_verified": true, "phone_verified": false, "sub": "f6e21021-dcbc-4794-9aa6-7104daf2adf6", "username": "tacticaltigress"}',
+  false,
+  '',
+  '',
+  '',
+  ''
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================
+-- STEP 2: INSERT IDENTITIES (required for auth to work)
+-- ============================================
+
+INSERT INTO auth.identities (
+  id,
+  user_id,
+  identity_data,
+  provider,
+  provider_id,
+  created_at,
+  updated_at,
+  last_sign_in_at
+) VALUES
+('a24a29cb-576a-422b-b219-f0aadc1901e4', 'a24a29cb-576a-422b-b219-f0aadc1901e4', '{"sub": "a24a29cb-576a-422b-b219-f0aadc1901e4", "email": "pepkillagaming@gmail.com", "email_verified": true}', 'email', 'a24a29cb-576a-422b-b219-f0aadc1901e4', '2026-01-27 23:14:42.232085+00', '2026-02-04 01:31:10.4456+00', '2026-02-04 01:31:10.4456+00'),
+('ebd419d6-e148-4b93-8310-1f0a92145c0b', 'ebd419d6-e148-4b93-8310-1f0a92145c0b', '{"sub": "ebd419d6-e148-4b93-8310-1f0a92145c0b", "email": "tacticaltigr3ss@gmail.com", "email_verified": true}', 'email', 'ebd419d6-e148-4b93-8310-1f0a92145c0b', '2026-01-28 17:40:23.935284+00', '2026-02-04 01:31:14.016323+00', '2026-02-04 01:31:14.016323+00'),
+('31638a67-285c-40f5-a5ac-c47d23ffd6dc', '31638a67-285c-40f5-a5ac-c47d23ffd6dc', '{"sub": "31638a67-285c-40f5-a5ac-c47d23ffd6dc", "email": "womackgaming@yahoo.com", "email_verified": true}', 'email', '31638a67-285c-40f5-a5ac-c47d23ffd6dc', '2026-01-28 20:24:08.704396+00', '2026-01-29 14:30:56.595442+00', '2026-01-29 14:30:56.595442+00'),
+('80404a9c-cd10-4926-b747-7a80c529376a', '80404a9c-cd10-4926-b747-7a80c529376a', '{"sub": "80404a9c-cd10-4926-b747-7a80c529376a", "email": "aegis_md3@outlook.com", "email_verified": true}', 'email', '80404a9c-cd10-4926-b747-7a80c529376a', '2026-01-28 20:47:45.312968+00', '2026-01-31 04:13:14.982381+00', '2026-01-31 04:13:14.982381+00'),
+('845ce37e-ed6b-42cf-b710-790b35a9c3bc', '845ce37e-ed6b-42cf-b710-790b35a9c3bc', '{"sub": "845ce37e-ed6b-42cf-b710-790b35a9c3bc", "email": "samuel.cookk@gmail.com", "email_verified": true}', 'email', '845ce37e-ed6b-42cf-b710-790b35a9c3bc', '2026-01-29 22:12:19.011602+00', '2026-01-29 22:12:19.121367+00', '2026-01-29 22:12:19.121367+00'),
+('88201d99-9b7a-49bc-b392-a56dc2f79488', '88201d99-9b7a-49bc-b392-a56dc2f79488', '{"sub": "88201d99-9b7a-49bc-b392-a56dc2f79488", "email": "info@ctindustries.ca", "email_verified": true}', 'email', '88201d99-9b7a-49bc-b392-a56dc2f79488', '2026-01-31 17:58:11.103291+00', '2026-01-31 17:58:11.210792+00', '2026-01-31 17:58:11.210792+00'),
+('f6e21021-dcbc-4794-9aa6-7104daf2adf6', 'f6e21021-dcbc-4794-9aa6-7104daf2adf6', '{"sub": "f6e21021-dcbc-4794-9aa6-7104daf2adf6", "email": "tacitcaltigr3ss@gmail.com", "email_verified": true}', 'email', 'f6e21021-dcbc-4794-9aa6-7104daf2adf6', '2026-02-03 21:33:51.885849+00', '2026-02-04 01:31:24.387178+00', '2026-02-04 01:31:24.387178+00')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================
+-- STEP 3: INSERT PROFILES (public schema)
+-- ============================================
 
 INSERT INTO public.profiles (id, user_id, username, bio, avatar_url, is_live, is_online, status, email_contact, twitter_url, instagram_url, facebook_url, youtube_url, tiktok_url, website_url, rumble_url, spotify_playlist_url, youtube_playlist_url, music_autoplay, last_username_change_at, last_seen_at, created_at, updated_at)
 VALUES
@@ -35,7 +204,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
--- USER SETTINGS DATA
+-- STEP 4: INSERT USER SETTINGS
 -- ============================================
 
 INSERT INTO public.user_settings (id, user_id, profile_visibility, messaging_privacy, friend_request_permission, follow_permission, show_online_status, created_at, updated_at)
@@ -50,7 +219,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
--- USER WALLETS DATA
+-- STEP 5: INSERT USER WALLETS
 -- ============================================
 
 INSERT INTO public.user_wallets (id, user_id, eco_credits, earned_balance, created_at, updated_at)
@@ -65,34 +234,15 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
--- USER ID MAPPING REFERENCE
+-- USER REFERENCE (7 users migrated)
 -- ============================================
--- Use this to map old user_ids to new ones after users re-register:
+-- 
+-- Email: pepkillagaming@gmail.com | Username: Pepkilla
+-- Email: tacticaltigr3ss@gmail.com | Username: tigress  
+-- Email: womackgaming@yahoo.com | Username: Ricky Womack
+-- Email: aegis_md3@outlook.com | Username: FusedAegis
+-- Email: samuel.cookk@gmail.com | Username: Sammyc
+-- Email: info@ctindustries.ca | Username: Pepkirra the original
+-- Email: tacitcaltigr3ss@gmail.com | Username: tacticaltigress
 --
--- Username: Pepkilla
---   Old profile_id: 57ddd96c-571c-40ce-a578-d29d854f762e
---   Old user_id: a24a29cb-576a-422b-b219-f0aadc1901e4
---
--- Username: tigress
---   Old profile_id: d0fe988e-e838-4ff0-81e5-ffc4134513f5
---   Old user_id: ebd419d6-e148-4b93-8310-1f0a92145c0b
---
--- Username: Ricky Womack
---   Old profile_id: 6a74d3e6-ccff-48c2-8de3-c34c54454920
---   Old user_id: 31638a67-285c-40f5-a5ac-c47d23ffd6dc
---
--- Username: FusedAegis
---   Old profile_id: b1b8f1eb-63b6-46cd-a039-ec208148dbbc
---   Old user_id: 80404a9c-cd10-4926-b747-7a80c529376a
---
--- Username: Sammyc
---   Old profile_id: be12e652-764e-4848-ab5f-9d4a32e0c9ec
---   Old user_id: 845ce37e-ed6b-42cf-b710-790b35a9c3bc
---
--- Username: Pepkirra the original
---   Old profile_id: 7724e102-e224-4f59-8b71-5e8f9f8cdcf6
---   Old user_id: 88201d99-9b7a-49bc-b392-a56dc2f79488
---
--- Username: tacticaltigress
---   Old profile_id: 88735f14-40db-4946-9f7f-d00f2429b13f
---   Old user_id: f6e21021-dcbc-4794-9aa6-7104daf2adf6
+-- All users can login with their EXISTING passwords!
