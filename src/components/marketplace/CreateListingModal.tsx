@@ -59,18 +59,18 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
   const [tab, setTab] = useState<'collection' | 'manual'>('manual');
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Manual entry state
   const [cardName, setCardName] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [tcgGame, setTcgGame] = useState<TcgGame | ''>('');
-  
+
   // New fields
   const [listingType, setListingType] = useState<ListingType>('single');
   const [rarity, setRarity] = useState<CardRarity | ''>('');
   const [rarityCustom, setRarityCustom] = useState('');
   const [quantity, setQuantity] = useState(1);
-  
+
   // Common fields
   const [askingPrice, setAskingPrice] = useState('');
   const [condition, setCondition] = useState<CardCondition>('near_mint');
@@ -96,42 +96,55 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
+    if (!files || files.length === 0 || !profile?.id) return;
+
     const remainingSlots = MAX_IMAGES - images.length;
     const filesToProcess = Array.from(files).slice(0, remainingSlots);
-    
+
     if (filesToProcess.length === 0) return;
-    
+
     setIsUploadingImage(true);
-    
-    // Process all files and wait for all to complete
-    const imagePromises = filesToProcess
-      .filter(file => file.type.startsWith("image/"))
-      .map(file => {
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64 = event.target?.result as string;
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      });
-    
+
     try {
-      const newImages = await Promise.all(imagePromises);
-      setImages(prev => [...prev, ...newImages]);
+      // Upload all files to Supabase storage
+      const uploadPromises = filesToProcess
+        .filter(file => file.type.startsWith("image/"))
+        .map(async (file, index) => {
+          // Generate unique filename
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${profile.id}-${Date.now()}-${index}.${fileExt}`;
+          const filePath = `marketplace/${fileName}`;
+
+          // Upload to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from("card-images")
+            .upload(filePath, file, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from("card-images")
+            .getPublicUrl(filePath);
+
+          return urlData.publicUrl;
+        });
+
+      const newImageUrls = await Promise.all(uploadPromises);
+      setImages(prev => [...prev, ...newImageUrls]);
     } catch (error) {
-      console.error('Error reading image files:', error);
+      console.error('Error uploading images:', error);
+      // You could add a toast notification here
     }
-    
+
     setIsUploadingImage(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [images.length]);
+  }, [images.length, profile?.id]);
 
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
@@ -197,7 +210,7 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
     setAcceptsOffers(true);
   };
 
-  const isValid = 
+  const isValid =
     (tab === 'collection' && selectedCard && askingPrice) ||
     (tab === 'manual' && cardName && tcgGame && askingPrice);
 
@@ -463,8 +476,8 @@ export function CreateListingModal({ open, onOpenChange, onSubmit, isSubmitting 
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={listingType === 'lot' || listingType === 'bundle' 
-              ? "Describe what's included in this lot/bundle..." 
+            placeholder={listingType === 'lot' || listingType === 'bundle'
+              ? "Describe what's included in this lot/bundle..."
               : "Add any additional details about the card..."
             }
             className="bg-background/50 min-h-[80px]"

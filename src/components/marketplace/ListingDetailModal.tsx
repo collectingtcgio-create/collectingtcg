@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, User, Calendar, Trash2, XCircle, Pencil, Save, X, ChevronLeft, ChevronRight, Star, MessageCircle, HandCoins } from "lucide-react";
+import { DollarSign, User, Calendar, Trash2, XCircle, Pencil, Save, X, ChevronLeft, ChevronRight, Star, MessageCircle, HandCoins, Upload, Loader2, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 import { useListingOffers } from "@/hooks/useListingOffers";
 import { ListingOfferPanel } from "./ListingOfferPanel";
 import { ListingChat } from "./ListingChat";
+import { EditListingImageManager } from "./EditListingImageManager";
 import type { MarketplaceListing, CardCondition } from "./types";
 import { conditionLabels, conditionColors, gameColors, gameLabels } from "./types";
 
@@ -26,7 +28,7 @@ interface ListingDetailModalProps {
   onMarkSold?: (id: string) => void;
   onCancel?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onEdit?: (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string; image_url?: string }) => void;
+  onEdit?: (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string; image_url?: string; images?: string[] }) => void;
 }
 
 const games = [
@@ -57,7 +59,10 @@ export function ListingDetailModal({
   const [editAskingPrice, setEditAskingPrice] = useState('');
   const [editCondition, setEditCondition] = useState<CardCondition>('near_mint');
   const [editDescription, setEditDescription] = useState('');
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState('details');
 
   // Use the offers hook
@@ -78,17 +83,17 @@ export function ListingDetailModal({
     isBlocked,
     hasBlockedOther,
   } = useListingOffers(listing?.id, listing?.seller_id);
-  
+
   // Get all images (combine image_url and images array)
   const getAllImages = () => {
     if (!listing) return [];
     const allImages: string[] = [];
-    
+
     // Add images from the images array first
     if (listing.images && listing.images.length > 0) {
       allImages.push(...listing.images);
     }
-    
+
     // If image_url exists and is not already in the array, add it
     if (listing.image_url && !allImages.includes(listing.image_url)) {
       // If it's already the first image in the array, don't add duplicate
@@ -96,12 +101,12 @@ export function ListingDetailModal({
         allImages.unshift(listing.image_url);
       }
     }
-    
+
     return allImages;
   };
 
   const allImages = listing ? getAllImages() : [];
-  
+
   // Reset edit state when listing changes or modal opens
   useEffect(() => {
     if (listing) {
@@ -110,12 +115,13 @@ export function ListingDetailModal({
       setEditAskingPrice(listing.asking_price.toString());
       setEditCondition(listing.condition);
       setEditDescription(listing.description || '');
+      setEditImages(getAllImages());
       setCurrentImageIndex(0);
       setActiveTab('details');
     }
     setIsEditing(false);
   }, [listing, open]);
-  
+
   if (!listing) return null;
 
   const isOwner = profile?.id === listing.seller_id;
@@ -127,13 +133,15 @@ export function ListingDetailModal({
   const handleSaveEdit = () => {
     const price = parseFloat(editAskingPrice);
     if (isNaN(price) || price <= 0) return;
-    
+
     onEdit?.(listing.id, {
       card_name: editCardName,
       tcg_game: editTcgGame,
       asking_price: price,
       condition: editCondition,
       description: editDescription || undefined,
+      image_url: editImages[0] || undefined,
+      images: editImages,
     });
     setIsEditing(false);
   };
@@ -145,6 +153,7 @@ export function ListingDetailModal({
     setEditAskingPrice(listing.asking_price.toString());
     setEditCondition(listing.condition);
     setEditDescription(listing.description || '');
+    setEditImages(getAllImages());
     setIsEditing(false);
   };
 
@@ -165,11 +174,11 @@ export function ListingDetailModal({
   const currentImage = allImages[currentImageIndex] || listing.image_url;
 
   // Get the other party for messaging - buyers chat with seller, sellers chat with latest offer buyer
-  const chatRecipientId = isOwner 
+  const chatRecipientId = isOwner
     ? (pendingOffers[0]?.buyer_id || messages.find(m => m.sender_id !== profile?.id)?.sender_id)
     : listing.seller_id;
-  const chatRecipientUsername = isOwner 
-    ? (pendingOffers[0]?.buyer_profile?.username || 'Buyer') 
+  const chatRecipientUsername = isOwner
+    ? (pendingOffers[0]?.buyer_profile?.username || 'Buyer')
     : (listing.profiles?.username || 'Seller');
 
   return (
@@ -177,7 +186,7 @@ export function ListingDetailModal({
       <DialogContent className="glass-card border-border max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground">
-            {isEditing ? 'Edit Listing' : 'Listing Details'}
+            {isEditing ? 'Edit Listing (Updated)' : 'Listing Details'}
           </DialogTitle>
           <DialogDescription className="sr-only">
             View and manage marketplace listing details
@@ -199,7 +208,7 @@ export function ListingDetailModal({
                   No Image
                 </div>
               )}
-              
+
               {/* Status Badge */}
               {listing.status !== 'active' && (
                 <div className={cn(
@@ -227,7 +236,7 @@ export function ListingDetailModal({
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
-                  
+
                   {/* Image counter */}
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-background/80 text-foreground text-xs px-3 py-1 rounded-full">
                     {currentImageIndex + 1} / {allImages.length}
@@ -245,8 +254,8 @@ export function ListingDetailModal({
                     onClick={() => setCurrentImageIndex(index)}
                     className={cn(
                       "relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all",
-                      currentImageIndex === index 
-                        ? "border-primary ring-2 ring-primary/50" 
+                      currentImageIndex === index
+                        ? "border-primary ring-2 ring-primary/50"
                         : "border-border hover:border-primary/50"
                     )}
                   >
@@ -293,6 +302,12 @@ export function ListingDetailModal({
                     className="bg-background/50"
                   />
                 </div>
+
+                {/* Image Management */}
+                <EditListingImageManager
+                  images={editImages}
+                  onChange={setEditImages}
+                />
 
                 <div className="space-y-2">
                   <Label>Game / Category</Label>
@@ -396,7 +411,7 @@ export function ListingDetailModal({
                   {/* Condition */}
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Condition</span>
-                    <Badge 
+                    <Badge
                       className={cn("border-none", conditionColors[listing.condition])}
                       variant="outline"
                     >
@@ -427,7 +442,7 @@ export function ListingDetailModal({
                   <div className="border-t border-border pt-4">
                     <span className="text-sm text-muted-foreground block mb-2">Seller</span>
                     <div className="flex items-center justify-between gap-3">
-                      <Link 
+                      <Link
                         to={`/profile/${listing.profiles?.id}`}
                         className="flex items-center gap-3 hover:bg-background/30 p-2 rounded-lg transition-colors"
                       >

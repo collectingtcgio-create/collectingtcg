@@ -21,7 +21,7 @@ export default function Marketplace() {
   const { user, profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const sellerIdFromUrl = searchParams.get('seller');
-  
+
   const [activeTab, setActiveTab] = useState<'browse' | 'my-listings' | 'orders' | 'sold' | 'seller'>(() => {
     if (sellerIdFromUrl) return 'seller';
     return 'browse';
@@ -62,7 +62,7 @@ export default function Marketplace() {
   const [rarity, setRarity] = useState<CardRarity | ''>('');
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Debounce search query to avoid too many API calls
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -104,8 +104,8 @@ export default function Marketplace() {
 
   const handleMarkSold = (id: string) => {
     const listing = listings.find(l => l.id === id);
-    updateListing.mutate({ 
-      id, 
+    updateListing.mutate({
+      id,
       status: 'sold',
       sold_price: listing?.asking_price,
     });
@@ -122,7 +122,7 @@ export default function Marketplace() {
     setDetailModalOpen(false);
   };
 
-  const handleEdit = (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string }) => {
+  const handleEdit = (id: string, data: { card_name?: string; tcg_game?: string; asking_price?: number; condition?: CardCondition; description?: string; image_url?: string; images?: string[] }) => {
     editListing.mutate({ id, ...data } as any);
     // Update local selected listing state for immediate UI feedback
     if (selectedListing) {
@@ -133,6 +133,8 @@ export default function Marketplace() {
         asking_price: data.asking_price ?? selectedListing.asking_price,
         condition: data.condition ?? selectedListing.condition,
         description: data.description ?? selectedListing.description,
+        image_url: data.image_url ?? selectedListing.image_url,
+        images: data.images ?? selectedListing.images,
       });
     }
   };
@@ -248,11 +250,11 @@ export default function Marketplace() {
                   No listings found
                 </h3>
                 <p className="text-muted-foreground">
-                  {debouncedSearchQuery 
+                  {debouncedSearchQuery
                     ? `No results for "${debouncedSearchQuery}". Try a different search.`
                     : game !== 'all' || minPrice || maxPrice || condition || listingType || rarity
-                    ? 'Try adjusting your filters'
-                    : 'Be the first to list a card!'}
+                      ? 'Try adjusting your filters'
+                      : 'Be the first to list a card!'}
                 </p>
               </div>
             ) : (
