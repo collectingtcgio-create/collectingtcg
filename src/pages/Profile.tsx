@@ -20,16 +20,16 @@ import { CreatorBadge } from "@/components/profile/CreatorBadge";
 import { FollowersModal } from "@/components/profile/FollowersModal";
 import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
 import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
-import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
+// import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
 import { MusicPlayerSection } from "@/components/profile/MusicPlayerSection";
 import { OnlineStatusBadge } from "@/components/profile/OnlineStatusBadge";
 import { FriendRequestButton } from "@/components/profile/FriendRequestButton";
 import { FollowButton } from "@/components/profile/FollowButton";
-import { 
-  UserPlus, 
-  UserMinus, 
-  Users, 
-  Grid3X3, 
+import {
+  UserPlus,
+  UserMinus,
+  Users,
+  Grid3X3,
   MessageSquare,
   Loader2,
   CreditCard,
@@ -91,7 +91,7 @@ export default function Profile() {
   const { toast } = useToast();
   const { blockUser, isUserBlocked } = useUserSettings();
   const { getFriendshipStatus } = useFriendships();
-  
+
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [topEight, setTopEight] = useState<TopEightItem[]>([]);
   const [followerCount, setFollowerCount] = useState(0);
@@ -259,7 +259,7 @@ export default function Profile() {
 
   const handleMusicSave = async (youtubeUrl: string, autoplay: boolean) => {
     if (!currentProfile) return;
-    
+
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -267,7 +267,7 @@ export default function Profile() {
         music_autoplay: autoplay,
       })
       .eq("id", currentProfile.id);
-    
+
     if (error) {
       toast({
         title: "Failed to save music",
@@ -276,12 +276,12 @@ export default function Profile() {
       });
       throw error;
     }
-    
+
     toast({
       title: "Music updated",
       description: "Your music player settings have been saved.",
     });
-    
+
     fetchProfileData();
   };
 
@@ -415,17 +415,17 @@ export default function Profile() {
                   {profileData.username}
                   <CreatorBadge userId={profileData.user_id} className="inline-flex" />
                 </p>
-                
+
                 {/* Status */}
                 {isOwnProfile ? (
-                  <StatusEditor 
-                    currentStatus={profileData.status || ""} 
-                    onUpdate={fetchProfileData} 
+                  <StatusEditor
+                    currentStatus={profileData.status || ""}
+                    onUpdate={fetchProfileData}
                   />
                 ) : (
                   <StatusDisplay status={profileData.status || ""} />
                 )}
-                
+
                 <p className="text-muted-foreground">
                   {cardCount} cards collected
                 </p>
@@ -439,7 +439,7 @@ export default function Profile() {
 
               {/* Stats Row - Clickable */}
               <div className="flex gap-2 mt-4 pt-4 border-t border-border/50 text-center">
-                <button 
+                <button
                   onClick={() => {
                     setFollowersModalTab("followers");
                     setFollowersModalOpen(true);
@@ -449,7 +449,7 @@ export default function Profile() {
                   <p className="text-lg font-bold text-primary">{followerCount}</p>
                   <p className="text-xs text-muted-foreground">Followers</p>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setFollowersModalTab("following");
                     setFollowersModalOpen(true);
@@ -459,7 +459,7 @@ export default function Profile() {
                   <p className="text-lg font-bold text-secondary">{followingCount}</p>
                   <p className="text-xs text-muted-foreground">Following</p>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setFollowersModalTab("friends");
                     setFollowersModalOpen(true);
@@ -487,8 +487,8 @@ export default function Profile() {
                     </button>
                   )}
                   <span className="text-muted-foreground">|</span>
-                  <Link 
-                    to={isOwnProfile ? "/marketplace?tab=my-listings" : `/marketplace?seller=${targetProfileId}`} 
+                  <Link
+                    to={isOwnProfile ? "/marketplace?tab=my-listings" : `/marketplace?seller=${targetProfileId}`}
                     className="text-primary hover:underline flex items-center gap-1"
                   >
                     Selling
@@ -517,8 +517,8 @@ export default function Profile() {
                       <Mail className="w-3 h-3 mr-2" />
                       Send Message
                     </Button>
-                    <FriendRequestButton 
-                      targetUserId={targetProfileId || ""} 
+                    <FriendRequestButton
+                      targetUserId={targetProfileId || ""}
                       variant="ghost"
                       size="sm"
                       className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary col-span-2"
@@ -578,7 +578,7 @@ export default function Profile() {
                           youtube_url: profileData.youtube_url || "",
                         }}
                         isOwnProfile={false}
-                        onEditClick={() => {}}
+                        onEditClick={() => { }}
                       />
                     </div>
                   </>
@@ -651,9 +651,9 @@ export default function Profile() {
               <div className="p-4">
                 <h4 className="font-semibold text-sm text-primary mb-2">About me:</h4>
                 {isOwnProfile ? (
-                  <BioEditor 
-                    currentBio={profileData.bio || ""} 
-                    onUpdate={fetchProfileData} 
+                  <BioEditor
+                    currentBio={profileData.bio || ""}
+                    onUpdate={fetchProfileData}
                   />
                 ) : (
                   <p className="text-sm text-foreground/80 whitespace-pre-wrap">
@@ -692,7 +692,7 @@ export default function Profile() {
                       onClick={() => {
                         // Find first empty position
                         const filledPositions = topEight.map(t => t.position);
-                        const emptyPosition = [1,2,3,4,5,6,7,8].find(p => !filledPositions.includes(p)) || 1;
+                        const emptyPosition = [1, 2, 3, 4, 5, 6, 7, 8].find(p => !filledPositions.includes(p)) || 1;
                         setSelectedTopEightPosition(emptyPosition);
                         setTopEightEditorOpen(true);
                       }}
@@ -709,7 +709,7 @@ export default function Profile() {
                   {[...Array(8)].map((_, index) => {
                     const item = topEight.find((t) => t.position === index + 1);
                     const position = index + 1;
-                    
+
                     const handleClick = () => {
                       if (isOwnProfile) {
                         setSelectedTopEightPosition(position);
@@ -723,18 +723,17 @@ export default function Profile() {
                         setCardPreviewOpen(true);
                       }
                     };
-                    
+
                     return (
                       <div
                         key={index}
                         onClick={isOwnProfile ? handleClick : (item?.user_cards || item?.friend) ? handleClick : undefined}
-                        className={`aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden transition-all duration-300 group relative ${
-                          isOwnProfile 
-                            ? "cursor-pointer hover:neon-border-cyan hover:ring-2 hover:ring-primary/50" 
-                            : (item?.user_cards || item?.friend) 
-                              ? "cursor-pointer hover:neon-border-cyan" 
-                              : ""
-                        }`}
+                        className={`aspect-square rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center overflow-hidden transition-all duration-300 group relative ${isOwnProfile
+                          ? "cursor-pointer hover:neon-border-cyan hover:ring-2 hover:ring-primary/50"
+                          : (item?.user_cards || item?.friend)
+                            ? "cursor-pointer hover:neon-border-cyan"
+                            : ""
+                          }`}
                       >
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
@@ -794,12 +793,8 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Global Post Section (only for own profile) */}
-            {isOwnProfile && (
-              <div className="fade-in" style={{ animationDelay: "175ms" }}>
-                <GlobalPostSection isOwnProfile={isOwnProfile} />
-              </div>
-            )}
+            {/* Global Post Section removed as per request */}
+
 
             {/* Wall Posts (Facebook-style - MySpace inspired) */}
             <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "200ms" }}>
@@ -822,14 +817,16 @@ export default function Profile() {
       </div>
 
       {/* Send Message Modal */}
-      {profileData && (
-        <SendMessageModal
-          open={messageModalOpen}
-          onOpenChange={setMessageModalOpen}
-          recipientId={profileData.id}
-          recipientUsername={profileData.username}
-        />
-      )}
+      {
+        profileData && (
+          <SendMessageModal
+            open={messageModalOpen}
+            onOpenChange={setMessageModalOpen}
+            recipientId={profileData.id}
+            recipientUsername={profileData.username}
+          />
+        )
+      }
 
       {/* Top Eight Editor Modal */}
       <TopEightEditor
@@ -844,55 +841,63 @@ export default function Profile() {
       />
 
       {/* Social Links Editor Modal */}
-      {isOwnProfile && profileData && (
-        <SocialLinksEditor
-          open={socialLinksEditorOpen}
-          onOpenChange={setSocialLinksEditorOpen}
-          currentLinks={{
-            email_contact: profileData.email_contact || "",
-            tiktok_url: profileData.tiktok_url || "",
-            twitter_url: profileData.twitter_url || "",
-            instagram_url: profileData.instagram_url || "",
-            facebook_url: profileData.facebook_url || "",
-            website_url: profileData.website_url || "",
-            rumble_url: profileData.rumble_url || "",
-            youtube_url: profileData.youtube_url || "",
-          }}
-          onUpdate={fetchProfileData}
-        />
-      )}
+      {
+        isOwnProfile && profileData && (
+          <SocialLinksEditor
+            open={socialLinksEditorOpen}
+            onOpenChange={setSocialLinksEditorOpen}
+            currentLinks={{
+              email_contact: profileData.email_contact || "",
+              tiktok_url: profileData.tiktok_url || "",
+              twitter_url: profileData.twitter_url || "",
+              instagram_url: profileData.instagram_url || "",
+              facebook_url: profileData.facebook_url || "",
+              website_url: profileData.website_url || "",
+              rumble_url: profileData.rumble_url || "",
+              youtube_url: profileData.youtube_url || "",
+            }}
+            onUpdate={fetchProfileData}
+          />
+        )
+      }
 
       {/* Followers Modal */}
-      {profileData && (
-        <FollowersModal
-          open={followersModalOpen}
-          onOpenChange={setFollowersModalOpen}
-          profileId={profileData.id}
-          profileUsername={profileData.username}
-          initialTab={followersModalTab}
-          isOwnProfile={isOwnProfile}
-        />
-      )}
+      {
+        profileData && (
+          <FollowersModal
+            open={followersModalOpen}
+            onOpenChange={setFollowersModalOpen}
+            profileId={profileData.id}
+            profileUsername={profileData.username}
+            initialTab={followersModalTab}
+            isOwnProfile={isOwnProfile}
+          />
+        )
+      }
 
       {/* Card Preview Modal */}
-      {previewCard && (
-        <CardPreviewModal
-          open={cardPreviewOpen}
-          onOpenChange={setCardPreviewOpen}
-          imageUrl={previewCard.imageUrl}
-          cardName={previewCard.cardName}
-        />
-      )}
+      {
+        previewCard && (
+          <CardPreviewModal
+            open={cardPreviewOpen}
+            onOpenChange={setCardPreviewOpen}
+            imageUrl={previewCard.imageUrl}
+            cardName={previewCard.cardName}
+          />
+        )
+      }
 
       {/* User Collection Modal */}
-      {profileData && !isOwnProfile && (
-        <UserCollectionModal
-          open={collectionModalOpen}
-          onOpenChange={setCollectionModalOpen}
-          userId={profileData.id}
-          username={profileData.username}
-        />
-      )}
-    </Layout>
+      {
+        profileData && !isOwnProfile && (
+          <UserCollectionModal
+            open={collectionModalOpen}
+            onOpenChange={setCollectionModalOpen}
+            userId={profileData.id}
+            username={profileData.username}
+          />
+        )
+      }
+    </Layout >
   );
 }

@@ -22,9 +22,9 @@ export function HeroSection() {
               <br />
               <span className="text-foreground">Flex your pulls.</span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
-              Snap a card - Save it to your collection, and add to your profile's top 8 instantly. Add a YouTube playlist to your profile to share with your followers. Follow collectors, trade and build your legacy. Marketplace coming soon....
+              Snap a card. Save it instantly. Show off your best pulls, follow collectors, and trade in one social marketplace.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-4">
@@ -47,9 +47,9 @@ export function HeroSection() {
           <div className="relative h-[680px] md:h-[800px] lg:h-[920px] flex items-center justify-center">
             {/* Glow effect behind image */}
             <div className="absolute inset-0 bg-gradient-to-r from-primary/30 via-secondary/30 to-accent/30 blur-3xl rounded-full scale-90 animate-glow-pulse" />
-            <img 
-              src={tcgCardsHero} 
-              alt="Collection of trading cards from various games including Marvel, Pokémon, One Piece, and more" 
+            <img
+              src={tcgCardsHero}
+              alt="Collection of trading cards from various games including Marvel, Pokémon, One Piece, and more"
               className="relative w-full max-w-5xl lg:max-w-6xl mx-auto drop-shadow-2xl hover:scale-105 transition-transform duration-500 object-contain"
             />
           </div>

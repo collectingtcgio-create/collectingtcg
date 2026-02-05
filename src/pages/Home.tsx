@@ -21,8 +21,11 @@ export default function Home() {
             </div>
           </div>
         )}
-        
+
         <HeroSection />
+
+
+
         <SupportedGames />
         <TrendingSection />
         <CTASection />
