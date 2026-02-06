@@ -220,16 +220,6 @@ export default function Profile() {
 
       setIsFollowing(!!followData);
     }
-    if (currentProfile && !isOwnProfile) {
-      const { data: followData } = await supabase
-        .from("follows")
-        .select("id")
-        .eq("follower_id", currentProfile.id)
-        .eq("following_id", targetProfileId)
-        .maybeSingle();
-
-      setIsFollowing(!!followData);
-    }
 
     setLoading(false);
   };
