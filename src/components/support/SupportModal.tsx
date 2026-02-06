@@ -87,7 +87,7 @@ export function SupportModal({ isOpen, onOpenChange }: SupportModalProps) {
 
             toast({
                 title: "Support Request Sent",
-                description: `Your case #${caseData.id.slice(0, 8)} has been created. Our team will get back to you soon.`,
+                description: `Your case #${caseData.id.slice(0, 8)} has been created. View it in My Tickets to track responses.`,
             });
 
             // Clear form and close modal

@@ -16,6 +16,7 @@ import Collections from "./pages/Collections";
 import Events from "./pages/Events";
 import Marketplace from "./pages/Marketplace";
 import Messages from "./pages/Messages";
+import MyTickets from "./pages/MyTickets";
 import Settings from "./pages/Settings";
 import AdminOverview from "./pages/admin/Overview";
 import AdminUsers from "./pages/admin/Users";
@@ -59,6 +60,7 @@ const App = () => (
                         <Route path="/events" element={<Events />} />
                         <Route path="/marketplace" element={<Marketplace />} />
                         <Route path="/messages" element={<Messages />} />
+                        <Route path="/my-tickets" element={<MyTickets />} />
                         <Route path="/settings" element={<Settings />} />
 
                         <Route
