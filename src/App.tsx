@@ -34,6 +34,8 @@ import SavedReplies from "./pages/support/SavedReplies";
 import NotAuthorized from "./pages/NotAuthorized";
 import LiveStream from "./pages/LiveStream";
 import NotFound from "./pages/NotFound";
+import Terms from "./pages/Terms";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -60,6 +62,8 @@ const App = () => (
                         <Route path="/marketplace" element={<Marketplace />} />
                         <Route path="/messages" element={<Messages />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/terms" element={<Terms />} />
+                        <Route path="/privacy" element={<PrivacyPolicy />} />
 
                         <Route
                             path="/admin/*"

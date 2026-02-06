@@ -1,26 +1,26 @@
 import { Flame, Bookmark, Radar, ChevronRight } from "lucide-react";
 
 const games = [
-  { 
-    name: "ONE PIECE", 
+  {
+    name: "ONE PIECE",
     color: "from-red-500 to-orange-500",
     logoColor: "text-cyan-400",
     character: "🏴‍☠️"
   },
-  { 
-    name: "Pokémon", 
+  {
+    name: "Pokémon",
     color: "from-yellow-400 to-yellow-600",
     logoColor: "text-yellow-400",
     character: "⚡"
   },
-  { 
-    name: "Magic", 
+  {
+    name: "Magic",
     color: "from-orange-500 to-red-600",
     logoColor: "text-orange-400",
     character: "🔥"
   },
-  { 
-    name: "Dragon Ball", 
+  {
+    name: "Dragon Ball",
     color: "from-blue-400 to-cyan-500",
     logoColor: "text-orange-500",
     character: "💫"
@@ -32,14 +32,14 @@ export function SupportedGames() {
     <section className="py-20 relative overflow-hidden">
       {/* Background glow */}
       <div className="gradient-blob gradient-blob-purple w-[800px] h-[600px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 absolute opacity-25" />
-      
+
       <div className="container mx-auto px-4 relative z-10">
         {/* Game mascots row */}
         <div className="flex flex-wrap justify-center items-end gap-8 md:gap-16 lg:gap-24 mb-12">
           {games.map((game, index) => (
             <div key={game.name} className="flex flex-col items-center gap-4 group">
               {/* Mascot placeholder with glow */}
-              <div 
+              <div
                 className="relative w-24 h-28 md:w-32 md:h-36 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-2"
               >
                 {/* Character glow effect */}
@@ -66,10 +66,10 @@ export function SupportedGames() {
                   <span className="text-lg">🐉</span>
                 )}
                 <span className={`text-base md:text-lg font-bold ${game.logoColor} tracking-wide`}>
-                  {game.name === "ONE PIECE" ? "ONE PIECE" : 
-                   game.name === "Pokémon" ? "POKÉMON" :
-                   game.name === "Magic" ? "MAGIC" :
-                   "DRAGON BALL"}
+                  {game.name === "ONE PIECE" ? "ONE PIECE" :
+                    game.name === "Pokémon" ? "POKÉMON" :
+                      game.name === "Magic" ? "MAGIC" :
+                        "DRAGON BALL"}
                 </span>
               </div>
             </div>
@@ -86,18 +86,18 @@ export function SupportedGames() {
           <FeatureCard
             icon="scan"
             title="Scan"
-            description="Use a card in your and digital cards, keeps an old exclusive your bucks."
+            description="Scan your physical cards and add them to your digital collection instantly."
           />
           <FeatureCard
             icon="match"
-            title="Price Match"
-            description="Discover interesting your collection man to see avel uted i supports liner history."
+            title="Marketplace"
+            description="Buy, sell, and trade cards with collectors around the world."
             highlighted
           />
           <FeatureCard
             icon="save"
             title="Save to Collection"
-            description="Discore baspitte prints of coosity, and drop oxeltral vosinamtire awvipor times."
+            description="Organize your cards, track your collection, and showcase your best pulls."
           />
         </div>
       </div>
@@ -105,26 +105,25 @@ export function SupportedGames() {
   );
 }
 
-function FeatureCard({ 
-  icon, 
-  title, 
-  description, 
-  highlighted = false 
-}: { 
-  icon: string; 
-  title: string; 
-  description: string; 
+function FeatureCard({
+  icon,
+  title,
+  description,
+  highlighted = false
+}: {
+  icon: string;
+  title: string;
+  description: string;
   highlighted?: boolean;
 }) {
   return (
     <div className={`glass-card p-5 rounded-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group ${highlighted ? 'neon-border-pink' : 'hover:border-primary/30'}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-            icon === 'scan' ? 'bg-orange-500/20' :
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${icon === 'scan' ? 'bg-orange-500/20' :
             icon === 'match' ? 'bg-pink-500/20' :
-            'bg-cyan-500/20'
-          }`}>
+              'bg-cyan-500/20'
+            }`}>
             {icon === 'scan' && <Radar className="w-5 h-5 text-orange-400" />}
             {icon === 'match' && <Flame className="w-5 h-5 text-pink-400" />}
             {icon === 'save' && <Bookmark className="w-5 h-5 text-cyan-400" />}
