@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Search, BookOpen, User, LogOut, ShoppingBag, Mail, Settings, LifeBuoy, Ticket } from "lucide-react";
+import { Home, Search, BookOpen, User, LogOut, ShoppingBag, Mail, Settings, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,6 @@ const navItems = [
   { path: "/messages", icon: Mail, label: "Messages" },
   { path: "/collections", icon: BookOpen, label: "Collections" },
   { path: "/profile", icon: User, label: "Profile" },
-  { path: "/my-tickets", icon: Ticket, label: "My Tickets" },
   { path: "/support-contact", icon: LifeBuoy, label: "Support", isAction: true },
 ];
 

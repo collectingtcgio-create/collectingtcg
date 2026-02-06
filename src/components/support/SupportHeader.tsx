@@ -37,10 +37,6 @@ export function SupportHeader() {
                     <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">System Live</span>
                 </div>
 
-                <button className="relative text-muted-foreground hover:text-white transition-colors p-2 hover:bg-white/5 rounded-xl">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-[#7c3aed] rounded-full ring-2 ring-[#09090b]" />
-                </button>
 
                 <div className="h-6 w-px bg-border/50" />
 
