@@ -5,6 +5,7 @@ import { TrendingSection } from "@/components/home/TrendingSection";
 import { CTASection } from "@/components/home/CTASection";
 import { Footer } from "@/components/home/Footer";
 import { FriendRequestsWidget } from "@/components/profile/FriendRequestsWidget";
+import { SupportButton } from "@/components/support/SupportButton";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
@@ -31,6 +32,9 @@ export default function Home() {
         <CTASection />
         <Footer />
       </div>
+
+      {/* Floating Support Button */}
+      <SupportButton />
     </Layout>
   );
 }
