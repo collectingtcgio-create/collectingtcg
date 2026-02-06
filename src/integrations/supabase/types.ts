@@ -56,6 +56,99 @@ export type Database = {
           },
         ]
       }
+      admin_notes: {
+        Row: {
+          author_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action_type: string
+          actor_id: string | null
+          actor_role: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          reason: string | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action_type: string
+          actor_id?: string | null
+          actor_role: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action_type?: string
+          actor_id?: string | null
+          actor_role?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blocked_users: {
         Row: {
           blocked_id: string
@@ -145,6 +238,120 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      case_messages: {
+        Row: {
+          case_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          is_internal: boolean | null
+          sender_id: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_internal?: boolean | null
+          sender_id?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_internal?: boolean | null
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_messages_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cases: {
+        Row: {
+          assigned_agent_id: string | null
+          created_at: string | null
+          id: string
+          priority: string
+          status: string
+          subject: string
+          type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject: string
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_assigned_agent_id_fkey"
+            columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_assigned_agent_id_fkey"
+            columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       followers: {
         Row: {
@@ -376,6 +583,7 @@ export type Database = {
       global_posts: {
         Row: {
           author_id: string
+          card_id: string | null
           content: string
           created_at: string
           id: string
@@ -385,6 +593,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          card_id?: string | null
           content: string
           created_at?: string
           id?: string
@@ -394,6 +603,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          card_id?: string | null
           content?: string
           created_at?: string
           id?: string
@@ -411,6 +621,55 @@ export type Database = {
           },
           {
             foreignKeyName: "global_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "global_posts_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "user_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_notes: {
+        Row: {
+          author_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_notes_author_id_fkey"
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
@@ -686,6 +945,7 @@ export type Database = {
       marketplace_listings: {
         Row: {
           accepts_offers: boolean
+          admin_notes: string | null
           asking_price: number
           card_id: string | null
           card_name: string
@@ -708,6 +968,7 @@ export type Database = {
         }
         Insert: {
           accepts_offers?: boolean
+          admin_notes?: string | null
           asking_price: number
           card_id?: string | null
           card_name: string
@@ -730,6 +991,7 @@ export type Database = {
         }
         Update: {
           accepts_offers?: boolean
+          admin_notes?: string | null
           asking_price?: number
           card_id?: string | null
           card_name?: string
@@ -832,6 +1094,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_notes: string | null
           avatar_url: string | null
           bio: string | null
           created_at: string
@@ -839,8 +1102,11 @@ export type Database = {
           facebook_url: string | null
           id: string
           instagram_url: string | null
+          is_banned: boolean | null
           is_live: boolean | null
           is_online: boolean | null
+          is_restricted: boolean | null
+          is_suspended: boolean | null
           last_seen_at: string | null
           last_username_change_at: string | null
           music_autoplay: boolean | null
@@ -852,11 +1118,13 @@ export type Database = {
           updated_at: string
           user_id: string
           username: string
+          warnings_count: number | null
           website_url: string | null
           youtube_playlist_url: string | null
           youtube_url: string | null
         }
         Insert: {
+          admin_notes?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
@@ -864,8 +1132,11 @@ export type Database = {
           facebook_url?: string | null
           id?: string
           instagram_url?: string | null
+          is_banned?: boolean | null
           is_live?: boolean | null
           is_online?: boolean | null
+          is_restricted?: boolean | null
+          is_suspended?: boolean | null
           last_seen_at?: string | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
@@ -877,11 +1148,13 @@ export type Database = {
           updated_at?: string
           user_id: string
           username: string
+          warnings_count?: number | null
           website_url?: string | null
           youtube_playlist_url?: string | null
           youtube_url?: string | null
         }
         Update: {
+          admin_notes?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
@@ -889,8 +1162,11 @@ export type Database = {
           facebook_url?: string | null
           id?: string
           instagram_url?: string | null
+          is_banned?: boolean | null
           is_live?: boolean | null
           is_online?: boolean | null
+          is_restricted?: boolean | null
+          is_suspended?: boolean | null
           last_seen_at?: string | null
           last_username_change_at?: string | null
           music_autoplay?: boolean | null
@@ -902,9 +1178,100 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string
+          warnings_count?: number | null
           website_url?: string | null
           youtube_playlist_url?: string | null
           youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string | null
+          id: string
+          reason: string
+          reported_listing_id: string | null
+          reported_user_id: string | null
+          reporter_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          reason: string
+          reported_listing_id?: string | null
+          reported_user_id?: string | null
+          reporter_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          reason?: string
+          reported_listing_id?: string | null
+          reported_user_id?: string | null
+          reporter_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reported_listing_id_fkey"
+            columns: ["reported_listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reported_user_id_fkey"
+            columns: ["reported_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reported_user_id_fkey"
+            columns: ["reported_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_replies: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          title?: string
         }
         Relationships: []
       }
@@ -1031,6 +1398,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      support_actions: {
+        Row: {
+          action_type: string
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          action_type: string
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          action_type?: string
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_actions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_actions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
       }
       top_eight: {
         Row: {
@@ -1760,7 +2193,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "support"
       card_condition:
         | "near_mint"
         | "lightly_played"
@@ -1796,7 +2229,7 @@ export type Database = {
         | "magma_mole"
         | "ghost_cat"
         | "mecha_pup"
-      listing_status: "active" | "sold" | "cancelled"
+      listing_status: "active" | "sold" | "cancelled" | "frozen"
       listing_type: "single" | "lot" | "sealed" | "bundle"
       messaging_privacy: "open" | "friends_only" | "buyers_only"
       profile_visibility: "public" | "friends_only" | "private"
@@ -1938,7 +2371,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "support"],
       card_condition: [
         "near_mint",
         "lightly_played",
@@ -1978,7 +2411,7 @@ export const Constants = {
         "ghost_cat",
         "mecha_pup",
       ],
-      listing_status: ["active", "sold", "cancelled"],
+      listing_status: ["active", "sold", "cancelled", "frozen"],
       listing_type: ["single", "lot", "sealed", "bundle"],
       messaging_privacy: ["open", "friends_only", "buyers_only"],
       profile_visibility: ["public", "friends_only", "private"],
