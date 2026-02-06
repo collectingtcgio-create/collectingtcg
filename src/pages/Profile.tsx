@@ -16,6 +16,8 @@ import { SocialLinksEditor, SocialLinksDisplay } from "@/components/profile/Soci
 import { BioEditor } from "@/components/profile/BioEditor";
 import { StatusEditor, StatusDisplay } from "@/components/profile/StatusEditor";
 import { WallPosts } from "@/components/profile/WallPosts";
+import { FollowingFeed } from "@/components/profile/FollowingFeed";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatorBadge } from "@/components/profile/CreatorBadge";
 import { FollowersModal } from "@/components/profile/FollowersModal";
 import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
@@ -224,28 +226,7 @@ export default function Profile() {
     setLoading(false);
   };
 
-  const handleFollow = async () => {
-    if (!currentProfile || !targetProfileId) return;
 
-    if (isFollowing) {
-      await supabase
-        .from("follows")
-        .delete()
-        .eq("follower_id", currentProfile.id)
-        .eq("following_id", targetProfileId);
-
-      setIsFollowing(false);
-      setFollowerCount((prev) => prev - 1);
-    } else {
-      await supabase.from("follows").insert({
-        follower_id: currentProfile.id,
-        following_id: targetProfileId,
-      });
-
-      setIsFollowing(true);
-      setFollowerCount((prev) => prev + 1);
-    }
-  };
 
   const handleMusicSave = async (youtubeUrl: string, autoplay: boolean) => {
     if (!currentProfile) return;
@@ -507,6 +488,12 @@ export default function Profile() {
                       <Mail className="w-3 h-3 mr-2" />
                       Send Message
                     </Button>
+                    <FollowButton
+                      targetUserId={targetProfileId || ""}
+                      variant="ghost"
+                      size="sm"
+                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
+                    />
                     <FriendRequestButton
                       targetUserId={targetProfileId || ""}
                       variant="ghost"
@@ -787,20 +774,62 @@ export default function Profile() {
 
 
             {/* Wall Posts (Facebook-style - MySpace inspired) */}
+            {/* Wall Posts (Facebook-style - MySpace inspired) */}
             <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "200ms" }}>
-              <div className="bg-primary/20 px-4 py-2 border-b border-border/50">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                  {profileData.username}'s Wall
-                </h3>
-              </div>
-              <div className="p-4">
-                <WallPosts
-                  profileId={profileData.id}
-                  profileUsername={profileData.username}
-                  isOwnProfile={isOwnProfile}
-                />
-              </div>
+              {isOwnProfile ? (
+                <Tabs defaultValue="wall" className="w-full">
+                  <div className="bg-primary/20 px-4 py-2 border-b border-border/50 flex items-center justify-between">
+                    <TabsList className="bg-transparent p-0 h-auto">
+                      <TabsTrigger
+                        value="wall"
+                        className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-2 pb-1"
+                      >
+                        <span className="font-semibold text-sm flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4" />
+                          My Wall
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="feed"
+                        className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:shadow-none rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-2 pb-1"
+                      >
+                        <span className="font-semibold text-sm flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          Followers Feed
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <div className="p-4">
+                    <TabsContent value="wall" className="mt-0">
+                      <WallPosts
+                        profileId={profileData.id}
+                        profileUsername={profileData.username}
+                        isOwnProfile={isOwnProfile}
+                      />
+                    </TabsContent>
+                    <TabsContent value="feed" className="mt-0">
+                      <FollowingFeed />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              ) : (
+                <>
+                  <div className="bg-primary/20 px-4 py-2 border-b border-border/50">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-primary" />
+                      {profileData.username}'s Wall
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <WallPosts
+                      profileId={profileData.id}
+                      profileUsername={profileData.username}
+                      isOwnProfile={isOwnProfile}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
