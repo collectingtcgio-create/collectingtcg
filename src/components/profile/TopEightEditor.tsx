@@ -13,13 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { 
-  CreditCard, 
-  Users, 
-  Loader2, 
+import {
+  CreditCard,
+  Users,
+  Loader2,
   Search,
   Plus,
-  Trash2 
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,7 @@ interface UserCard {
   id: string;
   card_name: string;
   image_url: string | null;
+  card_cache?: { image_url: string | null } | null;
 }
 
 interface FollowedFriend {
@@ -83,7 +84,7 @@ export function TopEightEditor({
     // Fetch user's own cards
     const { data: cardsData } = await supabase
       .from("user_cards")
-      .select("id, card_name, image_url")
+      .select("id, card_name, image_url, card_cache(image_url)")
       .eq("user_id", profile.id)
       .order("created_at", { ascending: false });
 
@@ -95,7 +96,7 @@ export function TopEightEditor({
     if (isViewingOtherProfile && viewedProfileId) {
       const { data: theirCardsData } = await supabase
         .from("user_cards")
-        .select("id, card_name, image_url")
+        .select("id, card_name, image_url, card_cache(image_url)")
         .eq("user_id", viewedProfileId)
         .order("created_at", { ascending: false });
 
@@ -105,18 +106,26 @@ export function TopEightEditor({
     }
 
     // Fetch followed friends
-    const { data: followsData } = await supabase
-      .from("follows")
-      .select(`
-        following:profiles!follows_following_id_fkey(id, username, avatar_url)
-      `)
-      .eq("follower_id", profile.id);
+    // We use the followers table where follower_id is us
+    const { data: followersData } = await supabase
+      .from("followers")
+      .select("following_id")
+      .eq("follower_id", profile.id)
+      .eq("status", "approved");
 
-    if (followsData) {
-      const friendsList = followsData
-        .map((f) => f.following)
-        .filter((f): f is FollowedFriend => f !== null);
-      setFriends(friendsList);
+    if (followersData && followersData.length > 0) {
+      const followingIds = followersData.map(f => f.following_id);
+
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", followingIds);
+
+      if (profilesData) {
+        setFriends(profilesData);
+      }
+    } else {
+      setFriends([]);
     }
 
     setLoading(false);
@@ -308,9 +317,9 @@ export function TopEightEditor({
                         currentCardId === card.id && "ring-2 ring-primary"
                       )}
                     >
-                      {card.image_url ? (
+                      {card.card_cache?.image_url || card.image_url ? (
                         <img
-                          src={card.image_url}
+                          src={card.card_cache?.image_url || card.image_url}
                           alt={card.card_name}
                           className="w-full h-full object-cover"
                         />
@@ -337,8 +346,8 @@ export function TopEightEditor({
                   </div>
                 ) : filteredTheirCards.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {theirCards.length === 0 
-                      ? `${viewedProfileUsername} has no cards` 
+                    {theirCards.length === 0
+                      ? `${viewedProfileUsername} has no cards`
                       : "No cards match your search"}
                   </div>
                 ) : (

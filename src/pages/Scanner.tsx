@@ -8,8 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Camera, Upload, Check, RotateCcw, Minus, Plus } from "lucide-react";
+import { Camera, Upload, Check, RotateCcw, Minus, Plus, Crop } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
+import { ImageEditor } from "@/components/scanner/ImageEditor";
 
 const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
 
@@ -23,6 +24,7 @@ export default function Scanner() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<TcgGame | 'auto'>('auto');
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Manual add form
   const [cardName, setCardName] = useState("");
@@ -105,10 +107,10 @@ export default function Scanner() {
     try {
       const cardNameToUse = cardName.trim() || `Card ${new Date().toISOString().slice(0, 10)}`;
       const gameToUse = selectedGame !== 'auto' ? selectedGame : 'pokemon';
-      
+
       // Save image to storage
       console.log(">>> [BEFORE] Calling save-scan-image Edge Function...");
-      
+
       let savedImageUrl: string | null = null;
       try {
         const response = await fetch(SAVE_SCAN_IMAGE_URL, {
@@ -120,9 +122,9 @@ export default function Scanner() {
             game: gameToUse,
           }),
         });
-        
+
         console.log("<<< [AFTER] save-scan-image Edge Function returned");
-        
+
         if (response.ok) {
           const data = await response.json();
           savedImageUrl = data.imageUrl;
@@ -148,7 +150,7 @@ export default function Scanner() {
       await supabase.from("activity_feed").insert({
         user_id: profile.id,
         activity_type: "capture",
-        description: quantity > 1 
+        description: quantity > 1
           ? `Added ${quantity}x "${cardNameToUse}" to their collection`
           : `Added "${cardNameToUse}" to their collection`,
         metadata: {
@@ -160,7 +162,7 @@ export default function Scanner() {
 
       toast({
         title: "Card Added!",
-        description: quantity > 1 
+        description: quantity > 1
           ? `${quantity}x ${cardNameToUse} has been added to your collection.`
           : `${cardNameToUse} has been added to your collection.`,
       });
@@ -189,6 +191,16 @@ export default function Scanner() {
 
   return (
     <Layout>
+      {isEditing && capturedImage && (
+        <ImageEditor
+          image={capturedImage}
+          onSave={(newImage) => {
+            setCapturedImage(newImage);
+            setIsEditing(false);
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      )}
       <div className="container mx-auto px-4 max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
@@ -202,7 +214,7 @@ export default function Scanner() {
 
         <div className="glass-card p-6 neon-border-cyan">
           {/* Game Selector */}
-          <GameSelector 
+          <GameSelector
             value={selectedGame}
             onChange={setSelectedGame}
             disabled={isAdding}
@@ -211,9 +223,9 @@ export default function Scanner() {
           {/* Camera View or Captured Image */}
           {!capturedImage ? (
             <>
-              <CameraView 
-                ref={cameraRef} 
-                isProcessing={false} 
+              <CameraView
+                ref={cameraRef}
+                isProcessing={false}
                 onCameraStateChange={setIsCameraActive}
               />
 
@@ -261,12 +273,21 @@ export default function Scanner() {
           ) : (
             /* Captured Image Preview */
             <div className="space-y-4">
-              <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden border border-border">
-                <img 
-                  src={capturedImage} 
-                  alt="Captured card" 
-                  className="w-full h-full object-cover"
+              <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden border border-border group">
+                <img
+                  src={capturedImage}
+                  alt="Captured card"
+                  className="w-full h-full object-contain bg-black/50"
                 />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="absolute bottom-4 right-4 shadow-lg hover:scale-105 transition-transform"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Crop className="w-4 h-4 mr-2" />
+                  Edit Image
+                </Button>
               </div>
 
               {/* Card Details Form */}

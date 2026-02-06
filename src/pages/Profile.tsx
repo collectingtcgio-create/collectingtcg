@@ -79,6 +79,7 @@ interface TopEightItem {
     id: string;
     card_name: string;
     image_url: string;
+    card_cache?: { image_url: string | null } | null;
   };
   friend?: {
     id: string;
@@ -164,7 +165,7 @@ export default function Profile() {
       .from("top_eight")
       .select(`
         *,
-        user_cards(id, card_name, image_url),
+        user_cards(id, card_name, image_url, card_cache(image_url)),
         friend:profiles!top_eight_friend_id_fkey(id, username, avatar_url)
       `)
       .eq("user_id", targetProfileId)
@@ -714,9 +715,9 @@ export default function Profile() {
                       >
                         {item?.user_cards ? (
                           <div className="w-full h-full relative">
-                            {item.user_cards.image_url ? (
+                            {item.user_cards.card_cache?.image_url || item.user_cards.image_url ? (
                               <img
-                                src={item.user_cards.image_url}
+                                src={item.user_cards.card_cache?.image_url || item.user_cards.image_url}
                                 alt={item.user_cards.card_name}
                                 className="w-full h-full object-contain bg-muted/30 group-hover:scale-105 transition-transform"
                               />
