@@ -9,7 +9,8 @@ import {
     MessageSquareQuote,
     HelpCircle,
     LogOut,
-    ExternalLink
+    ExternalLink,
+    CheckCircle2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,6 +18,7 @@ const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/support" },
     { icon: Inbox, label: "Inbox", href: "/support/inbox" },
     { icon: Gavel, label: "Disputes", href: "/support/disputes" },
+    { icon: CheckCircle2, label: "Completed", href: "/support/completed" },
     { icon: Flag, label: "Reports", href: "/support/reports" },
     { icon: Users, label: "Users", href: "/support/users" },
     { icon: MessageSquareQuote, label: "Saved Replies", href: "/support/replies" },

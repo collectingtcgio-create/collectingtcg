@@ -12,6 +12,13 @@ export function Footer() {
           <span className="text-muted-foreground/40">|</span>
           <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
           <span className="text-muted-foreground/40">|</span>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-support-modal'))}
+            className="hover:text-foreground transition-colors"
+          >
+            Support
+          </button>
+          <span className="text-muted-foreground/40">|</span>
           <a href="#" className="hover:text-foreground transition-colors">Social</a>
           <Heart className="w-4 h-4 text-primary/60" />
         </div>

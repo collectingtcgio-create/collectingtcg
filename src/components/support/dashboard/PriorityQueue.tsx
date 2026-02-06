@@ -3,22 +3,37 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export function PriorityQueue() {
-    const { data: cases, isLoading } = useQuery({
+    const navigate = useNavigate();
+    const { data: cases, isLoading, error } = useQuery({
         queryKey: ['priority-queue'],
         queryFn: async () => {
+            console.log('[PriorityQueue] Fetching cases...');
             const { data, error } = await supabase
                 .from('cases')
-                .select('*, profiles(username)')
+                .select('*, profiles!cases_user_id_fkey(username)')
+                .in('status', ['new', 'open'])
                 .order('created_at', { ascending: false })
-                .limit(5);
+                .limit(10);
 
-            if (error) throw error;
+            if (error) {
+                console.error('[PriorityQueue] Error fetching cases:', error);
+                throw error;
+            }
+
+            console.log('[PriorityQueue] Fetched cases:', data);
             return data;
         }
     });
+
+    console.log('[PriorityQueue] Render - isLoading:', isLoading, 'cases:', cases, 'error:', error);
+
+    const handleRowClick = (caseId: string) => {
+        console.log('Row clicked! Navigating to case:', caseId);
+        navigate(`/support/case/${caseId}`);
+    };
 
     if (isLoading) {
         return (
@@ -66,7 +81,11 @@ export function PriorityQueue() {
                         </thead>
                         <tbody className="divide-y divide-border/50">
                             {cases.map((item, i) => (
-                                <tr key={item.id} className="group hover:bg-[#7c3aed]/5 transition-colors">
+                                <tr
+                                    key={item.id}
+                                    onClick={() => handleRowClick(item.id)}
+                                    className="group hover:bg-[#7c3aed]/5 transition-colors cursor-pointer"
+                                >
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className={cn(
@@ -83,11 +102,9 @@ export function PriorityQueue() {
                                         {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </td>
                                     <td className="px-4 py-4 text-right">
-                                        <Link to={`/support/case/${item.id}`}>
-                                            <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest bg-[#7c3aed] hover:bg-[#7c3aed]/90 text-white">
-                                                Take Case
-                                            </Button>
-                                        </Link>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#7c3aed] opacity-0 group-hover:opacity-100 transition-opacity">
+                                            View →
+                                        </span>
                                     </td>
                                 </tr>
                             ))}

@@ -294,6 +294,8 @@ export type Database = {
           created_at: string | null
           id: string
           priority: string
+          resolved_at: string | null
+          resolved_by: string | null
           status: string
           subject: string
           type: string
@@ -305,6 +307,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: string
           subject: string
           type: string
@@ -316,6 +320,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: string
           subject?: string
           type?: string
@@ -333,6 +339,20 @@ export type Database = {
           {
             foreignKeyName: "cases_assigned_agent_id_fkey"
             columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "public_profiles"
             referencedColumns: ["id"]
@@ -769,6 +789,13 @@ export type Database = {
             foreignKeyName: "listing_messages_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
+            referencedRelation: "admin_listings_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_messages_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
             referencedRelation: "marketplace_listings"
             referencedColumns: ["id"]
           },
@@ -862,6 +889,13 @@ export type Database = {
             columns: ["buyer_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_offers_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "admin_listings_view"
             referencedColumns: ["id"]
           },
           {
@@ -1214,6 +1248,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reports_reported_listing_id_fkey"
+            columns: ["reported_listing_id"]
+            isOneToOne: false
+            referencedRelation: "admin_listings_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reports_reported_listing_id_fkey"
             columns: ["reported_listing_id"]
@@ -1839,7 +1880,22 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_settings: {
         Row: {
@@ -2077,6 +2133,55 @@ export type Database = {
       }
     }
     Views: {
+      admin_listings_view: {
+        Row: {
+          accepts_offers: boolean | null
+          admin_notes: string | null
+          asking_price: number | null
+          card_id: string | null
+          card_name: string | null
+          condition: Database["public"]["Enums"]["card_condition"] | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          image_url: string | null
+          images: string[] | null
+          listing_type: Database["public"]["Enums"]["listing_type"] | null
+          quantity: number | null
+          rarity: Database["public"]["Enums"]["card_rarity"] | null
+          rarity_custom: string | null
+          seller_id: string | null
+          seller_username: string | null
+          sold_at: string | null
+          sold_price: number | null
+          status: Database["public"]["Enums"]["listing_status"] | null
+          tcg_game: Database["public"]["Enums"]["tcg_game"] | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_listings_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "user_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -2430,3 +2535,4 @@ export const Constants = {
     },
   },
 } as const
+

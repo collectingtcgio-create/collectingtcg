@@ -36,7 +36,7 @@ export default function CaseDetail() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('cases')
-                .select('*, profiles(username, avatar_url, email_contact)')
+                .select('*, profiles!cases_user_id_fkey(username, avatar_url, email_contact)')
                 .eq('id', id)
                 .single();
             if (error) throw error;
@@ -65,10 +65,9 @@ export default function CaseDetail() {
         mutationFn: async (content: string) => {
             const { error } = await supabase.from('case_messages').insert({
                 case_id: id,
-                sender_id: user?.id,
+                sender_id: profile?.id,
                 content,
-                is_internal: isInternal,
-                role: 'agent'
+                is_internal: isInternal
             });
             if (error) throw error;
         },
@@ -78,9 +77,35 @@ export default function CaseDetail() {
         }
     });
 
+    // 4. Mark Resolved Mutation
+    const markResolved = useMutation({
+        mutationFn: async () => {
+            const { error } = await supabase
+                .from('cases')
+                .update({
+                    status: 'resolved',
+                    resolved_by: profile?.id,
+                    resolved_at: new Date().toISOString()
+                })
+                .eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['case', id] });
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            queryClient.invalidateQueries({ queryKey: ['disputes'] });
+        }
+    });
+
     const handleSend = () => {
         if (!message.trim()) return;
         sendMessage.mutate(message);
+    };
+
+    const handleMarkResolved = () => {
+        if (window.confirm('Mark this case as resolved? This will close the ticket.')) {
+            markResolved.mutate();
+        }
     };
 
     if (isLoadingCase || isLoadingMessages) {
@@ -142,10 +167,26 @@ export default function CaseDetail() {
                         <Button variant="outline" size="sm" className="h-10 border-border/50 bg-background text-[10px] font-black uppercase tracking-widest hover:bg-white/5">
                             Escalate
                         </Button>
-                        <Button size="sm" className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest px-6 shadow-lg shadow-emerald-500/20">
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Mark Resolved
-                        </Button>
+                        {caseData.status === 'resolved' ? (
+                            <Button
+                                size="sm"
+                                disabled
+                                className="h-10 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-6 shadow-lg shadow-emerald-500/20 opacity-60 cursor-not-allowed"
+                            >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Resolved
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={handleMarkResolved}
+                                disabled={markResolved.isPending}
+                                className="h-10 bg-[#7c3aed] hover:bg-[#7c3aed]/90 text-white text-[10px] font-black uppercase tracking-widest px-6 shadow-lg shadow-[#7c3aed]/20"
+                            >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                {markResolved.isPending ? 'Resolving...' : 'Mark Resolved'}
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -163,47 +204,50 @@ export default function CaseDetail() {
                                         <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Send the first reply to start the thread</p>
                                     </div>
                                 </div>
-                            ) : messages.map((msg) => (
-                                <div
-                                    key={msg.id}
-                                    className={cn(
-                                        "flex gap-4 max-w-[85%] animate-in fade-in slide-in-from-bottom-4 duration-300",
-                                        msg.role === "agent" ? "ml-auto flex-row-reverse" : ""
-                                    )}
-                                >
-                                    <Avatar className="h-9 w-9 flex-shrink-0 mt-1 ring-2 ring-border/20 shadow-xl">
-                                        <AvatarFallback className={cn("font-black text-xs", msg.role === "agent" ? "bg-[#7c3aed] text-white" : "bg-muted text-foreground")}>
-                                            {msg.role === "agent" ? 'A' : (caseData as any).profiles?.username?.[0]?.toUpperCase() || 'U'}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className={cn(
-                                        "space-y-2",
-                                        msg.role === "agent" ? "items-end" : "items-start"
-                                    )}>
-                                        <div className={cn("flex items-center gap-3 px-1", msg.role === "agent" ? "flex-row-reverse" : "")}>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#7c3aed]">
-                                                {msg.role === "agent" ? "Support Agent" : "Target User"}
-                                            </span>
-                                            <span className="text-[10px] text-muted-foreground font-mono opacity-50">
-                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                            {msg.is_internal && (
-                                                <span className="flex items-center gap-1.5 text-[8px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.1)]">
-                                                    <Lock className="h-2.5 w-2.5" /> Internal Note
-                                                </span>
-                                            )}
-                                        </div>
+                            ) : messages.map((msg) => {
+                                const isAgent = msg.sender_id !== caseData.user_id;
+                                return (
+                                    <div
+                                        key={msg.id}
+                                        className={cn(
+                                            "flex gap-4 max-w-[85%] animate-in fade-in slide-in-from-bottom-4 duration-300",
+                                            isAgent ? "ml-auto flex-row-reverse" : ""
+                                        )}
+                                    >
+                                        <Avatar className="h-9 w-9 flex-shrink-0 mt-1 ring-2 ring-border/20 shadow-xl">
+                                            <AvatarFallback className={cn("font-black text-xs", isAgent ? "bg-[#7c3aed] text-white" : "bg-muted text-foreground")}>
+                                                {isAgent ? 'A' : (caseData as any).profiles?.username?.[0]?.toUpperCase() || 'U'}
+                                            </AvatarFallback>
+                                        </Avatar>
                                         <div className={cn(
-                                            "px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm border transition-all",
-                                            msg.is_internal ? "bg-amber-500/5 border-amber-500/20 text-amber-500/90 italic" :
-                                                msg.role === "agent" ? "bg-[#7c3aed] text-white border-[#7c3aed]/20 rounded-tr-none" :
-                                                    "bg-white/5 text-foreground border-border/50 rounded-tl-none"
+                                            "space-y-2",
+                                            isAgent ? "items-end" : "items-start"
                                         )}>
-                                            {msg.content}
+                                            <div className={cn("flex items-center gap-3 px-1", isAgent ? "flex-row-reverse" : "")}>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#7c3aed]">
+                                                    {isAgent ? "Support Agent" : "Target User"}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground font-mono opacity-50">
+                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                                {msg.is_internal && (
+                                                    <span className="flex items-center gap-1.5 text-[8px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.1)]">
+                                                        <Lock className="h-2.5 w-2.5" /> Internal Note
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className={cn(
+                                                "px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm border transition-all",
+                                                msg.is_internal ? "bg-amber-500/5 border-amber-500/20 text-amber-500/90 italic" :
+                                                    isAgent ? "bg-[#7c3aed] text-white border-[#7c3aed]/20 rounded-tr-none" :
+                                                        "bg-white/5 text-foreground border-border/50 rounded-tl-none"
+                                            )}>
+                                                {msg.content}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Input Area */}

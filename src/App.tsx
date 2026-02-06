@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ChatPopup } from "@/components/messages/ChatPopup";
+import { SupportButton } from "@/components/support/SupportButton";
 import { GlobalOfferNotifications } from "@/components/marketplace/GlobalOfferNotifications";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
@@ -24,6 +25,8 @@ import AdminAuditLogs from "./pages/admin/AuditLogs";
 import AdminSettings from "./pages/admin/Settings";
 import SupportConsole from "./pages/SupportConsole";
 import SupportInbox from "./pages/support/Inbox";
+import Disputes from "./pages/support/Disputes";
+import CompletedTickets from "./pages/support/CompletedTickets";
 import CaseDetail from "./pages/support/CaseDetail";
 import SupportReports from "./pages/support/Reports";
 import SupportUsers from "./pages/support/Users";
@@ -43,6 +46,7 @@ const App = () => (
                     <Toaster />
                     <Sonner />
                     <ChatPopup />
+                    <SupportButton />
                     <GlobalOfferNotifications />
                     <Routes>
                         <Route path="/" element={<Home />} />
@@ -105,7 +109,15 @@ const App = () => (
                             path="/support/disputes"
                             element={
                                 <ProtectedRoute allowedRoles={['admin', 'support']}>
-                                    <SupportInbox filter="dispute" />
+                                    <Disputes />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/support/completed"
+                            element={
+                                <ProtectedRoute allowedRoles={['admin', 'support']}>
+                                    <CompletedTickets />
                                 </ProtectedRoute>
                             }
                         />

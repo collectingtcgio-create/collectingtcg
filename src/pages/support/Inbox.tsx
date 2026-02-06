@@ -9,12 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 export default function SupportInbox({ filter }: { filter?: string }) {
     const navigate = useNavigate();
 
-    const { data: cases, isLoading } = useQuery({
+    const { data: cases, isLoading, error } = useQuery({
         queryKey: ['support-cases', filter],
         queryFn: async () => {
+            console.log('[Inbox] Fetching cases with filter:', filter);
             let query = supabase
                 .from('cases')
-                .select('*, profiles(username)')
+                .select('*, profiles!cases_user_id_fkey(username)')
                 .order('updated_at', { ascending: false });
 
             if (filter) {
@@ -22,10 +23,18 @@ export default function SupportInbox({ filter }: { filter?: string }) {
             }
 
             const { data, error } = await query;
-            if (error) throw error;
+
+            if (error) {
+                console.error('[Inbox] Error fetching cases:', error);
+                throw error;
+            }
+
+            console.log('[Inbox] Fetched cases:', data);
             return data;
         }
     });
+
+    console.log('[Inbox] Render - isLoading:', isLoading, 'cases:', cases, 'error:', error);
 
     return (
         <SupportLayout>
