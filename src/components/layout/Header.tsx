@@ -6,6 +6,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDropdown } from "./NotificationsDropdown";
+import collectingTcgLogo from "@/assets/collectingtcg-logo.png";
 
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
@@ -24,20 +25,30 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center neon-glow-pink">
-              <span className="text-primary-foreground font-bold text-base">C</span>
-            </div>
-            <span className="hidden sm:block text-lg font-bold gradient-text">
-              CollectingTCG
-            </span>
-          </Link>
+      <div className="max-w-[1600px] mx-auto px-6">
+        <div className="flex items-center justify-between h-20 md:h-24 gap-4">
+          {/* Left: Logo */}
+          <div className="flex-1 flex justify-start min-w-0">
+            <Link to="/" className="flex items-center gap-3">
+              <img
+                src={collectingTcgLogo}
+                alt="CollectingTCG Logo"
+                className="h-14 w-14 object-contain filter drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]"
+              />
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <span className="text-lg lg:text-xl font-bold gradient-text tracking-tight shrink-0">
+                  CollectingTCG
+                </span>
+                <span className="text-muted-foreground text-lg hidden xl:inline-block">•</span>
+                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden xl:inline-block">
+                  Non Sports Cards
+                </span>
+              </div>
+            </Link>
+          </div>
 
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center gap-0.5">
+          {/* Center: Navigation */}
+          <nav className="hidden md:flex items-center gap-0.5 shrink-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -81,10 +92,10 @@ export function Header() {
             })}
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
+          {/* Right: Actions */}
+          <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
             {/* Coming Soon Badge */}
-            <span className="badge-coming-soon hidden sm:inline-flex">
+            <span className="badge-coming-soon hidden lg:inline-flex shrink-0">
               Coming Soon
             </span>
 
@@ -92,7 +103,7 @@ export function Header() {
             {user && <NotificationsDropdown />}
 
             {user && (
-              <Link to="/settings">
+              <Link to="/settings" className="shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -107,13 +118,13 @@ export function Header() {
                 variant="ghost"
                 size="icon"
                 onClick={signOut}
-                className="text-muted-foreground hover:text-foreground rounded-xl"
+                className="text-muted-foreground hover:text-foreground rounded-xl shrink-0"
               >
                 <LogOut className="w-4 h-4" />
               </Button>
             )}
             {!user && (
-              <Link to="/auth">
+              <Link to="/auth" className="shrink-0">
                 <Button className="rounded-full px-5 bg-primary hover:bg-primary/90 text-primary-foreground hover:neon-glow-cyan transition-all duration-300 text-sm">
                   Sign In
                 </Button>
