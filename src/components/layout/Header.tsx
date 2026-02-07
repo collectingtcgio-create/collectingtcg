@@ -29,19 +29,25 @@ export function Header() {
         <div className="flex items-center justify-between h-20 md:h-24 gap-4">
           {/* Left: Logo */}
           <div className="flex-1 flex justify-start min-w-0">
-            <Link to="/" className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2.5">
               <img
                 src={collectingTcgLogo}
                 alt="CollectingTCG Logo"
-                className="h-14 w-14 object-contain filter drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]"
+                className="h-12 w-12 xl:h-14 xl:w-14 object-contain filter drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]"
               />
               <div className="flex items-center gap-2 whitespace-nowrap">
-                <span className="text-lg lg:text-xl font-bold gradient-text tracking-tight shrink-0">
+                <span className="text-lg xl:text-xl font-bold gradient-text tracking-tight shrink-0">
                   CollectingTCG
                 </span>
+                {/* Responsive Tagline Wording */}
                 <span className="text-muted-foreground text-lg hidden xl:inline-block">•</span>
-                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden xl:inline-block">
+                {/* Full version on ultra-wide */}
+                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden 2xl:inline-block">
                   Non Sports Cards
+                </span>
+                {/* Short version on standard desktop */}
+                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden xl:inline-block 2xl:hidden">
+                  Non Sports
                 </span>
               </div>
             </Link>
