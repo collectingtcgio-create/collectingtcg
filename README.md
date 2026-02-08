@@ -1,73 +1,51 @@
-# Welcome to your Lovable project
+# CollectingTCG
 
-## Project info blah
+**The Only Social App for TCG & Non-Sports Cards**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+CollectingTCG is a modern, feature-rich collection tracker and social platform designed specifically for Trading Card Game (TCG) and non-sports card enthusiasts.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Collection Tracking**: Organize and track your card collection with ease.
+- **Social Platform**: Connect with other collectors, share your pulls, and follow fellow enthusiasts.
+- **Marketplace**: (Coming Soon) A dedicated space to buy, sell, and trade cards.
+- **Card Scanner**: Integrated image processing to quickly add cards to your collection.
 
-**Use Lovable**
+## Getting Started
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Development
 
-Changes made via Lovable will be committed automatically to this repo.
+To get started with local development, follow these steps:
 
-**Use your preferred IDE**
+1. **Clone the repository**
+   ```sh
+   git clone https://github.com/collectingtcgio-create/collectingtcg.git
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. **Install dependencies**
+   ```sh
+   npm install
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. **Set up Environment Variables**
+   Create a `.env` file based on the provided environment template and add your Supabase credentials.
 
-Follow these steps:
+4. **Start the development server**
+   ```sh
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Technologies Used
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Framework**: Vite, React
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui, Framer Motion
+- **Backend**: Supabase (Database, Auth, Storage)
+- **Icons**: Lucide React
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Deployment
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+The project is currently deployed on Netlify. Changes pushed to the `main` branch are automatically deployed.
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**URL**: [https://collectingtcg.netlify.app/](https://collectingtcg.netlify.app/)
