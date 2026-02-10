@@ -11,7 +11,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background cosmic-bg grid-overlay">
       <Header />
-      <main className="pt-20 pb-20 md:pb-8">
+      <main className="pt-24 md:pt-32 pb-20 md:pb-8">
         {children}
       </main>
       <MobileNav />
