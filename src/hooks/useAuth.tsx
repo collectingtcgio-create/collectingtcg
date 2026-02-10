@@ -22,10 +22,11 @@ interface AuthContextType {
     profile: Profile | null;
     role: UserRole | null;
     loading: boolean;
-    signUp: (email: string, password: string, username: string) => Promise<void>;
+    signUp: (email: string, password: string, username: string) => Promise<boolean>;
     signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
+    resendConfirmation: (email: string) => Promise<void>;
     toggleLive: () => Promise<void>;
     updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -187,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signUp = async (email: string, password: string, username: string) => {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -205,10 +206,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             throw error;
         }
 
+        // Check if email confirmation is required
+        const needsConfirmation = data.user && !data.session;
+
         toast({
-            title: "Welcome to CollectingTCG!",
-            description: "Your account has been created.",
+            title: needsConfirmation ? "Check your email!" : "Welcome to CollectingTCG!",
+            description: needsConfirmation
+                ? "We've sent you a confirmation link. Please check your email to activate your account."
+                : "Your account has been created.",
         });
+
+        return needsConfirmation;
     };
 
     const signIn = async (email: string, password: string) => {
@@ -242,6 +250,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             throw error;
         }
+    };
+
+    const resendConfirmation = async (email: string) => {
+        const { error } = await supabase.auth.resend({
+            type: 'signup',
+            email: email,
+            options: {
+                emailRedirectTo: window.location.origin,
+            }
+        });
+
+        if (error) {
+            toast({
+                title: "Failed to resend confirmation",
+                description: error.message,
+                variant: "destructive",
+            });
+            throw error;
+        }
+
+        toast({
+            title: "Confirmation email sent",
+            description: "Please check your email for the confirmation link.",
+        });
     };
 
     const resetPassword = async (email: string) => {
@@ -322,6 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signIn,
                 signOut,
                 resetPassword,
+                resendConfirmation,
                 toggleLive,
                 updateProfile,
             }}

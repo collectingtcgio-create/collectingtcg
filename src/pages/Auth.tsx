@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Eye, EyeOff, Check } from "lucide-react";
 
 export default function Auth() {
-  const { user, signIn, signUp, resetPassword } = useAuth();
+  const { user, signIn, signUp, resetPassword, resendConfirmation } = useAuth();
   const { toast } = useToast();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,12 +54,27 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, username);
+        const needsConfirmation = await signUp(email, password, username);
+        if (needsConfirmation) {
+          // Switch to login view and show message
+          setIsSignUp(false);
+          toast({
+            title: "Email confirmation required",
+            description: "Please check your email and click the confirmation link before signing in.",
+          });
+        }
       } else {
         await signIn(email, password);
       }
-    } catch {
-      // Error handled in useAuth
+    } catch (error: any) {
+      // Better error handling for email not confirmed
+      if (error?.message?.includes('Email not confirmed')) {
+        toast({
+          title: "Email not confirmed",
+          description: "Please check your email and click the confirmation link to activate your account.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -72,6 +87,25 @@ export default function Auth() {
     setResetLoading(true);
     try {
       await resetPassword(email);
+    } catch {
+      // Error handled in useAuth
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address to resend the confirmation.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await resendConfirmation(email);
     } catch {
       // Error handled in useAuth
     } finally {
@@ -267,12 +301,12 @@ export default function Auth() {
                 </div>
 
                 {!isSignUp && (
-                  <div className="text-right">
+                  <div className="text-right space-y-2">
                     <button
                       type="button"
                       onClick={handleResetPassword}
                       disabled={resetLoading || !email}
-                      className="text-sm text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-sm text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed block ml-auto"
                     >
                       {resetLoading ? (
                         <span className="flex items-center gap-1">
@@ -282,6 +316,14 @@ export default function Auth() {
                       ) : (
                         "Forgot password?"
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resetLoading || !email}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed block ml-auto"
+                    >
+                      Resend confirmation email
                     </button>
                   </div>
                 )}
