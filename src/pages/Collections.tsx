@@ -196,18 +196,18 @@ export default function Collections() {
 
                   {/* Action Buttons */}
                   {isOwnCollection && (
-                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleEditCard(card)}
-                        className="w-8 h-8 rounded-full bg-primary/80 text-primary-foreground flex items-center justify-center hover:bg-primary"
-                        title="Edit / Rescan"
+                        className="w-8 h-8 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground flex items-center justify-center hover:bg-primary shadow-lg"
+                        title="Edit Card"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(card.id)}
-                        className="w-8 h-8 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center hover:bg-destructive"
-                        title="Delete"
+                        className="w-8 h-8 rounded-full bg-destructive/90 backdrop-blur-sm text-destructive-foreground flex items-center justify-center hover:bg-destructive shadow-lg"
+                        title="Delete Card"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
