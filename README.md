@@ -1,8 +1,8 @@
 # CollectingTCG
 
-**The Only Social App for TCG & Non-Sports Cards**
+**The Social App for TCG & Non - Sports Cards**
 
-CollectingTCG is a modern, feature-rich collection tracker and social platform designed specifically for Trading Card Game (TCG) and non-sports card enthusiasts.
+CollectingTCG is a modern, feature-rich collection tracker and social platform designed specifically for Trading Card Game (TCG) and non - sports card enthusiasts.
 
 ## Features
 

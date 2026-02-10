@@ -43,11 +43,11 @@ export function Header() {
                 <span className="text-muted-foreground text-lg hidden xl:inline-block">•</span>
                 {/* Full version on ultra-wide */}
                 <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden 2xl:inline-block">
-                  Non Sports Cards
+                  Non - Sports Cards
                 </span>
                 {/* Short version on standard desktop */}
                 <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 hidden xl:inline-block 2xl:hidden">
-                  Non Sports
+                  Non - Sports
                 </span>
               </div>
             </Link>

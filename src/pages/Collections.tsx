@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  BookOpen, 
-  Plus, 
-  CreditCard, 
+import {
+  BookOpen,
+  Plus,
+  CreditCard,
   Loader2,
   DollarSign,
   Trash2,
@@ -27,7 +27,9 @@ interface Card {
 }
 
 export default function Collections() {
+  const { userId } = useParams();
   const { user, profile } = useAuth();
+  const [targetProfile, setTargetProfile] = useState<any>(null);
   const { toast } = useToast();
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,19 +37,35 @@ export default function Collections() {
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  const targetUserId = userId || profile?.id;
+  const isOwnCollection = !userId || (profile && userId === profile.id);
+
   useEffect(() => {
-    if (profile) {
+    if (targetUserId) {
+      fetchTargetProfile();
       fetchCards();
     }
-  }, [profile]);
+  }, [targetUserId]);
+
+  const fetchTargetProfile = async () => {
+    if (!targetUserId) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", targetUserId)
+      .single();
+    if (data) {
+      setTargetProfile(data);
+    }
+  };
 
   const fetchCards = async () => {
-    if (!profile) return;
+    if (!targetUserId) return;
 
     const { data } = await supabase
       .from("user_cards")
       .select("*")
-      .eq("user_id", profile.id)
+      .eq("user_id", targetUserId)
       .order("created_at", { ascending: false });
 
     if (data) {
@@ -85,7 +103,7 @@ export default function Collections() {
     setShowEditModal(true);
   };
 
-  if (!user) {
+  if (!user && !userId) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -96,10 +114,10 @@ export default function Collections() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              My Collection
+              {isOwnCollection ? "My Collection" : `${targetProfile?.username || 'User'}'s Collection`}
             </h1>
             <p className="text-muted-foreground">
-              Your digital binder of trading cards
+              {isOwnCollection ? "Your digital binder of trading cards" : `Viewing ${targetProfile?.username || 'User'}'s digital binder`}
             </p>
           </div>
 
@@ -116,12 +134,14 @@ export default function Collections() {
               <span className="text-muted-foreground text-sm">value</span>
             </div>
 
-            <Link to="/scanner">
-              <Button className="rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Card
-              </Button>
-            </Link>
+            {isOwnCollection && (
+              <Link to="/scanner">
+                <Button className="rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Card
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -135,16 +155,22 @@ export default function Collections() {
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
               <BookOpen className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">Your binder is empty</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              {isOwnCollection ? "Your binder is empty" : `${targetProfile?.username || 'This user'}'s binder is empty`}
+            </h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Start building your collection by scanning cards or adding them manually.
+              {isOwnCollection
+                ? "Start building your collection by scanning cards or adding them manually."
+                : "This collector hasn't added any cards to their digital binder yet."}
             </p>
-            <Link to="/scanner">
-              <Button className="rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Card
-              </Button>
-            </Link>
+            {isOwnCollection && (
+              <Link to="/scanner">
+                <Button className="rounded-full bg-primary hover:bg-primary/80 text-primary-foreground hover:neon-glow-cyan transition-all duration-300">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Card
+                </Button>
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -169,22 +195,24 @@ export default function Collections() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEditCard(card)}
-                      className="w-8 h-8 rounded-full bg-primary/80 text-primary-foreground flex items-center justify-center hover:bg-primary"
-                      title="Edit / Rescan"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(card.id)}
-                      className="w-8 h-8 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center hover:bg-destructive"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {isOwnCollection && (
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEditCard(card)}
+                        className="w-8 h-8 rounded-full bg-primary/80 text-primary-foreground flex items-center justify-center hover:bg-primary"
+                        title="Edit / Rescan"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(card.id)}
+                        className="w-8 h-8 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center hover:bg-destructive"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Card Info */}

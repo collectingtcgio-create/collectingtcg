@@ -10,6 +10,7 @@ interface TrendingCard {
   created_at: string;
   username: string;
   avatar_url: string | null;
+  user_id: string;
 }
 
 interface TopCollector {
@@ -26,6 +27,7 @@ interface MarketplaceDeal {
   images: string[] | null;
   asking_price: number;
   seller_username: string;
+  seller_id: string;
   rarity: string | null;
   created_at: string;
 }
@@ -82,7 +84,6 @@ export function TrendingSection() {
 
   async function fetchTrendingData() {
     try {
-      // Fetch trending pulls (recent cards with images)
       const { data: cardsData } = await supabase
         .from("user_cards")
         .select(`
@@ -94,7 +95,6 @@ export function TrendingSection() {
           profiles!inner(username, avatar_url)
         `)
         .not("image_url", "is", null)
-        .gte("created_at", new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -106,6 +106,7 @@ export function TrendingSection() {
           created_at: card.created_at,
           username: card.profiles.username,
           avatar_url: card.profiles.avatar_url,
+          user_id: card.user_id,
         }));
         setTrendingCards(formatted);
       }
@@ -167,6 +168,7 @@ export function TrendingSection() {
           images: deal.images,
           asking_price: deal.asking_price,
           seller_username: deal.profiles.username,
+          seller_id: deal.seller_id,
           rarity: deal.rarity,
           created_at: deal.created_at,
         }));
@@ -186,12 +188,12 @@ export function TrendingSection() {
     <section className="py-12 relative">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {/* Trending Pulls */}
+          {/* Latest Pulls */}
           <div className="glass-card p-5 rounded-2xl group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
-            onClick={() => navigate("/community")}>
+            onClick={() => trendingCards.length > 0 ? navigate(`/profile/${trendingCards[0].user_id}`) : navigate("/search")}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-foreground text-lg">
-                Trending Pulls
+                Latest Pulls
               </h3>
               <span className="text-xs px-3 py-1 rounded-full bg-muted/60 text-muted-foreground font-medium border border-border/50">
                 {totalViews > 0 ? `${(totalViews / 1000).toFixed(1)}k` : "0"}
@@ -217,15 +219,19 @@ export function TrendingSection() {
                     <p className="text-white text-sm font-semibold truncate mb-1">
                       {trendingCards[0].card_name}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 group/user"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/profile/${trendingCards[0].user_id}`);
+                      }}>
                       {trendingCards[0].avatar_url && (
                         <img
                           src={trendingCards[0].avatar_url}
                           alt={trendingCards[0].username}
-                          className="w-5 h-5 rounded-full border border-white/30"
+                          className="w-5 h-5 rounded-full border border-white/30 group-hover/user:border-primary transition-colors"
                         />
                       )}
-                      <span className="text-white/80 text-xs">@{trendingCards[0].username}</span>
+                      <span className="text-white/80 text-xs group-hover/user:text-white transition-colors">@{trendingCards[0].username}</span>
                     </div>
                   </div>
                 </>
@@ -242,7 +248,7 @@ export function TrendingSection() {
 
           {/* Top Collections */}
           <div className="glass-card p-5 rounded-2xl group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
-            onClick={() => navigate("/community")}>
+            onClick={() => topCollectors.length > 0 && navigate(`/collections/${topCollectors[0].user_id}`)}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-foreground text-lg">
                 Top Collections
@@ -295,6 +301,7 @@ export function TrendingSection() {
                     key={deal.id}
                     id={deal.id}
                     seller={deal.seller_username}
+                    sellerId={deal.seller_id}
                     cardName={deal.card_name}
                     rarity={deal.rarity || "Common"}
                     price={`$${deal.asking_price}`}
@@ -319,6 +326,7 @@ export function TrendingSection() {
 function DealItem({
   id,
   seller,
+  sellerId,
   cardName,
   rarity,
   price,
@@ -326,6 +334,7 @@ function DealItem({
 }: {
   id: string;
   seller: string;
+  sellerId: string;
   cardName: string;
   rarity: string;
   price: string;
@@ -336,7 +345,7 @@ function DealItem({
   return (
     <div
       className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/30 hover:border-primary/30 transition-colors cursor-pointer"
-      onClick={() => navigate("/marketplace")}
+      onClick={() => navigate(`/marketplace?seller=${sellerId}`)}
     >
       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-border/30 overflow-hidden flex-shrink-0">
         {imageUrl ? (
@@ -349,7 +358,15 @@ function DealItem({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-foreground truncate">{cardName}</p>
         </div>
-        <p className="text-xs text-muted-foreground truncate">by @{seller}</p>
+        <p
+          className="text-xs text-muted-foreground truncate hover:text-white transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/profile/${sellerId}`);
+          }}
+        >
+          by @{seller}
+        </p>
         <p className="text-xs text-muted-foreground/60 truncate">{rarity}</p>
       </div>
       <div className="text-right flex-shrink-0">
