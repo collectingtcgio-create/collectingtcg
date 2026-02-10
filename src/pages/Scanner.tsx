@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Camera, Upload, Check, RotateCcw, Minus, Plus, Crop } from "lucide-react";
+import { Camera, Upload, RotateCcw, Minus, Plus, Crop } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 import { ImageEditor } from "@/components/scanner/ImageEditor";
 
@@ -377,7 +377,7 @@ export default function Scanner() {
                     "Adding..."
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" />
+                      <Plus className="w-4 h-4 mr-2" />
                       Add to Collection
                     </>
                   )}
