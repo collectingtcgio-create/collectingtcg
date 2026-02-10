@@ -23,7 +23,7 @@ import { FollowersModal } from "@/components/profile/FollowersModal";
 import { CardPreviewModal } from "@/components/profile/CardPreviewModal";
 import { UserCollectionModal } from "@/components/profile/UserCollectionModal";
 // import { GlobalPostSection } from "@/components/profile/GlobalPostSection";
-import { MusicPlayerSection } from "@/components/profile/MusicPlayerSection";
+import { MusicPlayerSection, Playlist, Track } from "@/components/profile/MusicPlayerSection";
 import { OnlineStatusBadge } from "@/components/profile/OnlineStatusBadge";
 import { FriendRequestButton } from "@/components/profile/FriendRequestButton";
 import { FollowButton } from "@/components/profile/FollowButton";
@@ -67,6 +67,7 @@ interface ProfileData {
   youtube_url?: string;
   spotify_playlist_url?: string;
   youtube_playlist_url?: string;
+  music_playlist_url?: string;
   music_autoplay?: boolean;
 }
 
@@ -112,6 +113,8 @@ export default function Profile() {
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+  const [playlist, setPlaylist] = useState<Playlist | null>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -147,7 +150,7 @@ export default function Profile() {
   const fetchProfileData = async () => {
     if (!targetProfileId) return;
 
-    setLoading(true);
+    if (!profileData) setLoading(true);
 
     // Fetch profile
     const { data: profile } = await supabase
@@ -224,18 +227,165 @@ export default function Profile() {
       setIsFollowing(!!followData);
     }
 
+    // Fetch playlist and tracks
+    const { data: playlistData } = await supabase
+      .from("profile_playlists")
+      .select("*")
+      .eq("user_id", targetProfileId)
+      .maybeSingle();
+
+    if (playlistData) {
+      setPlaylist(playlistData);
+      const { data: tracksData } = await supabase
+        .from("playlist_tracks")
+        .select("*")
+        .eq("playlist_id", playlistData.id)
+        .order("position");
+
+      if (tracksData) {
+        setTracks(tracksData);
+      }
+    } else {
+      setPlaylist(null);
+      setTracks([]);
+    }
+
     setLoading(false);
   };
 
 
 
-  const handleMusicSave = async (youtubeUrl: string, autoplay: boolean) => {
+  const getOrCreatePlaylist = async () => {
+    if (!currentProfile) return null;
+    if (playlist) return playlist;
+
+    const { data, error } = await supabase
+      .from("profile_playlists")
+      .insert({
+        user_id: currentProfile.id,
+        title: "My Playlist"
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      toast({
+        title: "Error creating playlist",
+        description: error.message,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (data) {
+      setPlaylist(data);
+    }
+    return data;
+  };
+
+  const handleSaveTrack = async (title: string, url: string, videoId: string) => {
+    if (!currentProfile) return;
+    const activePlaylist = await getOrCreatePlaylist();
+    if (!activePlaylist) return;
+
+    const nextPosition = tracks.length > 0
+      ? Math.max(...tracks.map(t => t.position)) + 1
+      : 0;
+
+    const { error } = await supabase
+      .from("playlist_tracks")
+      .insert({
+        playlist_id: activePlaylist.id,
+        title,
+        youtube_url: url,
+        youtube_video_id: videoId,
+        position: nextPosition
+      });
+
+    if (error) {
+      toast({
+        title: "Failed to add track",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+
+    fetchProfileData();
+  };
+
+  const handleRemoveTrack = async (trackId: string) => {
+    const { error } = await supabase
+      .from("playlist_tracks")
+      .delete()
+      .eq("id", trackId);
+
+    if (error) {
+      toast({
+        title: "Failed to remove track",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    fetchProfileData();
+  };
+
+  const handleReorderTracks = async (newTracks: Track[]) => {
+    // Optimistic update
+    const updatedWithPosition = newTracks.map((t, idx) => ({ ...t, position: idx }));
+    setTracks(updatedWithPosition);
+
+    // Save to DB
+    const updates = updatedWithPosition.map(t =>
+      supabase
+        .from("playlist_tracks")
+        .update({ position: t.position })
+        .eq("id", t.id)
+    );
+
+    const results = await Promise.all(updates);
+    const hasError = results.some(r => r.error);
+
+    if (hasError) {
+      toast({
+        title: "Failed to save order",
+        variant: "destructive",
+      });
+      fetchProfileData(); // Rollback
+    }
+  };
+
+  const handleUpdatePlaylistTitle = async (newTitle: string) => {
+    const activePlaylist = await getOrCreatePlaylist();
+    if (!activePlaylist) return;
+
+    const { error } = await supabase
+      .from("profile_playlists")
+      .update({ title: newTitle })
+      .eq("id", activePlaylist.id);
+
+    if (error) {
+      toast({
+        title: "Failed to update title",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (playlist) {
+      setPlaylist({ ...playlist, title: newTitle });
+    }
+  };
+
+  const handleMusicSave = async (musicUrl: string, autoplay: boolean) => {
     if (!currentProfile) return;
 
     const { error } = await supabase
       .from("profiles")
       .update({
-        youtube_playlist_url: youtubeUrl,
+        music_playlist_url: musicUrl,
         music_autoplay: autoplay,
       })
       .eq("id", currentProfile.id);
@@ -645,10 +795,13 @@ export default function Profile() {
             <div className="glass-card overflow-hidden fade-in" style={{ animationDelay: "125ms" }}>
               <div className="p-4">
                 <MusicPlayerSection
-                  youtubeUrl={profileData.youtube_playlist_url || ""}
-                  autoplay={profileData.music_autoplay || false}
+                  playlist={playlist}
+                  tracks={tracks}
                   isOwnProfile={isOwnProfile}
-                  onSave={handleMusicSave}
+                  onSaveTrack={handleSaveTrack}
+                  onRemoveTrack={handleRemoveTrack}
+                  onReorderTracks={handleReorderTracks}
+                  onUpdateTitle={handleUpdatePlaylistTitle}
                 />
               </div>
             </div>
