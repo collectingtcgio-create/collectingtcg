@@ -32,7 +32,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
   const [isUploading, setIsUploading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -42,11 +42,14 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
   const [isSavingQuantity, setIsSavingQuantity] = useState(false);
   const [price, setPrice] = useState(0);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [cardName, setCardName] = useState("");
+  const [isSavingCardName, setIsSavingCardName] = useState(false);
 
   useEffect(() => {
     if (card) {
       setQuantity(card.quantity || 1);
       setPrice(card.price_estimate || 0);
+      setCardName(card.card_name || "");
     }
   }, [card]);
 
@@ -63,15 +66,16 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
     setPreviewUrl(null);
     setQuantity(card?.quantity || 1);
     setPrice(card?.price_estimate || 0);
+    setCardName(card?.card_name || "");
     onOpenChange(false);
   };
 
   const handleQuantityChange = async (newQuantity: number) => {
     if (!card || newQuantity < 1) return;
-    
+
     setQuantity(newQuantity);
     setIsSavingQuantity(true);
-    
+
     try {
       const { error } = await supabase
         .from("user_cards")
@@ -84,7 +88,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
         title: "Quantity Updated",
         description: `Now tracking ${newQuantity}x ${card.card_name}`,
       });
-      
+
       onCardUpdated();
     } catch (error) {
       setQuantity(card.quantity || 1);
@@ -100,10 +104,10 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
 
   const handlePriceChange = async (newPrice: number) => {
     if (!card || newPrice < 0) return;
-    
+
     setPrice(newPrice);
     setIsSavingPrice(true);
-    
+
     try {
       const { error } = await supabase
         .from("user_cards")
@@ -116,7 +120,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
         title: "Price Updated",
         description: `Price set to $${newPrice.toFixed(2)}`,
       });
-      
+
       onCardUpdated();
     } catch (error) {
       setPrice(card.price_estimate || 0);
@@ -130,6 +134,38 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
     }
   };
 
+  const handleCardNameChange = async (newName: string) => {
+    if (!card || !newName.trim()) return;
+
+    setCardName(newName);
+    setIsSavingCardName(true);
+
+    try {
+      const { error } = await supabase
+        .from("user_cards")
+        .update({ card_name: newName })
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Card Name Updated",
+        description: `Card renamed to "${newName}"`,
+      });
+
+      onCardUpdated();
+    } catch (error) {
+      setCardName(card.card_name || "");
+      toast({
+        title: "Update Failed",
+        description: "Failed to update card name",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCardName(false);
+    }
+  };
+
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -137,7 +173,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
       });
       setStream(mediaStream);
       setShowCamera(true);
-      
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -154,13 +190,13 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
 
   const capturePhoto = () => {
     if (!videoRef.current) return;
-    
+
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
     ctx?.drawImage(videoRef.current, 0, 0);
-    
+
     const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     setPreviewUrl(dataUrl);
     stopCamera();
@@ -182,7 +218,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
       // Convert base64 to blob
       const response = await fetch(imageData);
       const blob = await response.blob();
-      
+
       const fileName = `${card?.id}-${Date.now()}.jpg`;
       const filePath = `${card?.id}/${fileName}`;
 
@@ -212,7 +248,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
     setIsUploading(true);
     try {
       const publicUrl = await uploadImageToStorage(previewUrl);
-      
+
       if (!publicUrl) {
         throw new Error("Failed to upload image");
       }
@@ -228,7 +264,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
         title: "Image Updated",
         description: "Your card image has been updated successfully.",
       });
-      
+
       onCardUpdated();
       handleClose();
     } catch (error) {
@@ -248,7 +284,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
     setIsScanning(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.access_token) {
         throw new Error("Not authenticated");
       }
@@ -269,7 +305,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
 
       if (result.success && result.cards && result.cards.length > 0) {
         const identifiedCard = result.cards[0];
-        
+
         // Upload the new image
         const publicUrl = await uploadImageToStorage(previewUrl);
 
@@ -290,7 +326,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
           title: "Card Rescanned",
           description: `Card identified as "${identifiedCard.card_name}"`,
         });
-        
+
         onCardUpdated();
         handleClose();
       } else {
@@ -372,11 +408,25 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
 
           {/* Card Info */}
           <div className="space-y-3">
+            {/* Card Name Control */}
             <div>
               <Label className="text-sm text-muted-foreground">Card Name</Label>
-              <p className="font-medium">{card.card_name}</p>
+              <div className="flex items-center gap-3 mt-1">
+                <Input
+                  type="text"
+                  value={cardName}
+                  onChange={(e) => setCardName(e.target.value)}
+                  onBlur={() => handleCardNameChange(cardName)}
+                  className="flex-1"
+                  disabled={isSavingCardName}
+                  placeholder="Enter card name"
+                />
+                {isSavingCardName && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </div>
-            
+
             {/* Quantity Control */}
             <div>
               <Label className="text-sm text-muted-foreground">Quantity</Label>
@@ -458,7 +508,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
                 <Camera className="w-4 h-4" />
                 Take Photo
               </Button>
-              
+
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
@@ -495,7 +545,7 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
                   "Save Image Only"
                 )}
               </Button>
-              
+
               <Button
                 onClick={handleRescan}
                 disabled={isUploading || isScanning}
