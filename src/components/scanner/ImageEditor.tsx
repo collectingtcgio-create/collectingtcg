@@ -1,10 +1,8 @@
-import { useState, useCallback } from "react";
-import Cropper from "react-easy-crop";
-import type { Area } from "react-easy-crop";
+import { useState, useRef } from "react";
+import AvatarEditor from "react-avatar-editor";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Check, X, RotateCw, ZoomIn } from "lucide-react";
-import getCroppedImg from "@/lib/canvasUtils";
 
 interface ImageEditorProps {
     image: string;
@@ -13,56 +11,49 @@ interface ImageEditorProps {
 }
 
 export function ImageEditor({ image, onSave, onCancel }: ImageEditorProps) {
-    const [crop, setCrop] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [rotation, setRotation] = useState(0);
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+    const editorRef = useRef<AvatarEditor>(null);
+    const [scale, setScale] = useState(1);
+    const [rotate, setRotate] = useState(0);
     const [saving, setSaving] = useState(false);
 
-    const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
-        setCroppedAreaPixels(croppedAreaPixels);
-    }, []);
-
-    const handleSave = async () => {
-        if (!croppedAreaPixels) return;
+    const handleSave = () => {
+        if (!editorRef.current) return;
 
         try {
             setSaving(true);
-            const croppedImage = await getCroppedImg(
-                image,
-                croppedAreaPixels,
-                rotation
-            );
-
-            if (croppedImage) {
-                onSave(croppedImage);
-            }
+            // Get the cropped image as a canvas
+            const canvas = editorRef.current.getImageScaledToCanvas();
+            // Convert to base64 JPEG
+            const croppedImage = canvas.toDataURL('image/jpeg', 0.92);
+            onSave(croppedImage);
         } catch (e) {
-            console.error(e);
+            console.error("Failed to save cropped image:", e);
         } finally {
             setSaving(false);
         }
     };
 
+    const handleRotate = () => {
+        setRotate((prev) => (prev + 90) % 360);
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 absolute inset-0 z-50 animate-in fade-in duration-200">
-            <div className="relative flex-1 bg-black/50 overflow-hidden">
-                <Cropper
-                    image={image}
-                    crop={crop}
-                    zoom={zoom}
-                    rotation={rotation}
-                    aspect={3 / 4} // Standard card ratio
-                    onCropChange={setCrop}
-                    onCropComplete={onCropComplete}
-                    onZoomChange={setZoom}
-                    onRotationChange={setRotation}
-                    classes={{
-                        containerClassName: "h-full w-full",
-                        mediaClassName: "max-h-full",
-                        cropAreaClassName: "neon-border-cyan shadow-[0_0_20px_rgba(0,255,255,0.3)]",
-                    }}
-                />
+            <div className="relative flex-1 bg-black/50 overflow-hidden flex items-center justify-center p-4">
+                <div className="flex flex-col items-center gap-4">
+                    <AvatarEditor
+                        ref={editorRef}
+                        image={image}
+                        width={300}
+                        height={400}
+                        border={50}
+                        borderRadius={8}
+                        color={[0, 0, 0, 0.6]} // RGBA for border overlay
+                        scale={scale}
+                        rotate={rotate}
+                        className="rounded-lg shadow-2xl"
+                    />
+                </div>
             </div>
 
             <div className="p-4 space-y-4 bg-background border-t border-border/50">
@@ -71,26 +62,29 @@ export function ImageEditor({ image, onSave, onCancel }: ImageEditorProps) {
                     <div className="flex items-center gap-4">
                         <ZoomIn className="w-5 h-5 text-muted-foreground" />
                         <Slider
-                            value={[zoom]}
+                            value={[scale]}
                             min={1}
                             max={3}
                             step={0.1}
-                            onValueChange={(value) => setZoom(value[0])}
+                            onValueChange={(value) => setScale(value[0])}
                             className="flex-1"
                         />
+                        <span className="text-sm text-muted-foreground w-12 text-right">
+                            {Math.round(scale * 100)}%
+                        </span>
                     </div>
 
-                    {/* Rotation Control */}
-                    <div className="flex items-center gap-4">
-                        <RotateCw className="w-5 h-5 text-muted-foreground" />
-                        <Slider
-                            value={[rotation]}
-                            min={0}
-                            max={360}
-                            step={1}
-                            onValueChange={(value) => setRotation(value[0])}
-                            className="flex-1"
-                        />
+                    {/* Rotate Button */}
+                    <div className="flex items-center justify-center">
+                        <Button
+                            variant="outline"
+                            onClick={handleRotate}
+                            className="h-10 px-6 border-border hover:bg-muted"
+                            disabled={saving}
+                        >
+                            <RotateCw className="w-4 h-4 mr-2" />
+                            Rotate 90°
+                        </Button>
                     </div>
                 </div>
 
