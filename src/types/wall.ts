@@ -4,6 +4,7 @@ export type DbGiftType = Database["public"]["Enums"]["gift_type"];
 
 export interface WallPost {
     id: string;
+    profile_id: string;
     content: string;
     image_url: string | null;
     video_url: string | null;
@@ -17,7 +18,9 @@ export interface WallPost {
 
 export interface WallPostReply {
     id: string;
+    post_id: string;
     content: string;
+    image_url: string | null;
     created_at: string;
     gift_type: DbGiftType | null;
     author: {

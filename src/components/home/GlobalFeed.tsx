@@ -69,9 +69,10 @@ export function GlobalFeed({ compact = false }: GlobalFeedProps) {
     if (!profile?.id) return;
 
     const { data } = await supabase
-      .from("follows")
+      .from("followers")
       .select("following_id")
-      .eq("follower_id", profile.id);
+      .eq("follower_id", profile.id)
+      .eq("status", "approved");
 
     if (data) {
       setFollowingIds(data.map((f) => f.following_id));

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,14 +11,20 @@ import {
     Send,
     MessageSquare,
     Trash2,
-    Gift
+    Gift,
+    ImageIcon,
+    X,
+    Camera,
+    Link2
 } from "lucide-react";
 import { GiftSelector } from "@/components/gifting/GiftSelector";
 import { GiftType, getGiftByType, GiftMascot } from "@/components/gifting/GiftConfig";
 import { WallPost, WallPostReply, DbGiftType } from "@/types/wall";
+import { useFriendshipStatus } from "@/hooks/useFriendshipStatus";
 
 interface PostItemProps {
     post: WallPost;
+    replies: WallPostReply[];
     currentProfile: any; // Using any for now to avoid extensive type imports, simpler refactor
     onDeletePost: (postId: string) => void;
     onShowGiftAnimation: (gift: GiftMascot, senderName: string) => void;
@@ -41,37 +48,78 @@ function getGiftGlowClass(giftType: DbGiftType | null): string {
     }
 }
 
-export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimation }: PostItemProps) {
+export function PostItem({ post, replies, currentProfile, onDeletePost, onShowGiftAnimation }: PostItemProps) {
     const { toast } = useToast();
-    const [replies, setReplies] = useState<WallPostReply[]>([]);
     const [replyContent, setReplyContent] = useState("");
     const [submittingReply, setSubmittingReply] = useState(false);
+    const [replyImage, setReplyImage] = useState<File | null>(null);
+    const [replyImagePreview, setReplyImagePreview] = useState<string | null>(null);
+    const [showLinkInput, setShowLinkInput] = useState(false);
+    const [mediaUrl, setMediaUrl] = useState("");
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        fetchReplies();
-    }, [post.id]);
+    const { data: friendshipStatus } = useFriendshipStatus(post.profile_id);
+    const isOwner = currentProfile?.id === post.profile_id;
+    const canReply = isOwner || friendshipStatus?.isFriend;
+    const queryClient = useQueryClient(); // Add this to invalidate later
 
-    const fetchReplies = async () => {
-        const { data, error } = await supabase
-            .from("wall_post_replies")
-            .select(`
-        *,
-        author:profiles!wall_post_replies_author_id_fkey(id, username, avatar_url)
-      `)
-            .eq("post_id", post.id)
-            .order("created_at", { ascending: true });
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast({
+                    title: "Image too large",
+                    description: "Please select an image under 5MB",
+                    variant: "destructive",
+                });
+                return;
+            }
+            setReplyImage(file);
+            setReplyImagePreview(URL.createObjectURL(file));
+        }
+    };
 
-        if (error) {
-            console.error("Failed to fetch replies:", error);
-        } else {
-            setReplies(data as unknown as WallPostReply[]);
+    const removeImage = () => {
+        setReplyImage(null);
+        setReplyImagePreview(null);
+        setMediaUrl("");
+        setShowLinkInput(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
     const handleSubmitReply = async () => {
-        if (!currentProfile || !replyContent.trim()) return;
+        if (!currentProfile || (!replyContent.trim() && !replyImage && !mediaUrl)) return;
 
         setSubmittingReply(true);
+        let imageUrl: string | null = mediaUrl || null;
+
+        // Upload image if present
+        if (replyImage) {
+            const fileExt = replyImage.name.split(".").pop();
+            const fileName = `${currentProfile.id}/replies/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from("wall-posts")
+                .upload(fileName, replyImage);
+
+            if (uploadError) {
+                toast({
+                    title: "Failed to upload image",
+                    description: uploadError.message,
+                    variant: "destructive",
+                });
+                setSubmittingReply(false);
+                return;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+                .from("wall-posts")
+                .getPublicUrl(fileName);
+
+            imageUrl = publicUrl;
+        }
 
         const { error } = await supabase
             .from("wall_post_replies")
@@ -79,6 +127,7 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
                 post_id: post.id,
                 author_id: currentProfile.id,
                 content: replyContent.trim(),
+                image_url: imageUrl,
             });
 
         if (error) {
@@ -89,7 +138,8 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
             });
         } else {
             setReplyContent("");
-            fetchReplies();
+            removeImage();
+            queryClient.invalidateQueries({ queryKey: ["wall-replies"] });
         }
         setSubmittingReply(false);
     };
@@ -107,7 +157,7 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
                 variant: "destructive",
             });
         } else {
-            fetchReplies();
+            queryClient.invalidateQueries({ queryKey: ["wall-replies"] });
         }
     };
 
@@ -141,7 +191,7 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
             }
 
             // Refresh replies to show the glow
-            fetchReplies();
+            queryClient.invalidateQueries({ queryKey: ["wall-replies"] });
 
             toast({
                 title: `${gift?.emoji} Gift sent!`,
@@ -253,48 +303,123 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
                 </div>
 
                 <div className="pl-4 border-l-2 border-border/50 space-y-3">
-                    {/* Reply Form */}
-                    {currentProfile && (
-                        <div className="flex gap-2">
-                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                {currentProfile.avatar_url ? (
-                                    <img
-                                        src={currentProfile.avatar_url}
-                                        alt={currentProfile.username}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <span className="text-xs font-medium">
-                                        {currentProfile.username?.[0]?.toUpperCase() || "?"}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex-1 flex gap-2">
-                                <Input
-                                    value={replyContent}
-                                    onChange={(e) => setReplyContent(e.target.value)}
-                                    placeholder="Write a reply..."
-                                    className="bg-input border-border h-8 text-sm"
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSubmitReply();
-                                        }
-                                    }}
-                                />
-                                <Button
-                                    size="icon"
-                                    onClick={handleSubmitReply}
-                                    disabled={submittingReply || !replyContent.trim()}
-                                    className="h-8 w-8"
-                                >
-                                    {submittingReply ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
+                    {/* Reply Form - Only for friends or owner */}
+                    {currentProfile && canReply && (
+                        <div className="space-y-2">
+                            <div className="flex gap-2">
+                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden ring-1 ring-border">
+                                    {currentProfile.avatar_url ? (
+                                        <img
+                                            src={currentProfile.avatar_url}
+                                            alt={currentProfile.username}
+                                            className="w-full h-full object-cover"
+                                        />
                                     ) : (
-                                        <Send className="w-4 h-4" />
+                                        <span className="text-xs font-medium">
+                                            {currentProfile.username?.[0]?.toUpperCase() || "?"}
+                                        </span>
                                     )}
-                                </Button>
+                                </div>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={replyContent}
+                                            onChange={(e) => setReplyContent(e.target.value)}
+                                            placeholder="Write a reply..."
+                                            className="bg-input/50 border-border focus:border-primary/50 h-8 text-sm transition-all shadow-inner"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSubmitReply();
+                                                }
+                                            }}
+                                        />
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageSelect}
+                                            className="hidden"
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => {
+                                                setShowLinkInput(false);
+                                                fileInputRef.current?.click();
+                                            }}
+                                            className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                                            title="Add photo"
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setReplyImage(null);
+                                                setReplyImagePreview(null);
+                                                setShowLinkInput(!showLinkInput);
+                                            }}
+                                            className={`h-8 px-2 transition-colors ${showLinkInput ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"}`}
+                                            title="Add Link"
+                                        >
+                                            <Link2 className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            size="icon"
+                                            onClick={handleSubmitReply}
+                                            disabled={submittingReply || (!replyContent.trim() && !replyImage && !mediaUrl)}
+                                            className="h-8 w-8 bg-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-lg shadow-primary/10"
+                                        >
+                                            {submittingReply ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Send className="w-4 h-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+
+                                    {showLinkInput && (
+                                        <div className="flex gap-2 animate-in slide-in-from-top-1 duration-200 mt-1">
+                                            <Input
+                                                placeholder="Paste image or GIF URL..."
+                                                value={mediaUrl}
+                                                onChange={(e) => setMediaUrl(e.target.value)}
+                                                className="h-7 text-xs bg-background border-primary/20 focus:border-primary/50"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Image/Link Preview */}
+                                    {(replyImagePreview || mediaUrl) && (
+                                        <div className="relative inline-block mt-1 animate-in zoom-in-95 duration-200">
+                                            <img
+                                                src={replyImagePreview || mediaUrl}
+                                                alt="Preview"
+                                                className="max-h-24 rounded-md border border-border shadow-sm"
+                                            />
+                                            <Button
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full shadow-md"
+                                                onClick={removeImage}
+                                            >
+                                                <X className="w-2.5 h-2.5" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+                        </div>
+                    )}
+
+                    {!canReply && currentProfile && (
+                        <div className="p-2 text-center bg-muted/20 rounded-md border border-dashed border-border/50">
+                            <p className="text-xs text-muted-foreground italic">
+                                Only friends can reply to this post.
+                            </p>
                         </div>
                     )}
 
@@ -344,7 +469,17 @@ export function PostItem({ post, currentProfile, onDeletePost, onShowGiftAnimati
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-sm text-foreground/80">{reply.content}</p>
+                                    <p className="text-sm text-foreground/80 mb-2">{reply.content}</p>
+                                    {reply.image_url && (
+                                        <div className="mt-2 rounded-md overflow-hidden border border-border/50 shadow-sm max-w-[200px]">
+                                            <img
+                                                src={reply.image_url}
+                                                alt="Reply attachment"
+                                                className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                                                onClick={() => window.open(reply.image_url!, '_blank')}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Actions for reply */}

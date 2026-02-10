@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Navigate, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useFriendships } from "@/hooks/useFriendships";
+import { useFriendshipStatus } from "@/hooks/useFriendshipStatus";
 import { usePrivacySettings } from "@/hooks/usePrivacySettings";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,17 +95,9 @@ export default function Profile() {
   const { id } = useParams();
   const { user, profile: currentProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { blockUser, isUserBlocked } = useUserSettings();
-  const { getFriendshipStatus } = useFriendships();
 
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [topEight, setTopEight] = useState<TopEightItem[]>([]);
-  const [followerCount, setFollowerCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
-  const [cardCount, setCardCount] = useState(0);
-  const [friendCount, setFriendCount] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [topEightEditorOpen, setTopEightEditorOpen] = useState(false);
   const [selectedTopEightPosition, setSelectedTopEightPosition] = useState(1);
@@ -113,8 +107,6 @@ export default function Profile() {
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false);
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
-  const [playlist, setPlaylist] = useState<Playlist | null>(null);
-  const [tracks, setTracks] = useState<Track[]>([]);
 
   const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
   const targetProfileId = id || currentProfile?.id;
@@ -122,8 +114,183 @@ export default function Profile() {
   // Online status tracking for current user
   useOnlineStatus();
 
-  // Get privacy settings for target profile
-  const { settings: targetPrivacySettings } = usePrivacySettings(targetProfileId);
+  // Get privacy settings mutations (data is now in consolidated fetch)
+  const { updateProfileVisibility, updateOnlineStatusVisibility, updateFriendRequestPermission, updateFollowPermission } = usePrivacySettings(targetProfileId);
+
+  // Friendship status for privacy checks
+  const { data: friendshipStatus } = useFriendshipStatus(targetProfileId || "");
+
+  // Fetch profile via React Query
+  const { data: profileFullData, isLoading: profileFullLoading } = useQuery({
+    queryKey: ["profile-full", targetProfileId],
+    queryFn: async () => {
+      if (!targetProfileId) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", targetProfileId)
+        .single();
+      if (error) {
+        console.error("Profile query error:", error);
+        throw error;
+      }
+      return data as ProfileData;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  const profileData = profileFullData;
+
+  // Fetch user settings separately
+  const { data: userSettings } = useQuery({
+    queryKey: ["user-settings", targetProfileId],
+    queryFn: async () => {
+      if (!targetProfileId) return null;
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", targetProfileId)
+        .maybeSingle();
+      if (error) {
+        console.error("User settings query error:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  const targetPrivacySettings = userSettings;
+
+  // Fetch top eight via React Query
+  const { data: topEight = [] } = useQuery({
+    queryKey: ["top-eight", targetProfileId],
+    queryFn: async () => {
+      if (!targetProfileId) return [];
+      const { data, error } = await supabase
+        .from("top_eight")
+        .select(`
+          *,
+          user_cards(id, card_name, image_url, card_cache(image_url)),
+          friend:profiles!top_eight_friend_id_fkey(id, username, avatar_url)
+        `)
+        .eq("user_id", targetProfileId)
+        .order("position");
+      if (error) throw error;
+      return data as unknown as TopEightItem[];
+    },
+    enabled: !!targetProfileId,
+  });
+
+  // Fetch playlist via React Query
+  const { data: playlist = null } = useQuery({
+    queryKey: ["profile-playlist", targetProfileId],
+    queryFn: async () => {
+      if (!targetProfileId) return null;
+      const { data, error } = await supabase
+        .from("profile_playlists")
+        .select("*")
+        .eq("user_id", targetProfileId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Playlist;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  // Fetch playlist tracks via React Query
+  const { data: tracks = [] } = useQuery({
+    queryKey: ["playlist-tracks", playlist?.id],
+    queryFn: async () => {
+      if (!playlist?.id) return [];
+      const { data, error } = await supabase
+        .from("playlist_tracks")
+        .select("*")
+        .eq("playlist_id", playlist.id)
+        .order("position");
+      if (error) throw error;
+      return data as Track[];
+    },
+    enabled: !!playlist?.id,
+  });
+
+  // Queries for counts to enable reactivity
+  const { data: followerCount = 0 } = useQuery({
+    queryKey: ["followers", "count", targetProfileId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("followers")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", targetProfileId)
+        .eq("status", "approved");
+      return count || 0;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  const { data: followingCount = 0 } = useQuery({
+    queryKey: ["following", "count", targetProfileId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("followers")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", targetProfileId)
+        .eq("status", "approved");
+      return count || 0;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  const { data: cardCount = 0 } = useQuery({
+    queryKey: ["user_cards", "count", targetProfileId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("user_cards")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", targetProfileId);
+      return count || 0;
+    },
+    enabled: !!targetProfileId,
+  });
+
+  const { data: friendCount = 0 } = useQuery({
+    queryKey: ["friendships", "count", targetProfileId],
+    queryFn: async () => {
+      const { count: friendsAsRequester } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("requester_id", targetProfileId)
+        .eq("status", "accepted");
+
+      const { count: friendsAsAddressee } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("addressee_id", targetProfileId)
+        .eq("status", "accepted");
+
+      return (friendsAsRequester || 0) + (friendsAsAddressee || 0);
+    },
+    enabled: !!targetProfileId,
+  });
+
+  // Check if current user follows this profile
+  const { data: isFollowing = false } = useQuery({
+    queryKey: ["follow-status", targetProfileId],
+    queryFn: async () => {
+      if (!currentProfile || isOwnProfile) return false;
+      const { data } = await supabase
+        .from("followers")
+        .select("id")
+        .eq("follower_id", currentProfile.id)
+        .eq("following_id", targetProfileId)
+        .eq("status", "approved")
+        .maybeSingle();
+      return !!data;
+    },
+    enabled: !!currentProfile && !!targetProfileId && !isOwnProfile,
+  });
+
+  const loading = profileFullLoading;
 
   // Check if current user can view this profile
   const canViewProfile = () => {
@@ -132,128 +299,13 @@ export default function Profile() {
     if (targetPrivacySettings.profile_visibility === "public") return true;
     if (targetPrivacySettings.profile_visibility === "private") return false;
     if (targetPrivacySettings.profile_visibility === "friends_only") {
-      const friendStatus = getFriendshipStatus(targetProfileId || "");
-      return friendStatus.isFriend;
+      return friendshipStatus?.isFriend || false;
     }
     return true;
   };
 
   // Check if blocked
   const isBlocked = isUserBlocked(targetProfileId || "");
-
-  useEffect(() => {
-    if (targetProfileId) {
-      fetchProfileData();
-    }
-  }, [targetProfileId, currentProfile]);
-
-  const fetchProfileData = async () => {
-    if (!targetProfileId) return;
-
-    if (!profileData) setLoading(true);
-
-    // Fetch profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", targetProfileId)
-      .single();
-
-    if (profile) {
-      setProfileData(profile);
-    }
-
-    // Fetch top eight with related data
-    const { data: topEightData } = await supabase
-      .from("top_eight")
-      .select(`
-        *,
-        user_cards(id, card_name, image_url, card_cache(image_url)),
-        friend:profiles!top_eight_friend_id_fkey(id, username, avatar_url)
-      `)
-      .eq("user_id", targetProfileId)
-      .order("position");
-
-    if (topEightData) {
-      setTopEight(topEightData as unknown as TopEightItem[]);
-    }
-
-    // Fetch follower/following/card/friend counts
-    const { count: followers } = await supabase
-      .from("followers")
-      .select("*", { count: "exact", head: true })
-      .eq("following_id", targetProfileId)
-      .eq("status", "approved");
-
-    const { count: following } = await supabase
-      .from("followers")
-      .select("*", { count: "exact", head: true })
-      .eq("follower_id", targetProfileId)
-      .eq("status", "approved");
-
-    const { count: cards } = await supabase
-      .from("user_cards")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", targetProfileId);
-
-    // Count accepted friendships
-    const { count: friendsAsRequester } = await supabase
-      .from("friendships")
-      .select("*", { count: "exact", head: true })
-      .eq("requester_id", targetProfileId)
-      .eq("status", "accepted");
-
-    const { count: friendsAsAddressee } = await supabase
-      .from("friendships")
-      .select("*", { count: "exact", head: true })
-      .eq("addressee_id", targetProfileId)
-      .eq("status", "accepted");
-
-    setFollowerCount(followers || 0);
-    setFollowingCount(following || 0);
-    setCardCount(cards || 0);
-    setFriendCount((friendsAsRequester || 0) + (friendsAsAddressee || 0));
-
-    // Check if current user follows this profile
-    if (currentProfile && !isOwnProfile) {
-      const { data: followData } = await supabase
-        .from("followers")
-        .select("id")
-        .eq("follower_id", currentProfile.id)
-        .eq("following_id", targetProfileId)
-        .eq("status", "approved")
-        .maybeSingle();
-
-      setIsFollowing(!!followData);
-    }
-
-    // Fetch playlist and tracks
-    const { data: playlistData } = await supabase
-      .from("profile_playlists")
-      .select("*")
-      .eq("user_id", targetProfileId)
-      .maybeSingle();
-
-    if (playlistData) {
-      setPlaylist(playlistData);
-      const { data: tracksData } = await supabase
-        .from("playlist_tracks")
-        .select("*")
-        .eq("playlist_id", playlistData.id)
-        .order("position");
-
-      if (tracksData) {
-        setTracks(tracksData);
-      }
-    } else {
-      setPlaylist(null);
-      setTracks([]);
-    }
-
-    setLoading(false);
-  };
-
-
 
   const getOrCreatePlaylist = async () => {
     if (!currentProfile) return null;
@@ -275,10 +327,11 @@ export default function Profile() {
         variant: "destructive",
       });
       return null;
+
     }
 
     if (data) {
-      setPlaylist(data);
+      queryClient.invalidateQueries({ queryKey: ["profile-playlist", targetProfileId] });
     }
     return data;
   };
@@ -311,7 +364,7 @@ export default function Profile() {
       throw error;
     }
 
-    fetchProfileData();
+    queryClient.invalidateQueries({ queryKey: ["profile-full", targetProfileId] });
   };
 
   const handleRemoveTrack = async (trackId: string) => {
@@ -329,13 +382,13 @@ export default function Profile() {
       return;
     }
 
-    fetchProfileData();
+    queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] });
   };
 
   const handleReorderTracks = async (newTracks: Track[]) => {
     // Optimistic update
     const updatedWithPosition = newTracks.map((t, idx) => ({ ...t, position: idx }));
-    setTracks(updatedWithPosition);
+    queryClient.invalidateQueries({ queryKey: ["playlist-tracks", playlist?.id] });
 
     // Save to DB
     const updates = updatedWithPosition.map(t =>
@@ -353,7 +406,7 @@ export default function Profile() {
         title: "Failed to save order",
         variant: "destructive",
       });
-      fetchProfileData(); // Rollback
+      queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] }); // Rollback
     }
   };
 
@@ -375,7 +428,7 @@ export default function Profile() {
     }
 
     if (playlist) {
-      setPlaylist({ ...playlist, title: newTitle });
+      queryClient.invalidateQueries({ queryKey: ["profile-playlist", targetProfileId] });
     }
   };
 
@@ -404,7 +457,8 @@ export default function Profile() {
       description: "Your music player settings have been saved.",
     });
 
-    fetchProfileData();
+    queryClient.invalidateQueries({ queryKey: ["profile-full", targetProfileId] });
+    queryClient.invalidateQueries({ queryKey: ["profile-playlist", targetProfileId] });
   };
 
   if (!user && !id) {
@@ -505,7 +559,7 @@ export default function Profile() {
                     currentAvatar={profileData.avatar_url}
                     username={profileData.username}
                     isLive={profileData.is_live}
-                    onUploadComplete={() => fetchProfileData()}
+                    onUploadComplete={() => queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] })}
                   />
                 ) : (
                   <div className={`relative inline-block ${profileData.is_live ? "live-border" : ""}`}>
@@ -542,7 +596,7 @@ export default function Profile() {
                 {isOwnProfile ? (
                   <StatusEditor
                     currentStatus={profileData.status || ""}
-                    onUpdate={fetchProfileData}
+                    onUpdate={() => queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] })}
                   />
                 ) : (
                   <StatusDisplay status={profileData.status || ""} />
@@ -627,7 +681,7 @@ export default function Profile() {
                   Contacting {profileData.username}
                 </h3>
               </div>
-              <div className="p-3 grid grid-cols-2 gap-2">
+              <div className="p-3 flex flex-wrap gap-2 text-primary">
                 {!isOwnProfile && user && (
                   <>
                     <Button
@@ -641,15 +695,15 @@ export default function Profile() {
                     </Button>
                     <FollowButton
                       targetUserId={targetProfileId || ""}
-                      variant="ghost"
+                      variant="default"
                       size="sm"
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
+                      className="flex-1 min-w-[120px] justify-start text-xs h-9 shadow-lg shadow-primary/20"
                     />
                     <FriendRequestButton
                       targetUserId={targetProfileId || ""}
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary col-span-2"
+                      className="flex-1 min-w-[120px] justify-start text-xs h-9 border border-border/50"
                     />
                     <Button
                       variant="ghost"
@@ -781,7 +835,7 @@ export default function Profile() {
                 {isOwnProfile ? (
                   <BioEditor
                     currentBio={profileData.bio || ""}
-                    onUpdate={fetchProfileData}
+                    onUpdate={() => queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] })}
                   />
                 ) : (
                   <p className="text-sm text-foreground/80 whitespace-pre-wrap">
@@ -1008,7 +1062,7 @@ export default function Profile() {
         position={selectedTopEightPosition}
         currentCardId={topEight.find((t) => t.position === selectedTopEightPosition)?.card_id}
         currentFriendId={topEight.find((t) => t.position === selectedTopEightPosition)?.friend_id}
-        onUpdate={fetchProfileData}
+        onUpdate={() => queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] })}
         viewedProfileId={!isOwnProfile ? targetProfileId : undefined}
         viewedProfileUsername={!isOwnProfile ? profileData?.username : undefined}
       />
@@ -1029,7 +1083,7 @@ export default function Profile() {
               rumble_url: profileData.rumble_url || "",
               youtube_url: profileData.youtube_url || "",
             }}
-            onUpdate={fetchProfileData}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ["profile", targetProfileId] })}
           />
         )
       }

@@ -8,12 +8,15 @@ import {
   Loader2,
   Send,
   ImageIcon,
-  X
+  X,
+  Link2
 } from "lucide-react";
 import { GiftAnimation } from "@/components/gifting/GiftAnimation";
 import { GiftMascot } from "@/components/gifting/GiftConfig";
-import { WallPost } from "@/types/wall";
+import { WallPost, WallPostReply } from "@/types/wall";
 import { PostItem } from "./PostItem";
+import { Input } from "@/components/ui/input";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface WallPostsProps {
   profileId: string;
@@ -24,21 +27,62 @@ interface WallPostsProps {
 export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPostsProps) {
   const { user, profile: currentProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const [posts, setPosts] = useState<WallPost[]>([]);
-  const [loading, setLoading] = useState(true);
   const [postContent, setPostContent] = useState("");
   const [postImage, setPostImage] = useState<File | null>(null);
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeGiftAnimation, setActiveGiftAnimation] = useState<GiftMascot | null>(null);
   const [giftSenderName, setGiftSenderName] = useState<string>("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchPosts();
+  // Fetch posts via React Query
+  const { data: posts = [], isLoading: postsLoading } = useQuery({
+    queryKey: ["wall-posts", profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wall_posts")
+        .select(`
+          *,
+          author:profiles!wall_posts_author_id_fkey(id, username, avatar_url)
+        `)
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
+      if (error) throw error;
+      return data as unknown as WallPost[];
+    },
+    enabled: !!profileId,
+  });
+
+  // Fetch ALL replies for these posts in one query
+  const { data: allReplies = [] } = useQuery({
+    queryKey: ["wall-replies", profileId, posts.map(p => p.id)],
+    queryFn: async () => {
+      if (posts.length === 0) return [];
+
+      const postIds = posts.map(p => p.id);
+      const { data, error } = await supabase
+        .from("wall_post_replies")
+        .select(`
+          *,
+          author:profiles!wall_post_replies_author_id_fkey(id, username, avatar_url)
+        `)
+        .in("post_id", postIds)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return data as unknown as WallPostReply[];
+    },
+    enabled: posts.length > 0,
+  });
+
+  useEffect(() => {
     // Subscribe to realtime updates
     const channel = supabase
       .channel('wall-posts-channel')
@@ -51,7 +95,18 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
           filter: `profile_id=eq.${profileId}`,
         },
         () => {
-          fetchPosts();
+          queryClient.invalidateQueries({ queryKey: ["wall-posts", profileId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wall_post_replies',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["wall-replies", profileId] });
         }
       )
       .subscribe();
@@ -59,27 +114,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profileId]);
-
-  const fetchPosts = async () => {
-    const { data, error } = await supabase
-      .from("wall_posts")
-      .select(`
-        *,
-        author:profiles!wall_posts_author_id_fkey(id, username, avatar_url)
-      `)
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error("Failed to fetch posts:", error);
-    } else {
-      const postsData = data as unknown as WallPost[];
-      setPosts(postsData);
-    }
-    setLoading(false);
-  };
+  }, [profileId, queryClient]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,16 +135,18 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
   const removeImage = () => {
     setPostImage(null);
     setPostImagePreview(null);
+    setMediaUrl("");
+    setShowLinkInput(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
   const handleSubmitPost = async () => {
-    if (!currentProfile || !postContent.trim()) return;
+    if (!currentProfile || (!postContent.trim() && !postImage && !mediaUrl)) return;
 
     setSubmitting(true);
-    let imageUrl: string | null = null;
+    let imageUrl: string | null = mediaUrl || null;
 
     // Upload image if present
     if (postImage) {
@@ -159,7 +196,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
       });
       setPostContent("");
       removeImage();
-      fetchPosts();
+      queryClient.invalidateQueries({ queryKey: ["wall-posts", profileId] });
     }
     setSubmitting(false);
   };
@@ -177,7 +214,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
         variant: "destructive",
       });
     } else {
-      fetchPosts();
+      queryClient.invalidateQueries({ queryKey: ["wall-posts", profileId] });
     }
   };
 
@@ -186,7 +223,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
     setActiveGiftAnimation(gift);
   };
 
-  if (loading) {
+  if (postsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -230,21 +267,41 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                   rows={3}
                 />
 
-                {/* Image Preview */}
-                {postImagePreview && (
+                {/* Image/Link Preview */}
+                {(postImagePreview || mediaUrl) && (
                   <div className="relative inline-block">
                     <img
-                      src={postImagePreview}
+                      src={postImagePreview || mediaUrl}
                       alt="Preview"
-                      className="max-h-40 rounded-lg"
+                      className="max-h-40 rounded-lg border border-border"
                     />
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute top-1 right-1 h-6 w-6"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg"
                       onClick={removeImage}
                     >
                       <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+
+                {showLinkInput && (
+                  <div className="flex gap-2 animate-in slide-in-from-top-2 duration-200">
+                    <Input
+                      placeholder="Paste image or GIF URL..."
+                      value={mediaUrl}
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                      className="h-8 text-sm bg-background border-primary/20 focus:border-primary/50"
+                      autoFocus
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => setShowLinkInput(false)}
+                    >
+                      Cancel
                     </Button>
                   </div>
                 )}
@@ -261,18 +318,34 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setShowLinkInput(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="text-muted-foreground hover:text-primary transition-colors h-8"
                     >
                       <ImageIcon className="w-4 h-4 mr-2" />
                       Photo
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPostImage(null);
+                        setPostImagePreview(null);
+                        setShowLinkInput(!showLinkInput);
+                      }}
+                      className={`h-8 transition-colors ${showLinkInput ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"}`}
+                    >
+                      <Link2 className="w-4 h-4 mr-2" />
+                      Link Media
+                    </Button>
                   </div>
                   <Button
                     onClick={handleSubmitPost}
-                    disabled={submitting || !postContent.trim()}
+                    disabled={submitting || (!postContent.trim() && !postImage && !mediaUrl)}
                     size="sm"
-                    className="rounded-full bg-primary hover:bg-primary/80"
+                    className="rounded-full bg-primary hover:bg-primary shadow-lg shadow-primary/20 transition-all font-bold px-4 h-8"
                   >
                     {submitting ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -300,6 +373,7 @@ export function WallPosts({ profileId, profileUsername, isOwnProfile }: WallPost
               <PostItem
                 key={post.id}
                 post={post}
+                replies={allReplies.filter(r => r.post_id === post.id)}
                 currentProfile={currentProfile}
                 onDeletePost={handleDeletePost}
                 onShowGiftAnimation={handleShowGiftAnimation}

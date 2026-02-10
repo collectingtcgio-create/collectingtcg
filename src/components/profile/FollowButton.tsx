@@ -13,7 +13,7 @@ interface FollowButtonProps {
 
 export function FollowButton({
   targetUserId,
-  variant = "outline",
+  variant = "default",
   size = "default",
   className,
 }: FollowButtonProps) {
