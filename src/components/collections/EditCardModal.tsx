@@ -411,19 +411,32 @@ export function EditCardModal({ card, open, onOpenChange, onCardUpdated }: EditC
             {/* Card Name Control */}
             <div>
               <Label className="text-sm text-muted-foreground">Card Name</Label>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-2 mt-1">
                 <Input
                   type="text"
                   value={cardName}
                   onChange={(e) => setCardName(e.target.value)}
-                  onBlur={() => handleCardNameChange(cardName)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCardNameChange(cardName);
+                    }
+                  }}
                   className="flex-1"
                   disabled={isSavingCardName}
                   placeholder="Enter card name"
                 />
-                {isSavingCardName && (
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                )}
+                <Button
+                  onClick={() => handleCardNameChange(cardName)}
+                  disabled={isSavingCardName || !cardName.trim() || cardName === card.card_name}
+                  size="sm"
+                  className="bg-primary hover:bg-primary/80"
+                >
+                  {isSavingCardName ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
               </div>
             </div>
 
