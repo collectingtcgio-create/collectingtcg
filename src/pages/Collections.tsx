@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EditCardModal } from "@/components/collections/EditCardModal";
+import { useQuery } from "@tanstack/react-query";
 
 interface Card {
   id: string;
@@ -28,53 +29,57 @@ interface Card {
 
 export default function Collections() {
   const { userId } = useParams();
-  const { user, profile } = useAuth();
-  const [targetProfile, setTargetProfile] = useState<any>(null);
+  const { user, profile: currentProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [cards, setCards] = useState<Card[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalValue, setTotalValue] = useState(0);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const targetUserId = userId || profile?.id;
-  const isOwnCollection = !userId || (profile && userId === profile.id);
+  const isOwnCollection = !userId || (user && userId === user.id) || (currentProfile && userId === currentProfile.id);
+  const ambientId = userId || user?.id;
 
-  useEffect(() => {
-    if (targetUserId) {
-      fetchTargetProfile();
-      fetchCards();
-    }
-  }, [targetUserId]);
+  // 1. Fetch the target profile record to get the correct UUID (profiles.id)
+  const { data: targetProfile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile-record", ambientId],
+    queryFn: async () => {
+      if (!ambientId) return null;
+      const query = supabase.from("profiles").select("id, username");
 
-  const fetchTargetProfile = async () => {
-    if (!targetUserId) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", targetUserId)
-      .single();
-    if (data) {
-      setTargetProfile(data);
-    }
-  };
+      if (userId) {
+        // If coming from URL, try ID first, then username/user_id fallback if needed
+        query.eq("id", userId);
+      } else {
+        // If own profile, match on user_id (Auth UID)
+        query.eq("user_id", ambientId);
+      }
 
-  const fetchCards = async () => {
-    if (!targetUserId) return;
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!ambientId,
+  });
 
-    const { data } = await supabase
-      .from("user_cards")
-      .select("*")
-      .eq("user_id", targetUserId)
-      .order("created_at", { ascending: false });
+  // 2. Fetch the cards once we have the verified profile UUID
+  const { data: cards = [], isLoading: cardsLoading, refetch: refetchCards } = useQuery({
+    queryKey: ["user-cards", targetProfile?.id],
+    queryFn: async () => {
+      if (!targetProfile?.id) return [];
+      const { data, error } = await supabase
+        .from("user_cards")
+        .select("*")
+        .eq("user_id", targetProfile.id)
+        .order("created_at", { ascending: false });
 
-    if (data) {
-      setCards(data.map(c => ({ ...c, quantity: c.quantity || 1 })));
-      const total = data.reduce((sum, card) => sum + (Number(card.price_estimate) || 0) * (card.quantity || 1), 0);
-      setTotalValue(total);
-    }
-    setLoading(false);
-  };
+      if (error) throw error;
+      return (data || []).map(c => ({ ...c, quantity: c.quantity || 1 })) as Card[];
+    },
+    enabled: !!targetProfile?.id,
+  });
+
+  const totalValue = cards.reduce((sum, card) => sum + (Number(card.price_estimate) || 0) * (card.quantity || 1), 0);
+  const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0);
+
+  const loading = authLoading || profileLoading || cardsLoading;
 
   const handleDelete = async (cardId: string) => {
     const { error } = await supabase
@@ -91,7 +96,7 @@ export default function Collections() {
       return;
     }
 
-    setCards((prev) => prev.filter((c) => c.id !== cardId));
+    refetchCards();
     toast({
       title: "Card removed",
       description: "The card has been removed from your collection.",
@@ -125,7 +130,7 @@ export default function Collections() {
             {/* Stats */}
             <div className="glass-card px-4 py-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-primary" />
-              <span className="font-semibold">{cards.reduce((sum, c) => sum + c.quantity, 0)}</span>
+              <span className="font-semibold">{totalCards}</span>
               <span className="text-muted-foreground text-sm">cards</span>
             </div>
             <div className="glass-card px-4 py-2 flex items-center gap-2">
@@ -250,7 +255,7 @@ export default function Collections() {
         card={editingCard}
         open={showEditModal}
         onOpenChange={setShowEditModal}
-        onCardUpdated={fetchCards}
+        onCardUpdated={refetchCards}
       />
     </Layout>
   );

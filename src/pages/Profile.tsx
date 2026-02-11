@@ -93,7 +93,7 @@ interface TopEightItem {
 
 export default function Profile() {
   const { id } = useParams();
-  const { user, profile: currentProfile } = useAuth();
+  const { user, profile: currentProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { blockUser, isUserBlocked } = useUserSettings();
@@ -108,8 +108,8 @@ export default function Profile() {
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
-  const isOwnProfile = !id || (currentProfile && id === currentProfile.id);
-  const targetProfileId = id || currentProfile?.id;
+  const isOwnProfile = !id || (user && id === user.id);
+  const targetProfileId = id || user?.id;
 
   // Online status tracking for current user
   useOnlineStatus();
@@ -125,11 +125,19 @@ export default function Profile() {
     queryKey: ["profile-full", targetProfileId],
     queryFn: async () => {
       if (!targetProfileId) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", targetProfileId)
-        .single();
+
+      const query = supabase.from("profiles").select("*");
+
+      // If we have an ID from params, it's the profile UUID
+      // If not, we're on our own profile and targetProfileId is the Auth user.id
+      if (id) {
+        query.eq("id", targetProfileId);
+      } else {
+        query.eq("user_id", targetProfileId);
+      }
+
+      const { data, error } = await query.single();
+
       if (error) {
         console.error("Profile query error:", error);
         throw error;
@@ -137,19 +145,20 @@ export default function Profile() {
       return data as ProfileData;
     },
     enabled: !!targetProfileId,
+    retry: 1,
   });
 
   const profileData = profileFullData;
 
   // Fetch user settings separately
   const { data: userSettings } = useQuery({
-    queryKey: ["user-settings", targetProfileId],
+    queryKey: ["user-settings", profileData?.id],
     queryFn: async () => {
-      if (!targetProfileId) return null;
+      if (!profileData?.id) return null;
       const { data, error } = await supabase
         .from("user_settings")
         .select("*")
-        .eq("user_id", targetProfileId)
+        .eq("user_id", profileData.id)
         .maybeSingle();
       if (error) {
         console.error("User settings query error:", error);
@@ -164,9 +173,9 @@ export default function Profile() {
 
   // Fetch top eight via React Query
   const { data: topEight = [] } = useQuery({
-    queryKey: ["top-eight", targetProfileId],
+    queryKey: ["top-eight", profileData?.id],
     queryFn: async () => {
-      if (!targetProfileId) return [];
+      if (!profileData?.id) return [];
       const { data, error } = await supabase
         .from("top_eight")
         .select(`
@@ -174,28 +183,28 @@ export default function Profile() {
           user_cards(id, card_name, image_url, card_cache(image_url)),
           friend:profiles!top_eight_friend_id_fkey(id, username, avatar_url)
         `)
-        .eq("user_id", targetProfileId)
+        .eq("user_id", profileData.id)
         .order("position");
       if (error) throw error;
       return data as unknown as TopEightItem[];
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   // Fetch playlist via React Query
   const { data: playlist = null } = useQuery({
-    queryKey: ["profile-playlist", targetProfileId],
+    queryKey: ["profile-playlist", profileData?.id],
     queryFn: async () => {
-      if (!targetProfileId) return null;
+      if (!profileData?.id) return null;
       const { data, error } = await supabase
         .from("profile_playlists")
         .select("*")
-        .eq("user_id", targetProfileId)
+        .eq("user_id", profileData.id)
         .maybeSingle();
       if (error) throw error;
       return data as Playlist;
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   // Fetch playlist tracks via React Query
@@ -216,81 +225,85 @@ export default function Profile() {
 
   // Queries for counts to enable reactivity
   const { data: followerCount = 0 } = useQuery({
-    queryKey: ["followers", "count", targetProfileId],
+    queryKey: ["followers", "count", profileData?.id],
     queryFn: async () => {
+      if (!profileData?.id) return 0;
       const { count } = await supabase
         .from("followers")
         .select("*", { count: "exact", head: true })
-        .eq("following_id", targetProfileId)
+        .eq("following_id", profileData.id)
         .eq("status", "approved");
       return count || 0;
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   const { data: followingCount = 0 } = useQuery({
-    queryKey: ["following", "count", targetProfileId],
+    queryKey: ["following", "count", profileData?.id],
     queryFn: async () => {
+      if (!profileData?.id) return 0;
       const { count } = await supabase
         .from("followers")
         .select("*", { count: "exact", head: true })
-        .eq("follower_id", targetProfileId)
+        .eq("follower_id", profileData.id)
         .eq("status", "approved");
       return count || 0;
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   const { data: cardCount = 0 } = useQuery({
-    queryKey: ["user_cards", "count", targetProfileId],
+    queryKey: ["user_cards", "count", profileData?.id],
     queryFn: async () => {
+      if (!profileData?.id) return 0;
       const { count } = await supabase
         .from("user_cards")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", targetProfileId);
+        .eq("user_id", profileData.id);
       return count || 0;
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   const { data: friendCount = 0 } = useQuery({
-    queryKey: ["friendships", "count", targetProfileId],
+    queryKey: ["friendships", "count", profileData?.id],
     queryFn: async () => {
+      if (!profileData?.id) return 0;
       const { count: friendsAsRequester } = await supabase
         .from("friendships")
         .select("*", { count: "exact", head: true })
-        .eq("requester_id", targetProfileId)
+        .eq("requester_id", profileData.id)
         .eq("status", "accepted");
 
       const { count: friendsAsAddressee } = await supabase
         .from("friendships")
         .select("*", { count: "exact", head: true })
-        .eq("addressee_id", targetProfileId)
+        .eq("addressee_id", profileData.id)
         .eq("status", "accepted");
 
       return (friendsAsRequester || 0) + (friendsAsAddressee || 0);
     },
-    enabled: !!targetProfileId,
+    enabled: !!profileData?.id,
   });
 
   // Check if current user follows this profile
   const { data: isFollowing = false } = useQuery({
-    queryKey: ["follow-status", targetProfileId],
+    queryKey: ["follow-status", profileData?.id],
     queryFn: async () => {
-      if (!currentProfile || isOwnProfile) return false;
+      if (!currentProfile || isOwnProfile || !profileData?.id) return false;
       const { data } = await supabase
         .from("followers")
         .select("id")
         .eq("follower_id", currentProfile.id)
-        .eq("following_id", targetProfileId)
+        .eq("following_id", profileData.id)
         .eq("status", "approved")
         .maybeSingle();
       return !!data;
     },
-    enabled: !!currentProfile && !!targetProfileId && !isOwnProfile,
+    enabled: !!currentProfile && !!profileData?.id && !isOwnProfile,
   });
 
-  const loading = profileFullLoading;
+  const loading = profileFullLoading || authLoading;
 
   // Check if current user can view this profile
   const canViewProfile = () => {
@@ -475,11 +488,20 @@ export default function Profile() {
     );
   }
 
-  if (!profileData) {
+  if (!loading && !profileData) {
     return (
       <Layout>
         <div className="container mx-auto px-4 text-center py-12">
-          <p className="text-muted-foreground">Profile not found</p>
+          <ShieldAlert className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <p className="text-xl font-semibold mb-2">Error Loading Profile</p>
+          <p className="text-muted-foreground">We couldn't retrieve this profile. Please try refreshing again.</p>
+          <Button
+            variant="outline"
+            className="mt-6 neon-border-cyan"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </Button>
         </div>
       </Layout>
     );

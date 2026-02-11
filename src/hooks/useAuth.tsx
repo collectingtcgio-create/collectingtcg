@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return (data?.role as UserRole) || 'user';
         })();
 
-        return withTimeout(promise, 5000, 'user' as UserRole);
+        return withTimeout(promise, 15000, 'user' as UserRole);
     };
 
     const fetchProfile = async (userId: string) => {
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return data;
         })();
 
-        return withTimeout(promise, 5000, null);
+        return withTimeout(promise, 20000, null);
     };
 
     useEffect(() => {
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 const { data: { session } } = await withTimeout(
                     supabase.auth.getSession(),
-                    8000,
+                    20000,
                     { data: { session: null }, error: null } as any
                 );
 
@@ -134,13 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 if (session) {
                     setUser(session.user);
+                    setLoading(false);
+                    authInitialized = true;
                     await loadUserData(session);
                 }
             } catch (err) {
                 console.error("[Auth] critical failure in initializeAuth:", err);
             } finally {
-                if (mounted) {
-                    console.log("[Auth] Marking as not loading.");
+                if (mounted && !authInitialized) {
                     setLoading(false);
                     authInitialized = true;
                 }
