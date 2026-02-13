@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { compressImage } from "@/utils/image-utils";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
@@ -108,14 +109,23 @@ export default function Scanner() {
       const cardNameToUse = cardName.trim() || `Card ${new Date().toISOString().slice(0, 10)}`;
       const gameToUse = selectedGame !== 'auto' ? selectedGame : 'pokemon';
 
-      // Save image to storage
-      console.log(">>> [BEFORE] Calling save-scan-image Edge Function...");
+      // 1. Compress image before any further processing
+      console.log(">>> [BEFORE] Compressing image...");
+      let finalImageData = capturedImage;
+      try {
+        finalImageData = await compressImage(capturedImage, 1200, 0.7);
+        console.log("<<< [AFTER] Image compressed. Length:", finalImageData.length);
+      } catch (err) {
+        console.error("Compression failed, using original:", err);
+      }
 
+      // 2. Save image to storage via Edge Function
+      console.log(">>> [BEFORE] Calling save-scan-image Edge Function...");
       let savedImageUrl: string | null = null;
       try {
         const { data, error: functionError } = await supabase.functions.invoke("save-scan-image", {
           body: {
-            imageBase64: capturedImage,
+            imageBase64: finalImageData,
             cardName: cardNameToUse,
             game: gameToUse,
           },
@@ -125,6 +135,12 @@ export default function Scanner() {
 
         if (functionError) {
           console.error("[handleAddToCollection] Edge Function error:", functionError);
+          // If the image is too large even after compression, the function might fail
+          toast({
+            title: "Upload warning",
+            description: "Could not save high-quality image. Using temporary link instead.",
+            variant: "default",
+          });
         } else if (data?.imageUrl) {
           savedImageUrl = data.imageUrl;
           console.log("[handleAddToCollection] Saved image URL:", savedImageUrl);
@@ -133,17 +149,28 @@ export default function Scanner() {
         console.error("[handleAddToCollection] Failed to call Edge Function:", error);
       }
 
-      // Add to collection with quantity
+      // 3. Parse price safely
+      let parsedPrice = 0;
+      if (priceEstimate) {
+        // Remove currency symbols and non-numeric chars except dot
+        const cleanPrice = priceEstimate.replace(/[^0-9.]/g, '');
+        parsedPrice = parseFloat(cleanPrice) || 0;
+      }
+
+      // 4. Add to collection
       const { error } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: cardNameToUse,
-        image_url: savedImageUrl || capturedImage,
-        price_estimate: priceEstimate ? parseFloat(priceEstimate) : 0,
+        image_url: savedImageUrl || finalImageData,
+        price_estimate: parsedPrice,
         tcg_game: gameToUse,
         quantity: quantity,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database insert error:", error);
+        throw new Error(`Failed to save to database: ${error.message}`);
+      }
 
       // Add to activity feed
       await supabase.from("activity_feed").insert({
