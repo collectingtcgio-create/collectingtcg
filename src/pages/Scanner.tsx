@@ -101,7 +101,25 @@ export default function Scanner() {
   }, []);
 
   const handleAddToCollection = async () => {
-    if (!profile || !capturedImage) return;
+    console.log("[Scanner] handleAddToCollection called. Profile:", !!profile, "Image:", !!capturedImage);
+
+    if (!profile) {
+      toast({
+        title: "Profile not loaded",
+        description: "Please wait a moment or try refreshing the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!capturedImage) {
+      toast({
+        title: "No image",
+        description: "Please capture or upload an image first.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsAdding(true);
 
@@ -397,10 +415,12 @@ export default function Scanner() {
                 <Button
                   onClick={handleAddToCollection}
                   className="flex-1 bg-primary hover:bg-primary/80"
-                  disabled={isAdding}
+                  disabled={isAdding || !profile}
                 >
                   {isAdding ? (
                     "Adding..."
+                  ) : !profile ? (
+                    "Loading Profile..."
                   ) : (
                     <>
                       <Plus className="w-4 h-4 mr-2" />
