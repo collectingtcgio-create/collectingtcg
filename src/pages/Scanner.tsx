@@ -12,7 +12,7 @@ import { Camera, Upload, RotateCcw, Minus, Plus, Crop } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 import { ImageEditor } from "@/components/scanner/ImageEditor";
 
-const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
+
 
 export default function Scanner() {
   const { user, profile } = useAuth();
@@ -113,25 +113,24 @@ export default function Scanner() {
 
       let savedImageUrl: string | null = null;
       try {
-        const response = await fetch(SAVE_SCAN_IMAGE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const { data, error: functionError } = await supabase.functions.invoke("save-scan-image", {
+          body: {
             imageBase64: capturedImage,
             cardName: cardNameToUse,
             game: gameToUse,
-          }),
+          },
         });
 
         console.log("<<< [AFTER] save-scan-image Edge Function returned");
 
-        if (response.ok) {
-          const data = await response.json();
+        if (functionError) {
+          console.error("[handleAddToCollection] Edge Function error:", functionError);
+        } else if (data?.imageUrl) {
           savedImageUrl = data.imageUrl;
           console.log("[handleAddToCollection] Saved image URL:", savedImageUrl);
         }
       } catch (error) {
-        console.error("[handleAddToCollection] Failed to save image:", error);
+        console.error("[handleAddToCollection] Failed to call Edge Function:", error);
       }
 
       // Add to collection with quantity

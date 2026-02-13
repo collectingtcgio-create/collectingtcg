@@ -1,8 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
-const GET_CARD_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/get-card-image";
 
 export interface TcgScanPrices {
   low: number | null;
@@ -80,7 +79,7 @@ export function generateCardKey(
     console.log("[card_key] Using productId-based key:", key);
     return key;
   }
-  
+
   // Otherwise build a normalized key from card attributes
   const parts = [
     normalizeForKey(game || 'unknown'),
@@ -88,7 +87,7 @@ export function generateCardKey(
     normalizeForKey(setName || ''),
     normalizeForKey(cardNumber || ''),
   ];
-  
+
   const key = parts.join(':');
   console.log("[card_key] Generated normalized key:", key);
   return key;
@@ -97,7 +96,7 @@ export function generateCardKey(
 // Map game types for the save-scan-image function
 function mapGameType(game: string | null): string {
   if (!game) return "unknown";
-  
+
   const gameMap: Record<string, string> = {
     one_piece: "onepiece",
     pokemon: "pokemon",
@@ -107,7 +106,7 @@ function mapGameType(game: string | null): string {
     lorcana: "lorcana",
     non_game: "non_game",
   };
-  
+
   return gameMap[game] || game;
 }
 
@@ -117,7 +116,7 @@ export function useTcgScan(): UseTcgScanReturn {
   const [scanResult, setScanResult] = useState<TcgScanResult | null>(null);
   const [candidates, setCandidates] = useState<TcgScanCandidate[]>([]);
   const [remainingScans, setRemainingScans] = useState<number | null>(null);
-  
+
   // Track if we've already saved the image for this scan
   const imageSavedRef = useRef<boolean>(false);
   const capturedImageRef = useRef<string | null>(null);
@@ -126,24 +125,19 @@ export function useTcgScan(): UseTcgScanReturn {
   const getCardImage = useCallback(async (cardKey: string): Promise<string | null> => {
     try {
       console.log("[get-card-image] Fetching image for card_key:", cardKey);
-      const response = await fetch(GET_CARD_IMAGE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ cardKey }),
+      const { data, error } = await supabase.functions.invoke("get-card-image", {
+        body: { cardKey },
       });
 
-      if (!response.ok) {
-        console.log("[get-card-image] Response status:", response.status, response.statusText);
+      if (error) {
+        console.error("[get-card-image] Error:", error);
         return null;
       }
 
-      const data = await response.json() as GetImageResponse;
       console.log("[get-card-image] Response:", data.exists ? "Found" : "Not found", data.imageUrl || "");
       return data.imageUrl;
     } catch (error) {
-      console.error("[get-card-image] Error:", error);
+      console.error("[get-card-image] Exception:", error);
       return null;
     }
   }, []);
@@ -163,52 +157,33 @@ export function useTcgScan(): UseTcgScanReturn {
       console.error("[save-scan-image] SKIPPED: No cardName provided");
       return null;
     }
-    
+
     if (!imageBase64) {
       console.warn("[save-scan-image] WARNING: No imageBase64 provided, but proceeding anyway");
     }
-    
+
     const cardKey = generateCardKey(game, cardName, setName, cardNumber, productId);
     console.log("=== [SAVE-SCAN-IMAGE] CALLING EDGE FUNCTION ===");
     console.log("[save-scan-image] card_key:", cardKey);
-    console.log("[save-scan-image] URL:", SAVE_SCAN_IMAGE_URL);
-    console.log("[save-scan-image] Payload:", { 
-      game: mapGameType(game), 
-      cardName, 
-      setName, 
-      cardNumber, 
-      productId,
-      imageBase64Length: imageBase64?.length || 0
-    });
-    
     try {
       console.log(">>> [FETCH START] save-scan-image");
-      const response = await fetch(SAVE_SCAN_IMAGE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("save-scan-image", {
+        body: {
           imageBase64,
           game: mapGameType(game),
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
           productId: productId || null,
-        }),
+        },
       });
       console.log("<<< [FETCH END] save-scan-image");
 
-      console.log("[save-scan-image] Response status:", response.status, response.statusText);
-
-      if (!response.ok) {
-        console.error("[save-scan-image] FAILED:", response.status, response.statusText);
-        const errorText = await response.text();
-        console.error("[save-scan-image] Error body:", errorText);
+      if (error) {
+        console.error("[save-scan-image] FAILED:", error);
         return null;
       }
 
-      const data = await response.json() as SaveImageResponse;
       console.log("[save-scan-image] SUCCESS:", data.cached ? "Retrieved from cache" : "Saved new image");
       console.log("[save-scan-image] Returned imageUrl:", data.imageUrl);
       console.log("=== [SAVE-SCAN-IMAGE] COMPLETE ===");
@@ -277,9 +252,9 @@ export function useTcgScan(): UseTcgScanReturn {
       return result;
     } catch (error) {
       console.error("[tcg-scan] Error:", error);
-      
+
       const errorMessage = error instanceof Error ? error.message : "Failed to scan card";
-      
+
       toast({
         title: "Scan Failed",
         description: errorMessage,

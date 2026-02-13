@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { CardResult, TcgGame } from "@/components/scanner/ScanResultModal";
 
-const SAVE_SCAN_IMAGE_URL = "https://uvjulnwoacftborhhhnr.supabase.co/functions/v1/save-scan-image";
+
 
 interface ScanResult {
   success: boolean;
@@ -42,7 +42,7 @@ function generateCardKey(
     console.log("[card_key] Using productId-based key:", key);
     return key;
   }
-  
+
   // Otherwise build a normalized key from card attributes
   const parts = [
     normalizeForKey(game || 'unknown'),
@@ -50,7 +50,7 @@ function generateCardKey(
     normalizeForKey(setName || ''),
     normalizeForKey(cardNumber || ''),
   ];
-  
+
   const key = parts.join(':');
   console.log("[card_key] Generated normalized key:", key);
   return key;
@@ -59,7 +59,7 @@ function generateCardKey(
 // Map game types for the save-scan-image function
 function mapGameType(game: TcgGame | undefined): string {
   if (!game) return "unknown";
-  
+
   const gameMap: Record<string, string> = {
     onepiece: "onepiece",
     pokemon: "pokemon",
@@ -70,14 +70,14 @@ function mapGameType(game: TcgGame | undefined): string {
     unionarena: "unionarena",
     marvel: "marvel",
   };
-  
+
   return gameMap[game] || game;
 }
 
 export function useCardScanner() {
   const { toast } = useToast();
   const { profile } = useAuth();
-  
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [scanResults, setScanResults] = useState<CardResult[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardResult | null>(null);
@@ -97,36 +97,23 @@ export function useCardScanner() {
     productId?: string | null
   ): Promise<string | null> => {
     const cardKey = generateCardKey(game, cardName, setName, cardNumber, productId);
-    console.log("[save-scan-image] Calling with card_key:", cardKey);
-    console.log("[save-scan-image] URL:", SAVE_SCAN_IMAGE_URL);
-    console.log("[save-scan-image] Payload:", { game, cardName, setName, cardNumber, productId });
-    
     try {
-      const response = await fetch(SAVE_SCAN_IMAGE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("save-scan-image", {
+        body: {
           imageBase64,
           game,
           cardName,
           setName: setName || null,
           cardNumber: cardNumber || null,
           productId: productId || null,
-        }),
+        },
       });
 
-      console.log("[save-scan-image] Response status:", response.status, response.statusText);
-
-      if (!response.ok) {
-        console.error("[save-scan-image] Failed:", response.status, response.statusText);
-        const errorText = await response.text();
-        console.error("[save-scan-image] Error body:", errorText);
+      if (error) {
+        console.error("[save-scan-image] Failed:", error);
         return null;
       }
 
-      const data = await response.json() as SaveImageResponse;
       console.log("[save-scan-image] Success:", data.cached ? "Retrieved from cache" : "Saved new image");
       console.log("[save-scan-image] Returned imageUrl:", data.imageUrl);
       return data.imageUrl;
@@ -144,7 +131,7 @@ export function useCardScanner() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.access_token) {
         throw new Error("Not authenticated");
       }
@@ -164,7 +151,7 @@ export function useCardScanner() {
 
       if (result.success && result.cards && result.cards.length > 0) {
         setScanResults(result.cards);
-        
+
         if (result.cards.length === 1) {
           // Single match - show result directly
           setSelectedCard(result.cards[0]);
@@ -181,7 +168,7 @@ export function useCardScanner() {
     } catch (error) {
       console.error("Card identification error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to identify card";
-      
+
       toast({
         title: "Scan Failed",
         description: errorMessage,
@@ -203,7 +190,7 @@ export function useCardScanner() {
   const addToBinder = useCallback(async (updatedCard?: CardResult, quantity?: number): Promise<boolean> => {
     const cardToAdd = updatedCard || selectedCard;
     const qty = quantity || 1;
-    
+
     if (!profile || !cardToAdd) {
       toast({
         title: "Cannot add card",
@@ -218,10 +205,10 @@ export function useCardScanner() {
     try {
       // Map tcg_game to valid database enum
       const dbTcgGame = cardToAdd.tcg_game === 'marvel' ? null : cardToAdd.tcg_game;
-      
+
       // ALWAYS call save-scan-image when adding to collection
       let imageToSave = cardToAdd.image_url;
-      
+
       // Always try to save the captured image to get a permanent URL
       if (capturedImageData && cardToAdd.card_name) {
         console.log("[addToBinder] ALWAYS calling save-scan-image...");
@@ -230,7 +217,7 @@ export function useCardScanner() {
         console.log("[addToBinder] Set:", cardToAdd.set_name);
         console.log("[addToBinder] Number:", cardToAdd.card_number);
         console.log("[addToBinder] Quantity:", qty);
-        
+
         const savedUrl = await saveCardImage(
           capturedImageData,
           cardToAdd.card_name,
@@ -239,7 +226,7 @@ export function useCardScanner() {
           cardToAdd.card_number,
           null // productId - would come from pricing API if available
         );
-        
+
         if (savedUrl) {
           console.log("[addToBinder] save-scan-image returned imageUrl:", savedUrl);
           imageToSave = savedUrl;
@@ -251,7 +238,7 @@ export function useCardScanner() {
         console.log("[addToBinder] capturedImageData exists:", !!capturedImageData);
         console.log("[addToBinder] card_name exists:", !!cardToAdd.card_name);
       }
-      
+
       // Insert multiple cards if quantity > 1
       const insertPromises = [];
       for (let i = 0; i < qty; i++) {
@@ -265,7 +252,7 @@ export function useCardScanner() {
           })
         );
       }
-      
+
       const results = await Promise.all(insertPromises);
       const insertError = results.find(r => r.error)?.error;
 
@@ -296,7 +283,7 @@ export function useCardScanner() {
       return true;
     } catch (error) {
       console.error("Error adding card to binder:", error);
-      
+
       toast({
         title: "Failed to add card",
         description: error instanceof Error ? error.message : "An error occurred",
