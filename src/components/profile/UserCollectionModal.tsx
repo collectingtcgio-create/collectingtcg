@@ -8,7 +8,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search, CreditCard } from "lucide-react";
+import { Loader2, Search, CreditCard, ExternalLink, ZoomIn } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface UserCard {
   id: string;
@@ -33,6 +34,13 @@ export function UserCollectionModal({
   const [cards, setCards] = useState<UserCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  const handleZoomImage = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setZoomOpen(true);
+  };
 
   useEffect(() => {
     if (open && userId) {
@@ -62,9 +70,19 @@ export function UserCollectionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-xl border-primary/30">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            {username}'s Collection
-          </DialogTitle>
+          <div className="flex flex-col gap-1">
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              {username}'s Collection
+            </DialogTitle>
+            <Link
+              to={`/profile/${userId}`}
+              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors w-fit"
+              onClick={() => onOpenChange(false)}
+            >
+              <ExternalLink className="w-3 h-3" />
+              View Full Profile
+            </Link>
+          </div>
         </DialogHeader>
 
         {/* Search */}
@@ -97,11 +115,19 @@ export function UserCollectionModal({
                   className="aspect-[2.5/3.5] rounded-lg bg-muted/50 border border-border/50 overflow-hidden hover:neon-border-cyan transition-all"
                 >
                   {card.image_url ? (
-                    <img
-                      src={card.image_url}
-                      alt={card.card_name}
-                      className="w-full h-full object-cover"
-                    />
+                    <div
+                      className="w-full h-full cursor-zoom-in group/image relative"
+                      onClick={() => handleZoomImage(card.image_url)}
+                    >
+                      <img
+                        src={card.image_url}
+                        alt={card.card_name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover/image:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
+                        <ZoomIn className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center p-2">
                       <CreditCard className="w-8 h-8 text-muted-foreground mb-1" />
@@ -119,6 +145,24 @@ export function UserCollectionModal({
         <p className="text-center text-sm text-muted-foreground">
           {cards.length} cards in collection
         </p>
+
+        {/* Image Zoom Modal */}
+        <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl border-primary/30 bg-background/95 backdrop-blur-xl p-1 z-[70]">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Card Image Zoom</DialogTitle>
+            </DialogHeader>
+            {selectedImage && (
+              <div className="relative aspect-auto max-h-[85vh] flex items-center justify-center overflow-hidden rounded-lg">
+                <img
+                  src={selectedImage}
+                  alt="Card layout zoom"
+                  className="max-w-full max-h-full object-contain shadow-2xl animate-in zoom-in-95 duration-300"
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

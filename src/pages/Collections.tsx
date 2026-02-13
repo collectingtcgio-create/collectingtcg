@@ -16,6 +16,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { EditCardModal } from "@/components/collections/EditCardModal";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ExternalLink, ZoomIn } from "lucide-react";
 
 interface Card {
   id: string;
@@ -33,6 +40,13 @@ export default function Collections() {
   const { toast } = useToast();
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  const handleZoomImage = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setZoomOpen(true);
+  };
 
   const isOwnCollection = !userId || (user && userId === user.id) || (currentProfile && userId === currentProfile.id);
   const ambientId = userId || user?.id;
@@ -118,10 +132,21 @@ export default function Collections() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              {isOwnCollection ? "My Collection" : `${targetProfile?.username || 'User'}'s Collection`}
-            </h1>
-            <p className="text-muted-foreground">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {isOwnCollection ? "My Collection" : `${targetProfile?.username || 'User'}'s Collection`}
+              </h1>
+              {!isOwnCollection && targetProfile && (
+                <Link
+                  to={`/profile/${targetProfile.id}`}
+                  className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors w-fit"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  View Profile
+                </Link>
+              )}
+            </div>
+            <p className="text-muted-foreground mt-1">
               {isOwnCollection ? "Your digital binder of trading cards" : `Viewing ${targetProfile?.username || 'User'}'s digital binder`}
             </p>
           </div>
@@ -188,11 +213,19 @@ export default function Collections() {
                 {/* Card Image */}
                 <div className="aspect-[2.5/3.5] bg-muted relative">
                   {card.image_url ? (
-                    <img
-                      src={card.image_url}
-                      alt={card.card_name}
-                      className="w-full h-full object-cover"
-                    />
+                    <div
+                      className="w-full h-full cursor-zoom-in group/image"
+                      onClick={() => handleZoomImage(card.image_url)}
+                    >
+                      <img
+                        src={card.image_url}
+                        alt={card.card_name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover/image:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
+                        <ZoomIn className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <CreditCard className="w-12 h-12 text-muted-foreground" />
@@ -257,6 +290,24 @@ export default function Collections() {
         onOpenChange={setShowEditModal}
         onCardUpdated={refetchCards}
       />
+
+      {/* Image Zoom Modal */}
+      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl border-primary/30 bg-background/95 backdrop-blur-xl p-1">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Card Image Zoom</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="relative aspect-auto max-h-[85vh] flex items-center justify-center overflow-hidden rounded-lg">
+              <img
+                src={selectedImage}
+                alt="Card layout zoom"
+                className="max-w-full max-h-full object-contain shadow-2xl animate-in zoom-in-95 duration-300"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
