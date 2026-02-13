@@ -108,40 +108,40 @@ export default function Profile() {
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
+  const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   // Determine if this is the current user's own profile
-  // We check against both the profile ID and the username if applicable
   const isOwnProfile = !id ||
     (currentProfile && (id === currentProfile.id || id === currentProfile.username)) ||
     (user && id === user.id);
 
-  const targetProfileId = id || currentProfile?.id || user?.id;
+  // The unique identifier to query on. If none provided, we use the logged-in user's ID.
+  const ambientId = id || user?.id;
 
   // Online status tracking for current user
   useOnlineStatus();
 
-  // Get privacy settings mutations (data is now in consolidated fetch)
-  const { updateProfileVisibility, updateOnlineStatusVisibility, updateFriendRequestPermission, updateFollowPermission } = usePrivacySettings(targetProfileId);
-
-  // Friendship status for privacy checks
-  const { data: friendshipStatus } = useFriendshipStatus(targetProfileId || "");
-
-  // Fetch profile via React Query
+  // 1. Fetch the profile record. This is the "Identity Resolution" step.
+  // We handle both UUID and username here.
   const { data: profileFullData, isLoading: profileFullLoading } = useQuery({
-    queryKey: ["profile-full", targetProfileId],
+    queryKey: ["profile-full", ambientId],
     queryFn: async () => {
-      if (!targetProfileId) return null;
+      if (!ambientId) return null;
 
       const query = supabase.from("profiles").select("*");
 
-      // If we have an ID from params, it's the profile UUID
-      // If not, we're on our own profile and targetProfileId is the Auth user.id
-      if (id) {
-        query.eq("id", targetProfileId);
+      if (!id) {
+        // Direct match on Auth user_id if we're on "My Profile"
+        query.eq("user_id", ambientId);
+      } else if (isUUID(ambientId)) {
+        // If it looks like a UUID, Try ID first (most common)
+        query.eq("id", ambientId);
       } else {
-        query.eq("user_id", targetProfileId);
+        // Otherwise, treat it as a username
+        query.eq("username", ambientId);
       }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error("Profile query error:", error);
@@ -149,11 +149,18 @@ export default function Profile() {
       }
       return data as ProfileData;
     },
-    enabled: !!targetProfileId,
+    enabled: !!ambientId,
     retry: 1,
   });
 
   const profileData = profileFullData;
+  const targetProfileId = profileData?.id; // This is now guaranteed to be the UUID
+
+  // Friendship status for privacy checks - uses the resolved UUID
+  const { data: friendshipStatus } = useFriendshipStatus(targetProfileId || "");
+
+  // Get privacy settings mutations - uses the resolved UUID
+  const { updateProfileVisibility, updateOnlineStatusVisibility, updateFriendRequestPermission, updateFollowPermission } = usePrivacySettings(targetProfileId);
 
   // Fetch user settings separately
   const { data: userSettings } = useQuery({

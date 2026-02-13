@@ -51,6 +51,8 @@ export default function Collections() {
     setZoomOpen(true);
   };
 
+  const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   const isOwnCollection = !userId || (user && userId === user.id) || (currentProfile && userId === currentProfile.id);
   const ambientId = userId || user?.id;
 
@@ -61,12 +63,15 @@ export default function Collections() {
       if (!ambientId) return null;
       const query = supabase.from("profiles").select("id, username");
 
-      if (userId) {
-        // If coming from URL, try ID first, then username/user_id fallback if needed
-        query.eq("id", userId);
-      } else {
+      if (!userId) {
         // If own profile, match on user_id (Auth UID)
         query.eq("user_id", ambientId);
+      } else if (isUUID(ambientId)) {
+        // If coming from URL and looks like a UUID, try ID first
+        query.eq("id", ambientId);
+      } else {
+        // Otherwise, treat as a username
+        query.eq("username", ambientId);
       }
 
       const { data, error } = await query.maybeSingle();

@@ -70,7 +70,10 @@ export function useFriendships() {
   // Send friend request
   const sendFriendRequest = useMutation({
     mutationFn: async (addresseeId: string) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) {
+        console.error("[useFriendships] Cannot send request: Profile record missing", { profile });
+        throw new Error("Unable to authenticate. Your profile record might be missing. Please try refreshing the page.");
+      }
 
       const { error } = await supabase.from("friendships").insert({
         requester_id: profile.id,
