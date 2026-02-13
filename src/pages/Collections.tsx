@@ -11,7 +11,9 @@ import {
   Loader2,
   DollarSign,
   Trash2,
-  Pencil
+  Pencil,
+  ChevronLeft,
+  FolderOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EditCardModal } from "@/components/collections/EditCardModal";
@@ -42,6 +44,7 @@ export default function Collections() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
 
   const handleZoomImage = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -94,6 +97,17 @@ export default function Collections() {
   const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0);
 
   const loading = authLoading || profileLoading || cardsLoading;
+
+  // Group cards by game
+  const groupedCards = cards.reduce((acc, card) => {
+    const game = card.tcg_game || "Other";
+    if (!acc[game]) acc[game] = [];
+    acc[game].push(card);
+    return acc;
+  }, {} as Record<string, Card[]>);
+
+  const folderKeys = Object.keys(groupedCards).sort();
+  const displayedCards = currentFolder ? groupedCards[currentFolder] || [] : [];
 
   const handleDelete = async (cardId: string) => {
     const { error } = await supabase
@@ -202,83 +216,157 @@ export default function Collections() {
               </Link>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {cards.map((card, index) => (
-              <div
-                key={card.id}
-                className="glass-card overflow-hidden group hover:neon-border-cyan transition-all duration-300 fade-in"
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                {/* Card Image */}
-                <div className="aspect-[2.5/3.5] bg-muted relative">
-                  {card.image_url ? (
-                    <div
-                      className="w-full h-full cursor-zoom-in group/image"
-                      onClick={() => handleZoomImage(card.image_url)}
-                    >
-                      <img
-                        src={card.image_url}
-                        alt={card.card_name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover/image:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
-                        <ZoomIn className="w-8 h-8 text-white" />
+        ) : !currentFolder ? (
+          /* Folders View */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {folderKeys.map((game, index) => {
+              const gameCards = groupedCards[game];
+              const previewCard = gameCards[0];
+              return (
+                <div
+                  key={game}
+                  onClick={() => setCurrentFolder(game)}
+                  className="group cursor-pointer relative fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="glass-card p-4 hover:neon-border-cyan transition-all duration-300 flex flex-col gap-4">
+                    {/* Folder Preview Stack */}
+                    <div className="relative aspect-[2.5/3.5] bg-muted/20 rounded-lg overflow-hidden flex items-center justify-center">
+                      {previewCard?.image_url ? (
+                        <>
+                          <img
+                            src={previewCard.image_url}
+                            alt={game}
+                            className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent opacity-60" />
+                        </>
+                      ) : (
+                        <FolderOpen className="w-16 h-16 text-muted-foreground/30" />
+                      )}
+
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-primary/20 backdrop-blur-md flex items-center justify-center mb-4 group-hover:neon-glow-cyan transition-all duration-300 border border-primary/30">
+                          <FolderOpen className="w-8 h-8 text-primary" />
+                        </div>
+                        <h3 className="text-xl font-bold capitalize mb-1 group-hover:text-primary transition-colors">
+                          {game === 'null' ? 'Other' : game}
+                        </h3>
+                        <p className="text-muted-foreground text-sm font-medium">
+                          {gameCards.length} {gameCards.length === 1 ? 'Card' : 'Cards'}
+                        </p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <CreditCard className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                  )}
+                  </div>
 
-                  {/* Action Buttons */}
-                  {isOwnCollection && (
-                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEditCard(card)}
-                        className="w-8 h-8 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground flex items-center justify-center hover:bg-primary shadow-lg"
-                        title="Edit Card"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(card.id)}
-                        className="w-8 h-8 rounded-full bg-destructive/90 backdrop-blur-sm text-destructive-foreground flex items-center justify-center hover:bg-destructive shadow-lg"
-                        title="Delete Card"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+                  {/* Decorative Folder Tab Effect */}
+                  <div className="absolute -top-2 left-6 w-16 h-4 bg-primary/20 backdrop-blur-sm rounded-t-lg border-t border-l border-r border-primary/20 -z-10 transition-transform group-hover:-translate-y-1" />
                 </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Folder Content View */
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentFolder(null)}
+                className="hover:bg-primary/10 text-primary transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back to Folders
+              </Button>
+              <div className="h-4 w-px bg-border mx-2" />
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-primary" />
+                <h2 className="text-xl font-bold capitalize">
+                  {currentFolder === 'null' ? 'Other' : currentFolder}
+                </h2>
+                <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {displayedCards.length}
+                </span>
+              </div>
+            </div>
 
-                {/* Card Info */}
-                <div className="p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium text-sm truncate flex-1">
-                      {card.card_name}
-                    </h3>
-                    {card.quantity > 1 && (
-                      <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-primary/20 text-primary rounded">
-                        x{card.quantity}
-                      </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {displayedCards.map((card, index) => (
+                <div
+                  key={card.id}
+                  className="glass-card overflow-hidden group hover:neon-border-cyan transition-all duration-300 fade-in"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  {/* Card Image */}
+                  <div className="aspect-[2.5/3.5] bg-muted relative">
+                    {card.image_url ? (
+                      <div
+                        className="w-full h-full cursor-zoom-in group/image"
+                        onClick={() => handleZoomImage(card.image_url)}
+                      >
+                        <img
+                          src={card.image_url}
+                          alt={card.card_name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover/image:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
+                          <ZoomIn className="w-8 h-8 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <CreditCard className="w-12 h-12 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {isOwnCollection && (
+                      <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEditCard(card)}
+                          className="w-8 h-8 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground flex items-center justify-center hover:bg-primary shadow-lg"
+                          title="Edit Card"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(card.id)}
+                          className="w-8 h-8 rounded-full bg-destructive/90 backdrop-blur-sm text-destructive-foreground flex items-center justify-center hover:bg-destructive shadow-lg"
+                          title="Delete Card"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
-                  {card.price_estimate > 0 && (
-                    <p className="text-xs text-primary flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      {(Number(card.price_estimate) * card.quantity).toFixed(2)}
+
+                  {/* Card Info */}
+                  <div className="p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-medium text-sm truncate flex-1">
+                        {card.card_name}
+                      </h3>
                       {card.quantity > 1 && (
-                        <span className="text-muted-foreground ml-1">
-                          (${Number(card.price_estimate).toFixed(2)} ea)
+                        <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-primary/20 text-primary rounded">
+                          x{card.quantity}
                         </span>
                       )}
-                    </p>
-                  )}
+                    </div>
+                    {card.price_estimate > 0 && (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        {(Number(card.price_estimate) * card.quantity).toFixed(2)}
+                        {card.quantity > 1 && (
+                          <span className="text-muted-foreground ml-1">
+                            (${Number(card.price_estimate).toFixed(2)} ea)
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
