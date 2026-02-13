@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Users, UserCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { FriendRequestButton } from "./FriendRequestButton";
 
 interface FollowerUser {
   id: string;
@@ -89,7 +90,7 @@ export function FollowersModal({
 
   const fetchFriends = async () => {
     setLoadingFriends(true);
-    
+
     // Fetch friendships where user is requester or addressee, and status is accepted
     const { data, error } = await supabase
       .from("friendships")
@@ -149,9 +150,19 @@ export function FollowersModal({
               <AvatarImage src={user.avatar_url || undefined} alt={user.username} />
               <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
             </Avatar>
-            <span className="font-medium text-sm hover:text-primary transition-colors">
-              {user.username}
-            </span>
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm hover:text-primary transition-colors truncate block">
+                {user.username}
+              </span>
+            </div>
+            {currentProfile && user.id !== currentProfile.id && (
+              <FriendRequestButton
+                targetUserId={user.id}
+                size="sm"
+                variant="ghost"
+                className="h-8"
+              />
+            )}
           </Link>
         ))}
       </div>
@@ -159,7 +170,8 @@ export function FollowersModal({
   };
 
   // Only show friends tab for own profile or if user can view (for now, show for all)
-  const canViewFriends = isOwnProfile || currentProfile?.id === profileId;
+  // Show friends tab for own profile, or if the current user is friends with the profile owner
+  const canViewFriends = isOwnProfile || currentProfile?.id === profileId || friends.some(f => f.id === currentProfile?.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

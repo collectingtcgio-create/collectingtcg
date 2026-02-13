@@ -730,24 +730,6 @@ export default function Profile() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
-                      disabled
-                    >
-                      <Star className="w-3 h-3 mr-2" />
-                      Add to Favorites
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
-                      disabled
-                    >
-                      <Share2 className="w-3 h-3 mr-2" />
-                      Forward to Friend
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
                       onClick={() => {
                         if (targetProfileId) {
                           blockUser.mutate(targetProfileId);

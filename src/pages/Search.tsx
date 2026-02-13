@@ -18,6 +18,7 @@ import { Search as SearchIcon, Users, Loader2, CreditCard, Plus, ImageOff } from
 import { Badge } from "@/components/ui/badge";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 import { TCG_GAME_LABELS } from "@/components/scanner/ScanResultModal";
+import { FriendRequestButton } from "@/components/profile/FriendRequestButton";
 
 interface SearchResult {
   id: string;
@@ -69,7 +70,7 @@ export default function Search() {
   const [activeTab, setActiveTab] = useState("players");
 
   const ALL_SETS_VALUE = "__all_sets__";
-  
+
   // Player search
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -152,7 +153,7 @@ export default function Search() {
     try {
       // Map tcg_game to valid database enum (marvel not in DB enum)
       const dbTcgGame = card.tcg_game === 'marvel' ? null : card.tcg_game;
-      
+
       const { error } = await supabase.from("user_cards").insert({
         user_id: profile.id,
         card_name: card.card_name,
@@ -311,13 +312,22 @@ export default function Search() {
                           </p>
                         </div>
 
-                        {/* View Button */}
-                        <Button
-                          variant="ghost"
-                          className="rounded-full hover:bg-primary/10 hover:text-primary"
-                        >
-                          View
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          {profile && result.id !== profile.id && (
+                            <FriendRequestButton
+                              targetUserId={result.id}
+                              size="sm"
+                              variant="outline"
+                            />
+                          )}
+                          <Button
+                            variant="ghost"
+                            className="rounded-full hover:bg-primary/10 hover:text-primary"
+                          >
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -346,8 +356,8 @@ export default function Search() {
               <div className="glass-card p-4 neon-border-magenta space-y-4">
                 {/* Game Selection */}
                 <div className="flex gap-3">
-                  <Select 
-                    value={selectedGame} 
+                  <Select
+                    value={selectedGame}
                     onValueChange={(value) => {
                       setSelectedGame(value as TcgGame | "all");
                       if (value !== "onepiece") setSelectedSet("");
@@ -458,7 +468,7 @@ export default function Search() {
                       <h4 className="font-semibold text-sm truncate" title={card.card_name}>
                         {card.card_name}
                       </h4>
-                      
+
                       <div className="flex flex-wrap gap-1">
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                           {TCG_GAME_LABELS[card.tcg_game]}
