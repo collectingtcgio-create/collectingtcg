@@ -25,7 +25,7 @@ export interface Friendship {
 }
 
 export function useFriendships() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -70,13 +70,20 @@ export function useFriendships() {
   // Send friend request
   const sendFriendRequest = useMutation({
     mutationFn: async (addresseeId: string) => {
-      if (!profile?.id) {
-        console.error("[useFriendships] Cannot send request: Profile record missing", { profile });
+      let currentProfile = profile;
+
+      if (!currentProfile?.id) {
+        console.warn("[useFriendships] Profile missing, attempting refresh...");
+        currentProfile = await refreshProfile();
+      }
+
+      if (!currentProfile?.id) {
+        console.error("[useFriendships] Cannot send request: Profile record missing after refresh");
         throw new Error("Unable to authenticate. Your profile record might be missing. Please try refreshing the page.");
       }
 
       const { error } = await supabase.from("friendships").insert({
-        requester_id: profile.id,
+        requester_id: currentProfile.id,
         addressee_id: addresseeId,
         status: "pending",
       });

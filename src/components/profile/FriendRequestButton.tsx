@@ -29,7 +29,7 @@ export function FriendRequestButton({
   const { settings: targetSettings } = usePrivacySettings(targetUserId);
 
   // Don't show if not logged in or viewing own profile
-  if (!user || user.id === targetUserId || profile?.id === targetUserId) {
+  if (!user || profile?.id === targetUserId) {
     return null;
   }
 

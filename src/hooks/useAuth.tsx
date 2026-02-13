@@ -29,7 +29,7 @@ interface AuthContextType {
     resendConfirmation: (email: string) => Promise<void>;
     toggleLive: () => Promise<void>;
     updateProfile: (updates: Partial<Profile>) => Promise<void>;
-    refreshProfile: () => Promise<void>;
+    refreshProfile: () => Promise<Profile | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,19 +90,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 if (!data) {
                     console.warn("[Auth] No profile found for user:", userId, ". Attempting to create one...");
-                    // Try to create profile if it doesn't exist (trigger might have failed or race condition)
+
+                    // Try with primary username first
+                    const baseUsername = `user_${userId.substring(0, 8)}`;
                     const { data: newProfile, error: insertError } = await supabase
                         .from("profiles")
                         .insert({
                             user_id: userId,
-                            username: `user_${userId.substring(0, 8)}`
+                            username: baseUsername
                         })
                         .select()
                         .maybeSingle();
 
                     if (insertError) {
-                        console.error("[Auth] Failed to auto-create profile:", insertError);
-                        return null;
+                        console.warn("[Auth] Primary profile creation failed, retrying with random suffix...", insertError);
+                        // Fallback with a random suffix if username was taken
+                        const { data: retryProfile, error: retryError } = await supabase
+                            .from("profiles")
+                            .insert({
+                                user_id: userId,
+                                username: `${baseUsername}_${Math.floor(Math.random() * 1000)}`
+                            })
+                            .select()
+                            .maybeSingle();
+
+                        if (retryError) {
+                            console.error("[Auth] All profile creation attempts failed:", retryError);
+                            return null;
+                        }
+                        return retryProfile as Profile;
                     }
 
                     console.log("[Auth] Profile auto-created successfully:", newProfile?.username);
@@ -121,13 +137,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const refreshProfile = async () => {
-        if (!user) return;
+        if (!user) return null;
+        console.log("[Auth] Manually refreshing profile for:", user.id);
         setLoading(true);
         const p = await fetchProfile(user.id);
         if (mounted.current) {
             setProfile(p);
             setLoading(false);
         }
+        return p;
     };
 
     useEffect(() => {
@@ -191,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 console.log("[Auth] State Change:", event, !!session);
-                if (!mounted) return;
+                if (!mounted.current) return;
 
                 const prevUserId = user?.id;
                 setUser(session?.user ?? null);
@@ -205,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         console.log("[Auth] Triggering data fetch for new login/user Change.");
                         setLoading(true);
                         await loadUserData(session);
-                        if (mounted) setLoading(false);
+                        if (mounted.current) setLoading(false);
                         authInitialized = true;
                     }
                     // Note: INITIAL_SESSION is deliberately handled by initializeAuth()

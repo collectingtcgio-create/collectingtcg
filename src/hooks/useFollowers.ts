@@ -24,7 +24,7 @@ export interface Follower {
 }
 
 export function useFollowers(targetProfileId?: string) {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -99,13 +99,20 @@ export function useFollowers(targetProfileId?: string) {
   // Follow a user
   const followUser = useMutation({
     mutationFn: async ({ userId, requiresApproval = false }: { userId: string; requiresApproval?: boolean }) => {
-      if (!profile?.id) {
-        console.error("[useFollowers] Cannot follow: Profile record missing", { profile });
+      let currentProfile = profile;
+
+      if (!currentProfile?.id) {
+        console.warn("[useFollowers] Profile missing, attempting refresh...");
+        currentProfile = await refreshProfile();
+      }
+
+      if (!currentProfile?.id) {
+        console.error("[useFollowers] Cannot follow: Profile record missing after refresh");
         throw new Error("Unable to authenticate. Your profile record might be missing. Please try refreshing the page.");
       }
 
       const { error } = await supabase.from("followers").insert({
-        follower_id: profile.id,
+        follower_id: currentProfile.id,
         following_id: userId,
         status: requiresApproval ? "pending" : "approved",
       });
