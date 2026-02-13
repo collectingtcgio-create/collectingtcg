@@ -103,15 +103,6 @@ export default function Scanner() {
   const handleAddToCollection = async () => {
     console.log("[Scanner] handleAddToCollection called. Profile:", !!profile, "Image:", !!capturedImage);
 
-    if (!profile) {
-      toast({
-        title: "Profile not loaded",
-        description: "Please wait a moment or try refreshing the page.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!capturedImage) {
       toast({
         title: "No image",
@@ -124,6 +115,35 @@ export default function Scanner() {
     setIsAdding(true);
 
     try {
+      let activeProfile = profile;
+
+      // Profile recovery: if profile is null but user exists, try to fetch it directly
+      if (!activeProfile && user) {
+        console.log("[Scanner] Profile missing, attempting recovery fetch for UID:", user.id);
+        const { data: recoveredProfile, error: recoveryError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (recoveredProfile) {
+          console.log("[Scanner] Profile recovered:", recoveredProfile.username);
+          activeProfile = recoveredProfile;
+        } else {
+          console.error("[Scanner] Profile recovery failed:", recoveryError);
+        }
+      }
+
+      if (!activeProfile) {
+        toast({
+          title: "Profile not loaded",
+          description: "We couldn't retrieve your user profile. Please check your connection and try again.",
+          variant: "destructive",
+        });
+        setIsAdding(false);
+        return;
+      }
+
       const cardNameToUse = cardName.trim() || `Card ${new Date().toISOString().slice(0, 10)}`;
       const gameToUse = selectedGame !== 'auto' ? selectedGame : 'pokemon';
 
@@ -177,7 +197,7 @@ export default function Scanner() {
 
       // 4. Add to collection
       const { error } = await supabase.from("user_cards").insert({
-        user_id: profile.id,
+        user_id: activeProfile.id,
         card_name: cardNameToUse,
         image_url: savedImageUrl || finalImageData,
         price_estimate: parsedPrice,
@@ -192,7 +212,7 @@ export default function Scanner() {
 
       // Add to activity feed
       await supabase.from("activity_feed").insert({
-        user_id: profile.id,
+        user_id: activeProfile.id,
         activity_type: "capture",
         description: quantity > 1
           ? `Added ${quantity}x "${cardNameToUse}" to their collection`
@@ -415,12 +435,10 @@ export default function Scanner() {
                 <Button
                   onClick={handleAddToCollection}
                   className="flex-1 bg-primary hover:bg-primary/80"
-                  disabled={isAdding || !profile}
+                  disabled={isAdding}
                 >
                   {isAdding ? (
                     "Adding..."
-                  ) : !profile ? (
-                    "Loading Profile..."
                   ) : (
                     <>
                       <Plus className="w-4 h-4 mr-2" />

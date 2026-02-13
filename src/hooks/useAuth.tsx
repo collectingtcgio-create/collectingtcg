@@ -134,14 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 if (session) {
                     setUser(session.user);
-                    setLoading(false);
-                    authInitialized = true;
+                    // authInitialized = true; // Move this until after loadUserData
                     await loadUserData(session);
                 }
             } catch (err) {
                 console.error("[Auth] critical failure in initializeAuth:", err);
             } finally {
-                if (mounted && !authInitialized) {
+                if (mounted) {
                     setLoading(false);
                     authInitialized = true;
                 }
