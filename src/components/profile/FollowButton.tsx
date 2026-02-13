@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useFollowers } from "@/hooks/useFollowers";
 import { usePrivacySettings } from "@/hooks/usePrivacySettings";
 import { useAuth } from "@/hooks/useAuth";
-import { UserPlus, UserMinus, Clock, Loader2 } from "lucide-react";
+import { UserPlus, UserMinus, Clock, Loader2, Plus } from "lucide-react";
 
 interface FollowButtonProps {
   targetUserId: string;
@@ -17,12 +17,14 @@ export function FollowButton({
   size = "default",
   className,
 }: FollowButtonProps) {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { followUser, unfollowUser, useFollowStatus } = useFollowers();
   const { data: followStatus, isLoading: statusLoading } = useFollowStatus(targetUserId);
   const { settings: targetSettings } = usePrivacySettings(targetUserId);
 
-  if (!profile || profile.id === targetUserId) {
+  // Don't show if not logged in or viewing own profile
+  // We check both user.id and profile.id for maximum compatibility
+  if (!user || user.id === targetUserId || profile?.id === targetUserId) {
     return null;
   }
 
@@ -45,6 +47,20 @@ export function FollowButton({
 
   const isLoading = followUser.isPending || unfollowUser.isPending || statusLoading;
 
+  if (statusLoading) {
+    return (
+      <Button
+        variant={variant}
+        size={size}
+        disabled
+        className={className}
+      >
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        Loading...
+      </Button>
+    );
+  }
+
   if (followStatus?.isFollowing) {
     return (
       <Button
@@ -59,7 +75,7 @@ export function FollowButton({
         ) : (
           <UserMinus className="w-4 h-4 mr-2" />
         )}
-        Following
+        Unfollow
       </Button>
     );
   }
@@ -86,7 +102,7 @@ export function FollowButton({
   if (!canFollow()) {
     return (
       <Button variant="outline" size={size} disabled className={className}>
-        <UserPlus className="w-4 h-4 mr-2" />
+        <Plus className="w-4 h-4 mr-2" />
         Cannot Follow
       </Button>
     );
@@ -103,7 +119,7 @@ export function FollowButton({
       {isLoading ? (
         <Loader2 className="w-4 h-4 animate-spin mr-2" />
       ) : (
-        <UserPlus className="w-4 h-4 mr-2" />
+        <Plus className="w-4 h-4 mr-2" />
       )}
       Follow
     </Button>

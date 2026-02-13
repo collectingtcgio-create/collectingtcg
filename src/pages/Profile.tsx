@@ -108,8 +108,13 @@ export default function Profile() {
   const [previewCard, setPreviewCard] = useState<{ imageUrl: string | null; cardName: string } | null>(null);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
 
-  const isOwnProfile = !id || (user && id === user.id);
-  const targetProfileId = id || user?.id;
+  // Determine if this is the current user's own profile
+  // We check against both the profile ID and the username if applicable
+  const isOwnProfile = !id ||
+    (currentProfile && (id === currentProfile.id || id === currentProfile.username)) ||
+    (user && id === user.id);
+
+  const targetProfileId = id || currentProfile?.id || user?.id;
 
   // Online status tracking for current user
   useOnlineStatus();
@@ -561,8 +566,8 @@ export default function Profile() {
             </div>
             {!isOwnProfile && user && (
               <div className="flex items-center gap-2">
-                <FriendRequestButton targetUserId={targetProfileId || ""} size="sm" />
-                <FollowButton targetUserId={targetProfileId || ""} size="sm" />
+                <FriendRequestButton targetUserId={profileData?.id || targetProfileId || ""} size="sm" />
+                <FollowButton targetUserId={profileData?.id || targetProfileId || ""} size="sm" />
               </div>
             )}
           </div>
@@ -715,18 +720,22 @@ export default function Profile() {
                       <Mail className="w-3 h-3 mr-2" />
                       Send Message
                     </Button>
-                    <FollowButton
-                      targetUserId={targetProfileId || ""}
-                      variant="default"
-                      size="sm"
-                      className="flex-1 min-w-[120px] justify-start text-xs h-9 shadow-lg shadow-primary/20"
-                    />
-                    <FriendRequestButton
-                      targetUserId={targetProfileId || ""}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 min-w-[120px] justify-start text-xs h-9 border border-border/50"
-                    />
+                    {profileData && (
+                      <>
+                        <FollowButton
+                          targetUserId={profileData.id}
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
+                        />
+                        <FriendRequestButton
+                          targetUserId={profileData.id}
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start text-xs h-8 hover:bg-primary/10 hover:text-primary"
+                        />
+                      </>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

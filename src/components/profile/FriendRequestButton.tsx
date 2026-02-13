@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useFriendships } from "@/hooks/useFriendships";
 import { usePrivacySettings } from "@/hooks/usePrivacySettings";
 import { useAuth } from "@/hooks/useAuth";
-import { UserPlus, UserCheck, Clock, Loader2, Check, X } from "lucide-react";
+import { UserPlus, UserCheck, Clock, Loader2, Check, X, UserMinus } from "lucide-react";
 
 interface FriendRequestButtonProps {
   targetUserId: string;
@@ -17,41 +17,50 @@ export function FriendRequestButton({
   size = "default",
   className,
 }: FriendRequestButtonProps) {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const {
     getFriendshipStatus,
     sendFriendRequest,
     acceptFriendRequest,
     declineFriendRequest,
     removeFriend,
+    isLoading: statusLoading,
   } = useFriendships();
   const { settings: targetSettings } = usePrivacySettings(targetUserId);
 
-  if (!profile || profile.id === targetUserId) {
+  // Don't show if not logged in or viewing own profile
+  if (!user || user.id === targetUserId || profile?.id === targetUserId) {
     return null;
   }
 
   const status = getFriendshipStatus(targetUserId);
 
-  // Check if friend requests are allowed
-  const canSendRequest = () => {
-    if (!targetSettings) return true; // Default to allowing
-    if (targetSettings.friend_request_permission === "no_one") return false;
-    // TODO: Implement friends_of_friends check
-    return true;
-  };
-
   const isLoading =
     sendFriendRequest.isPending ||
     acceptFriendRequest.isPending ||
     declineFriendRequest.isPending ||
-    removeFriend.isPending;
+    removeFriend.isPending ||
+    statusLoading;
+
+  if (statusLoading) {
+    return (
+      <Button
+        variant={variant}
+        size={size}
+        disabled
+        className={className}
+      >
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        Loading...
+      </Button>
+    );
+  }
 
   // Already friends
   if (status.isFriend) {
     return (
       <Button
-        variant="outline"
+        variant={variant}
         size={size}
         onClick={() => status.friendshipId && removeFriend.mutate(status.friendshipId)}
         disabled={isLoading}
@@ -60,9 +69,9 @@ export function FriendRequestButton({
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin mr-2" />
         ) : (
-          <UserCheck className="w-4 h-4 mr-2" />
+          <UserMinus className="w-4 h-4 mr-2" />
         )}
-        Friends
+        Unfriend
       </Button>
     );
   }
@@ -110,6 +119,14 @@ export function FriendRequestButton({
       </Button>
     );
   }
+
+  // Check if friend requests are allowed
+  const canSendRequest = () => {
+    if (!targetSettings) return true; // Default to allowing
+    if (targetSettings.friend_request_permission === "no_one") return false;
+    // TODO: Implement friends_of_friends check
+    return true;
+  };
 
   // Cannot send request due to privacy settings
   if (!canSendRequest()) {
