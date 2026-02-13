@@ -60,7 +60,7 @@ export function usePrivacySettings(targetUserId?: string) {
   // Update profile visibility
   const updateProfileVisibility = useMutation({
     mutationFn: async (visibility: ProfileVisibility) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) throw new Error("Unable to authenticate. Please try refreshing the page.");
 
       const { error } = await supabase
         .from("user_settings")
@@ -88,7 +88,7 @@ export function usePrivacySettings(targetUserId?: string) {
   // Update online status visibility
   const updateOnlineStatusVisibility = useMutation({
     mutationFn: async (showOnlineStatus: boolean) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) throw new Error("Unable to authenticate. Please try refreshing the page.");
 
       const { error } = await supabase
         .from("user_settings")
@@ -116,7 +116,7 @@ export function usePrivacySettings(targetUserId?: string) {
   // Update friend request permission
   const updateFriendRequestPermission = useMutation({
     mutationFn: async (permission: FriendRequestPermission) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) throw new Error("Unable to authenticate. Please try refreshing the page.");
 
       const { error } = await supabase
         .from("user_settings")

@@ -133,7 +133,7 @@ export function useCardScanner() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        throw new Error("Not authenticated");
+        throw new Error("Unable to authenticate. Please try refreshing the page.");
       }
 
       const response = await supabase.functions.invoke("identify-card-v3", {

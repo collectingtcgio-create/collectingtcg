@@ -22,7 +22,7 @@ export function useGifting() {
         .maybeSingle();
 
       if (error) throw error;
-      
+
       // Create wallet if doesn't exist
       if (!data) {
         const { data: newWallet, error: createError } = await supabase
@@ -30,11 +30,11 @@ export function useGifting() {
           .insert({ user_id: profile.id })
           .select()
           .single();
-        
+
         if (createError) throw createError;
         return newWallet;
       }
-      
+
       return data;
     },
     enabled: !!profile?.id,
@@ -53,7 +53,7 @@ export function useGifting() {
       source: 'live_stream' | 'comment_reply' | 'direct_message';
       sourceId?: string;
     }) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) throw new Error("Unable to authenticate. Please try refreshing the page.");
       if (!wallet) throw new Error("Wallet not found");
 
       const gift = getGiftByType(giftType);
@@ -84,7 +84,7 @@ export function useGifting() {
         await supabase
           .from("user_wallets")
           .insert({ user_id: recipientId });
-        
+
         recipientWallet = await supabase
           .from("user_wallets")
           .select("*")

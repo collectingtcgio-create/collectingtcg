@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,7 @@ interface AuthContextType {
     resendConfirmation: (email: string) => Promise<void>;
     toggleLive: () => Promise<void>;
     updateProfile: (updates: Partial<Profile>) => Promise<void>;
+    refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [role, setRole] = useState<UserRole | null>(null);
     const [loading, setLoading] = useState(true);
+    const mounted = useRef(true);
     const { toast } = useToast();
 
     // Helper to wrap Supabase calls in a timeout
@@ -87,8 +89,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
 
                 if (!data) {
-                    console.warn("[Auth] No profile found for user:", userId);
-                    return null;
+                    console.warn("[Auth] No profile found for user:", userId, ". Attempting to create one...");
+                    // Try to create profile if it doesn't exist (trigger might have failed or race condition)
+                    const { data: newProfile, error: insertError } = await supabase
+                        .from("profiles")
+                        .insert({
+                            user_id: userId,
+                            username: `user_${userId.substring(0, 8)}`
+                        })
+                        .select()
+                        .maybeSingle();
+
+                    if (insertError) {
+                        console.error("[Auth] Failed to auto-create profile:", insertError);
+                        return null;
+                    }
+
+                    console.log("[Auth] Profile auto-created successfully:", newProfile?.username);
+                    return newProfile as Profile;
                 }
 
                 console.log("[Auth] Profile fetched successfully for:", data.username);
@@ -102,8 +120,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return withTimeout(promise, 20000, null);
     };
 
+    const refreshProfile = async () => {
+        if (!user) return;
+        setLoading(true);
+        const p = await fetchProfile(user.id);
+        if (mounted.current) {
+            setProfile(p);
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        let mounted = true;
         let authInitialized = false;
         console.log("[Auth] Provider mounting...");
 
@@ -120,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 fetchRole(session.user.id)
             ]);
 
-            if (mounted) {
+            if (mounted.current) {
                 setProfile(p);
                 setRole(r);
                 console.log("[Auth] SESSION UID:", session.user.id);
@@ -140,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     { data: { session: null }, error: null } as any
                 );
 
-                if (!mounted) return;
+                if (!mounted.current) return;
                 console.log("[Auth] Session result:", session ? "Active" : "None");
 
                 if (session) {
@@ -151,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (err) {
                 console.error("[Auth] critical failure in initializeAuth:", err);
             } finally {
-                if (mounted) {
+                if (mounted.current) {
                     setLoading(false);
                     authInitialized = true;
                 }
@@ -193,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         return () => {
-            mounted = false;
+            mounted.current = false;
             subscription.unsubscribe();
         };
     }, []);
@@ -368,6 +395,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 resendConfirmation,
                 toggleLive,
                 updateProfile,
+                refreshProfile,
             }}
         >
             {children}

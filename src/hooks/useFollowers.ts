@@ -99,7 +99,10 @@ export function useFollowers(targetProfileId?: string) {
   // Follow a user
   const followUser = useMutation({
     mutationFn: async ({ userId, requiresApproval = false }: { userId: string; requiresApproval?: boolean }) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) {
+        console.error("[useFollowers] Cannot follow: Profile record missing", { profile });
+        throw new Error("Unable to authenticate. Your profile record might be missing. Please try refreshing the page.");
+      }
 
       const { error } = await supabase.from("followers").insert({
         follower_id: profile.id,

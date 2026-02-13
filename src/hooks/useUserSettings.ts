@@ -96,7 +96,7 @@ export function useUserSettings() {
   // Update messaging privacy
   const updatePrivacy = useMutation({
     mutationFn: async (privacy: MessagingPrivacy) => {
-      if (!profile?.id) throw new Error("Not authenticated");
+      if (!profile?.id) throw new Error("Unable to authenticate. Please try refreshing the page.");
 
       const { error } = await supabase
         .from("user_settings")

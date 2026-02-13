@@ -62,10 +62,10 @@ export function useMessages() {
   // Get conversations from messages
   const conversations: Conversation[] = messages.reduce((acc: Conversation[], msg) => {
     if (!profile) return acc;
-    
+
     const partnerId = msg.sender_id === profile.id ? msg.recipient_id : msg.sender_id;
     const partner = msg.sender_id === profile.id ? msg.recipient : msg.sender;
-    
+
     const existing = acc.find(c => c.partnerId === partnerId);
     if (existing) {
       // Count unread
@@ -74,7 +74,7 @@ export function useMessages() {
       }
       return acc;
     }
-    
+
     return [...acc, {
       partnerId,
       partnerUsername: partner?.username || "Unknown",
@@ -100,7 +100,7 @@ export function useMessages() {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async ({ recipientId, content }: { recipientId: string; content: string }) => {
-      if (!profile) throw new Error("Not authenticated");
+      if (!profile) throw new Error("Unable to authenticate. Please try refreshing the page.");
 
       const { data, error } = await supabase
         .from("messages")
