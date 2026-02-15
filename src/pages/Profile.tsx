@@ -571,12 +571,7 @@ export default function Profile() {
                 <OnlineStatusBadge userId={targetProfileId || ""} showLastSeen />
               )}
             </div>
-            {!isOwnProfile && user && (
-              <div className="flex items-center gap-2">
-                <FriendRequestButton targetUserId={profileData?.id || targetProfileId || ""} size="sm" />
-                <FollowButton targetUserId={profileData?.id || targetProfileId || ""} size="sm" />
-              </div>
-            )}
+            {/* Removed redundant buttons from header as they exist in Contacting box */}
           </div>
         </div>
 
