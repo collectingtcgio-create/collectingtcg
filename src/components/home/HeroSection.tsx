@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Globe } from "lucide-react";
+import { Sparkles, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import tcgCardsHero from "@/assets/tcg-cards-hero.png";
 
@@ -34,10 +34,10 @@ export function HeroSection() {
                   Start Scanning
                 </Button>
               </Link>
-              <Link to="/">
+              <Link to="/marketplace">
                 <Button variant="ghost" className="pill-button-secondary gap-2 text-base h-12 px-8">
-                  <Globe className="w-5 h-5" />
-                  Explore Feed
+                  <ShoppingBag className="w-5 h-5" />
+                  Marketplace
                 </Button>
               </Link>
             </div>
