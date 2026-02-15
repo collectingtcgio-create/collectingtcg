@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ import { Loader2, Sparkles, Eye, EyeOff, Check } from "lucide-react";
 
 export default function Auth() {
   const { user, signIn, signUp, resetPassword, resendConfirmation } = useAuth();
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || "/";
   const { toast } = useToast();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function Auth() {
   }, []);
 
   if (user && !isRecovery) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

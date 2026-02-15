@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GiftSelector } from "@/components/gifting/GiftSelector";
 import { GiftAnimation } from "@/components/gifting/GiftAnimation";
 import { getGiftByType, GiftMascot, GiftType } from "@/components/gifting/GiftConfig";
-import { Video, Users, Send, ArrowLeft, Radio } from "lucide-react";
+import { Video, Users, Send, ArrowLeft, Radio, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface ChatMessage {
@@ -28,7 +28,7 @@ interface ChatMessage {
 
 export default function LiveStream() {
   const { id } = useParams<{ id: string }>();
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [chatMessage, setChatMessage] = useState("");
   const [activeGift, setActiveGift] = useState<GiftMascot | null>(null);
   const [giftSender, setGiftSender] = useState<string>("");
@@ -89,7 +89,7 @@ export default function LiveStream() {
         },
         async (payload) => {
           refetchChat();
-          
+
           // Check if it's a gift message
           const newMessage = payload.new as ChatMessage;
           if (newMessage.gift_type) {
@@ -101,7 +101,7 @@ export default function LiveStream() {
                 .select("username")
                 .eq("id", newMessage.user_id)
                 .single();
-              
+
               setGiftSender(senderProfile?.username || "Someone");
               setActiveGift(gift);
             }
@@ -134,10 +134,10 @@ export default function LiveStream() {
 
   const handleGiftSent = (giftType: GiftType) => {
     if (!id || !profile?.id) return;
-    
+
     const gift = getGiftByType(giftType);
     if (!gift) return;
-    
+
     // Send gift message to chat
     supabase.from("stream_chat").insert({
       stream_id: id,
@@ -146,6 +146,16 @@ export default function LiveStream() {
       gift_type: giftType,
     });
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
@@ -250,15 +260,14 @@ export default function LiveStream() {
               <div className="space-y-3">
                 {chatMessages.map((msg) => {
                   const gift = msg.gift_type ? getGiftByType(msg.gift_type) : null;
-                  
+
                   return (
                     <div
                       key={msg.id}
-                      className={`p-2 rounded-lg ${
-                        gift
+                      className={`p-2 rounded-lg ${gift
                           ? 'border-2'
                           : 'bg-muted/30'
-                      }`}
+                        }`}
                       style={gift ? {
                         borderColor: gift.color,
                         boxShadow: `0 0 10px ${gift.glowColor}`,
@@ -305,7 +314,7 @@ export default function LiveStream() {
                   />
                 </div>
               )}
-              
+
               <div className="flex gap-2">
                 <Input
                   value={chatMessage}

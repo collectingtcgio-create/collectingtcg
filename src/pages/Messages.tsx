@@ -2,10 +2,20 @@ import { Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MessagesDashboard } from "@/components/messages/MessagesDashboard";
 import { useAuth } from "@/hooks/useAuth";
-import { Mail } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 
 export default function Messages() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/auth" replace />;

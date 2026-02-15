@@ -141,7 +141,7 @@ export default function Collections() {
     setShowEditModal(true);
   };
 
-  if (!user && !userId) {
+  if (!authLoading && !user && !userId) {
     return <Navigate to="/auth" replace />;
   }
 

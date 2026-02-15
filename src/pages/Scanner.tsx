@@ -9,14 +9,14 @@ import { compressImage } from "@/utils/image-utils";
 import { useToast } from "@/hooks/use-toast";
 import { CameraView, CameraViewHandle } from "@/components/scanner/CameraView";
 import { GameSelector } from "@/components/scanner/GameSelector";
-import { Camera, Upload, RotateCcw, Minus, Plus, Crop } from "lucide-react";
+import { Camera, Upload, RotateCcw, Minus, Plus, Crop, Loader2 } from "lucide-react";
 import type { TcgGame } from "@/components/scanner/ScanResultModal";
 import { ImageEditor } from "@/components/scanner/ImageEditor";
 
 
 
 export default function Scanner() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const cameraRef = useRef<CameraViewHandle>(null);
@@ -248,6 +248,16 @@ export default function Scanner() {
       setIsAdding(false);
     }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/auth" replace />;

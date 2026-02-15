@@ -486,7 +486,7 @@ export default function Profile() {
     queryClient.invalidateQueries({ queryKey: ["profile-playlist", targetProfileId] });
   };
 
-  if (!user && !id) {
+  if (!authLoading && !user && !id) {
     return <Navigate to="/auth" replace />;
   }
 
